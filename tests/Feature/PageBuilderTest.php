@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Blocks\BlockRenderer;
 use App\Blocks\PageRenderer;
 use App\Models\Page;
+use App\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -46,6 +47,36 @@ class PageBuilderTest extends TestCase
             'attrs'=>['columns'=>2,'gap'=>'24px'],
             'children'=>[],
         ]]])->assertOk()->assertJsonStructure(['html','assets']);
+    }
+
+    public function test_product_grid_resolves_runtime_data_from_provider(): void
+    {
+        Product::create(['name'=>'Shirt','slug'=>'shirt','price'=>199000,'category'=>'apparel']);
+        Product::create(['name'=>'Shoes','slug'=>'shoes','price'=>399000,'category'=>'footwear']);
+
+        $html = app(BlockRenderer::class)->render([
+            'id'=>'products-1',
+            'type'=>'commerce/product-grid',
+            'attrs'=>['title'=>'Apparel','category'=>'apparel','limit'=>8,'columns'=>4],
+        ], true);
+
+        $this->assertStringContainsString('Apparel', $html);
+        $this->assertStringContainsString('Shirt', $html);
+        $this->assertStringNotContainsString('Shoes', $html);
+    }
+
+    public function test_product_grid_limit_is_enforced_by_provider(): void
+    {
+        Product::create(['name'=>'One','slug'=>'one','price'=>100,'category'=>'test']);
+        Product::create(['name'=>'Two','slug'=>'two','price'=>200,'category'=>'test']);
+
+        $html = app(BlockRenderer::class)->render([
+            'id'=>'products-2',
+            'type'=>'commerce/product-grid',
+            'attrs'=>['category'=>'test','limit'=>1],
+        ], true);
+
+        $this->assertSame(1, substr_count($html, 'class="product-card"'));
     }
 
     public function test_draft_can_be_published(): void
