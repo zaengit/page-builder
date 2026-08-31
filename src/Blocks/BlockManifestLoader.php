@@ -34,6 +34,7 @@ final class BlockManifestLoader
                 if (!is_string($name) || !preg_match('/^[a-z0-9-]+\/[a-z0-9-]+$/', $name)) throw new RuntimeException("Invalid block name in {$manifestPath}");
                 if (isset($definitions[$name])) throw new RuntimeException("Duplicate block: {$name}");
 
+                $manifest['version'] ??= 1;
                 $this->validateManifest($manifest, $manifestPath, $name);
 
                 $directory = dirname($realManifest);
@@ -59,6 +60,10 @@ final class BlockManifestLoader
 
     private function validateManifest(array $manifest, string $manifestPath, string $name): void
     {
+        if (!is_int($manifest['version']) || $manifest['version'] < 1) {
+            throw new RuntimeException("Invalid version for {$name} in {$manifestPath}");
+        }
+
         foreach (['title', 'category'] as $field) {
             if (!isset($manifest[$field]) || !is_string($manifest[$field]) || trim($manifest[$field]) === '') {
                 throw new RuntimeException("Invalid {$field} for {$name} in {$manifestPath}");
