@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': 'http://127.0.0.1:8000',
-      '/preview': 'http://127.0.0.1:8000',
+      '/page-builder': 'http://127.0.0.1:8000',
       '/block-assets': 'http://127.0.0.1:8000',
     },
   },
