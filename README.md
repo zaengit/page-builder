@@ -31,6 +31,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **Laravel session auth + PagePolicy**: editor API and draft preview are owner-restricted while published storefront routes remain public.
 - **Persistent block manifest cache**: validated block manifests can be warmed once and reused across requests.
 - **SecurityHeaders + RateLimiter**: CSP/security headers and named throttles protect storefront, preview, render, and auth traffic.
+- **PageContentValidator**: recursively enforces page structure and `block.json` attribute contracts before preview rendering or persistence.
 
 ## Run
 
@@ -88,40 +89,43 @@ php artisan make:block custom/promo-banner
 
 ### Slice 9 — CSP, rate limiting, and CI
 
-Public pages, preview pages, and block assets now pass through `SecurityHeaders` with:
+Public pages, preview pages, and block assets pass through `SecurityHeaders` with CSP, referrer policy, content-type protection, frame policy, and permissions policy. Named rate limiters protect auth, render, and preview traffic.
 
-- `Content-Security-Policy`
-- `Referrer-Policy`
-- `X-Content-Type-Options`
-- `X-Frame-Options`
-- `Permissions-Policy`
+GitHub Actions CI contains independent backend and editor jobs. The latest verified run completed successfully: backend Composer install + `php artisan test`, and editor TypeScript + Vite production build both passed.
 
-The current CSP stays compatible with the existing inline preview runtime and the carousel React Island imported from `https://esm.sh`. A later production-hardening pass can remove `'unsafe-inline'` by moving preview code to nonce/module assets and bundling storefront React locally.
+### Slice 10 — recursive Page JSON validation
 
-Named Laravel rate limiters:
+`PageContentValidator` is shared by live render and page persistence, so the payload accepted by preview is the same payload allowed into `draft_content`.
+
+It validates recursively:
 
 ```text
-builder-auth     10 requests/minute/IP
-builder-render  120 requests/minute/user or IP
-builder-preview 120 requests/minute/user or IP
+Page JSON
+  blocks[]
+    id      → required, <=100 chars, globally unique
+    type    → must exist in BlockRegistry
+    attrs   → object, known keys only
+      ↓
+    block.json attribute schema
+      string / textarea / url / image
+      number / range + min/max
+      boolean
+      select + allowed options
+      repeater + nested field schemas
+    children[]
+      → list
+      → only when supports.children=true
+      → recursively validated
 ```
 
-GitHub Actions CI contains two independent jobs:
+Safety bounds:
 
 ```text
-backend
-  PHP 8.5
-  composer install
-  SQLite in-memory
-  php artisan test
-
-editor
-  Node.js 26.8.1
-  npm install
-  npm run build
+maximum nesting depth: 20
+maximum blocks/page:    1000
 ```
 
-The repository currently has no committed Composer/npm lockfiles, so CI installs from the stable constraints declared in `composer.json` and `editor/package.json`.
+Unknown block types, duplicate IDs, unknown attributes/repeater fields, invalid select values, invalid attribute types, and unsupported children return Laravel 422 validation errors with dotted paths such as `blocks.1.children.0.attrs.level`.
 
 ## Security
 
@@ -131,6 +135,7 @@ The repository currently has no committed Composer/npm lockfiles, so CI installs
 - owner-only draft previews
 - named rate limits on auth/render/preview
 - CSP and standard browser security headers
+- recursive manifest-driven Page JSON validation
 - Blade escaping for user-controlled values
 - React renders slide text as text nodes, not raw HTML
 - trusted manifest registry
@@ -146,8 +151,8 @@ The repository currently has no committed Composer/npm lockfiles, so CI installs
 php artisan test
 ```
 
-Backend tests cover authentication, ownership/policies, recursive rendering, dynamic data, asset deduplication, carousel SSR/lazy assets, secure asset serving, and block-registry cache commands. GitHub Actions also compiles the React/TypeScript editor.
+Backend tests cover authentication, ownership/policies, recursive rendering, recursive payload validation, dynamic data, asset deduplication, carousel SSR/lazy assets, secure asset serving, and block-registry cache commands. GitHub Actions also compiles the React/TypeScript editor.
 
 ## Next slice
 
-**CI failure cleanup + production hardening**, then deeper recursive payload validation, local storefront bundling/nonced CSP, page management UI, autosave/versioning, and richer Gutenberg-style controls.
+**Local storefront bundling + nonce-based CSP**, followed by page management UI, autosave/versioning, and richer Gutenberg-style controls.
