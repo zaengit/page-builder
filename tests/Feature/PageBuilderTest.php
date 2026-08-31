@@ -51,12 +51,65 @@ class PageBuilderTest extends TestCase
         ]]])->assertOk()->assertJsonStructure(['html','assets']);
     }
 
+    public function test_recursive_validator_rejects_unknown_block_type(): void
+    {
+        $this->actingAs($this->user());
+        $this->postJson('/api/render-page', ['blocks'=>[[
+            'id'=>'bad-1','type'=>'custom/missing','attrs'=>[],
+        ]]])->assertUnprocessable()->assertJsonValidationErrors(['blocks.0.type']);
+    }
+
+    public function test_recursive_validator_rejects_duplicate_block_ids(): void
+    {
+        $this->actingAs($this->user());
+        $this->postJson('/api/render-page', ['blocks'=>[
+            ['id'=>'same','type'=>'core/heading','attrs'=>[]],
+            ['id'=>'container','type'=>'core/container','attrs'=>[],'children'=>[
+                ['id'=>'same','type'=>'core/heading','attrs'=>[]],
+            ]],
+        ]])->assertUnprocessable()->assertJsonValidationErrors(['blocks.1.children.0.id']);
+    }
+
+    public function test_recursive_validator_rejects_invalid_attribute_types_and_unknown_attributes(): void
+    {
+        $this->actingAs($this->user());
+
+        $this->postJson('/api/render-page', ['blocks'=>[[
+            'id'=>'heading-1','type'=>'core/heading','attrs'=>['level'=>'two'],
+        ]]])->assertUnprocessable()->assertJsonValidationErrors(['blocks.0.attrs.level']);
+
+        $this->postJson('/api/render-page', ['blocks'=>[[
+            'id'=>'heading-2','type'=>'core/heading','attrs'=>['unknown'=>'value'],
+        ]]])->assertUnprocessable()->assertJsonValidationErrors(['blocks.0.attrs.unknown']);
+    }
+
+    public function test_recursive_validator_rejects_children_on_non_container_block(): void
+    {
+        $this->actingAs($this->user());
+        $this->postJson('/api/render-page', ['blocks'=>[[
+            'id'=>'heading-parent','type'=>'core/heading','attrs'=>[],
+            'children'=>[['id'=>'heading-child','type'=>'core/heading','attrs'=>[]]],
+        ]]])->assertUnprocessable()->assertJsonValidationErrors(['blocks.0.children']);
+    }
+
     public function test_page_is_created_for_authenticated_owner(): void
     {
         $user = $this->user();
         $this->actingAs($user)->postJson('/api/pages', [
             'title'=>'Owned page','slug'=>'owned-page','content'=>['blocks'=>[]],
         ])->assertCreated()->assertJsonPath('user_id', $user->id);
+    }
+
+    public function test_invalid_nested_content_cannot_be_saved(): void
+    {
+        $user = $this->user();
+        $this->actingAs($user)->postJson('/api/pages', [
+            'title'=>'Invalid','slug'=>'invalid','content'=>['blocks'=>[[
+                'id'=>'container','type'=>'core/container','attrs'=>[],'children'=>[[
+                    'id'=>'bad','type'=>'core/heading','attrs'=>['level'=>99],
+                ]],
+            ]]],
+        ])->assertUnprocessable()->assertJsonValidationErrors(['blocks.0.children.0.attrs.level']);
     }
 
     public function test_other_user_cannot_read_update_publish_or_preview_page(): void
