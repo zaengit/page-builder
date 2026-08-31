@@ -50,7 +50,7 @@ function App(){
     if(!page)return;
     const t=setTimeout(async()=>{
       const res=await fetch('/api/render-page',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(page.draft_content)}).then(r=>r.json());
-      iframe.current?.contentWindow?.postMessage({type:'REPLACE_PAGE',html:res.html},location.origin);
+      iframe.current?.contentWindow?.postMessage({type:'REPLACE_PAGE',html:res.html,assets:res.assets},location.origin);
     },120);
     return()=>clearTimeout(t);
   },[page?.draft_content]);
