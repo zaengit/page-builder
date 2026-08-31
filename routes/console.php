@@ -38,7 +38,7 @@ Artisan::command('make:block {name}', function (string $name): int {
     }
 
     [, $slug] = explode('/', $name, 2);
-    $root = rtrim((string) config('page-builder.blocks_path', base_path('blocks')), DIRECTORY_SEPARATOR);
+    $root = rtrim((string) config('page-builder.custom_blocks_path', base_path('blocks')), DIRECTORY_SEPARATOR);
     $directory = $root.DIRECTORY_SEPARATOR.$slug;
 
     if (File::exists($directory)) {
