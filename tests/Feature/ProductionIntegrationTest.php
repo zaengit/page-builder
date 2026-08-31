@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Blade;
+use RuntimeException;
 use Tests\TestCase;
+use Zaengit\PageBuilder\Blocks\BlockManifestLoader;
+use Zaengit\PageBuilder\Blocks\BlockRegistry;
 
 class ProductionIntegrationTest extends TestCase
 {
@@ -30,5 +33,81 @@ class ProductionIntegrationTest extends TestCase
     {
         $this->get('/page-builder/assets/page-builder.js')->assertStatus(503)->assertHeader('X-Content-Type-Options', 'nosniff');
         $this->get('/page-builder/assets/secret.php')->assertNotFound();
+    }
+
+    public function test_server_rejects_children_not_allowed_by_parent_manifest(): void
+    {
+        $root = $this->makeBlockRoot([
+            'parent' => [
+                'name' => 'test/parent',
+                'title' => 'Parent',
+                'category' => 'test',
+                'attributes' => [],
+                'supports' => ['children' => true, 'allowedChildren' => ['test/allowed']],
+            ],
+            'allowed' => ['name' => 'test/allowed', 'title' => 'Allowed', 'category' => 'test', 'attributes' => []],
+            'forbidden' => ['name' => 'test/forbidden', 'title' => 'Forbidden', 'category' => 'test', 'attributes' => []],
+        ]);
+
+        config()->set('page-builder.block_paths', [$root]);
+        app(BlockRegistry::class)->clear();
+
+        try {
+            $this->postJson('/api/page-builder/render-page', ['blocks' => [[
+                'id' => 'parent', 'type' => 'test/parent', 'attrs' => [], 'children' => [[
+                    'id' => 'forbidden', 'type' => 'test/forbidden', 'attrs' => [],
+                ]],
+            ]]])->assertUnprocessable()->assertJsonValidationErrors(['blocks.0.children.0.type']);
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_manifest_rejects_allowed_children_without_children_support(): void
+    {
+        $root = $this->makeBlockRoot([
+            'broken' => [
+                'name' => 'test/broken',
+                'title' => 'Broken',
+                'category' => 'test',
+                'attributes' => [],
+                'supports' => ['allowedChildren' => ['test/child']],
+            ],
+        ]);
+
+        config()->set('page-builder.block_paths', [$root]);
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('allowedChildren requires children support');
+            app(BlockManifestLoader::class)->loadAll();
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    private function makeBlockRoot(array $blocks): string
+    {
+        $root = sys_get_temp_dir().'/page-builder-'.bin2hex(random_bytes(6));
+        mkdir($root, 0777, true);
+
+        foreach ($blocks as $directory => $manifest) {
+            $path = $root.'/'.$directory;
+            mkdir($path, 0777, true);
+            file_put_contents($path.'/block.json', json_encode($manifest, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR));
+            file_put_contents($path.'/template.blade.php', '<div data-block-id="{{ $blockId }}">{!! $children !!}</div>');
+        }
+
+        return $root;
+    }
+
+    private function removeDirectory(string $directory): void
+    {
+        if (!is_dir($directory)) return;
+        foreach (array_diff(scandir($directory) ?: [], ['.', '..']) as $entry) {
+            $path = $directory.'/'.$entry;
+            if (is_dir($path)) $this->removeDirectory($path); else @unlink($path);
+        }
+        @rmdir($directory);
     }
 }
