@@ -79,6 +79,29 @@ class PageBuilderTest extends TestCase
         $this->assertSame(1, substr_count($html, 'class="product-card"'));
     }
 
+    public function test_assets_are_collected_only_for_used_blocks_and_deduplicated(): void
+    {
+        $renderer = app(PageRenderer::class);
+        $renderer->render(['blocks'=>[
+            ['id'=>'products-a','type'=>'commerce/product-grid','attrs'=>[]],
+            ['id'=>'heading','type'=>'core/heading','attrs'=>[]],
+            ['id'=>'products-b','type'=>'commerce/product-grid','attrs'=>[]],
+        ]], true);
+
+        $assets = $renderer->assets();
+        $this->assertSame(['/block-assets/commerce/product-grid/style.css'], $assets['css']);
+        $this->assertSame([], $assets['js']);
+    }
+
+    public function test_only_manifest_declared_assets_can_be_served(): void
+    {
+        $this->get('/block-assets/commerce/product-grid/style.css')
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        $this->get('/block-assets/commerce/product-grid/template.blade.php')->assertNotFound();
+    }
+
     public function test_draft_can_be_published(): void
     {
         $page = Page::create(['title'=>'Home','slug'=>'home','status'=>'draft','draft_content'=>['blocks'=>[]]]);
