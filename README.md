@@ -24,6 +24,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **block.json**: block contract. The editor builds its inserter and inspector from the manifest.
 - **Blade**: SSR source of truth for both preview and production.
 - **dnd-kit**: recursive block-tree sorting and movement.
+- **DataProviderRegistry**: resolves trusted runtime data for dynamic blocks before Blade rendering.
 
 ## Run
 
@@ -97,26 +98,47 @@ Nested page JSON is rendered recursively by the existing Laravel `PageRenderer`.
 
 Structural changes are previewed without saving: the editor posts the current draft JSON to `POST /api/render-page`, Laravel renders the same Blade block tree used by production, and the iframe replaces `#pb-canvas` through same-origin `postMessage`.
 
-Example:
+### Slice 3 — dynamic data providers + product grid
+
+`commerce/product-grid` declares its runtime dependency in `block.json`:
 
 ```json
 {
-  "blocks": [
-    {
-      "id": "container-1",
-      "type": "core/container",
-      "attrs": {"maxWidth": "1200px", "padding": "24px"},
-      "children": [
-        {
-          "id": "heading-1",
-          "type": "core/heading",
-          "attrs": {"text": "Nested heading", "level": 2, "alignment": "left"}
-        }
-      ]
-    }
-  ]
+  "name": "commerce/product-grid",
+  "data": {"provider": "products"}
 }
 ```
+
+The renderer applies attribute defaults, creates a `BlockRenderContext`, resolves the named provider through `DataProviderRegistry`, and passes `$data` to Blade. The Blade template never queries MySQL directly.
+
+```text
+Page JSON attrs
+      +
+ProductDataProvider
+      ↓
+BlockRenderContext
+      ↓
+Blade SSR
+      ↓
+Preview / public HTML
+```
+
+The sample `ProductDataProvider` supports category filtering and clamps the requested limit to 1–24 records. Add sample products with Tinker if you want visible data immediately:
+
+```bash
+php artisan tinker
+```
+
+```php
+App\Models\Product::create([
+    'name' => 'Demo Shirt',
+    'slug' => 'demo-shirt',
+    'price' => 199000,
+    'category' => 'apparel',
+]);
+```
+
+Then add **Product Grid** from the editor block inserter. Its title/category/limit/columns fields are generated from the manifest inspector schema.
 
 Security already present: Blade escaping for user attributes, strict block-name/path checks, Laravel request validation, and `postMessage` origin validation. Layout templates output `$children` as trusted renderer-generated HTML; arbitrary database HTML is not executed.
 
@@ -126,7 +148,7 @@ Security already present: Blade escaping for user attributes, strict block-name/
 php artisan test
 ```
 
-Tests cover heading defaulting/XSS escaping, recursive nested rendering, render-page preview, and draft-to-published flow.
+Tests cover heading defaulting/XSS escaping, recursive nested rendering, render-page preview, dynamic product-provider filtering/limits, and draft-to-published flow.
 
 ## Dependency policy
 
@@ -134,4 +156,4 @@ The project tracks the latest stable major versions instead of prerelease builds
 
 ## Next slices
 
-Next implementation target: **DataProviderRegistry + commerce/product-grid**, followed by AssetCollector, carousel React Island runtime, undo/redo, auth/policies, manifest cache, CSP, and preview rate limits.
+Next implementation target: **AssetCollector**, then carousel React Island runtime, undo/redo, auth/policies, manifest cache, CSP, and preview rate limits.
