@@ -27,10 +27,12 @@ final class BlockController
             'children' => ['sometimes', 'array'],
         ]);
 
+        $html = $renderer->render(['blocks' => [$block]], true);
+
         return response()->json([
             'id' => $block['id'],
-            'html' => $renderer->render(['blocks' => [$block]], true),
-            'assets' => ['css' => [], 'js' => []],
+            'html' => $html,
+            'assets' => $renderer->assets(),
         ]);
     }
 
@@ -40,9 +42,11 @@ final class BlockController
             'blocks' => ['present', 'array'],
         ]);
 
+        $html = $renderer->render($content, true);
+
         return response()->json([
-            'html' => $renderer->render($content, true),
-            'assets' => ['css' => [], 'js' => []],
+            'html' => $html,
+            'assets' => $renderer->assets(),
         ]);
     }
 }
