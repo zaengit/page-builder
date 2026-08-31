@@ -50,6 +50,16 @@ final class PageContentValidator
         if (!is_array($children) || !array_is_list($children)) $this->fail("{$path}.children", 'Block children must be a list.');
         if ($children !== [] && !($definition['supports']['children'] ?? false)) $this->fail("{$path}.children", 'This block type does not support children.');
 
+        $allowedChildren = $definition['supports']['allowedChildren'] ?? null;
+        if ($children !== [] && is_array($allowedChildren) && $allowedChildren !== []) {
+            foreach ($children as $index => $child) {
+                $childType = is_array($child) ? ($child['type'] ?? null) : null;
+                if (!is_string($childType) || !in_array($childType, $allowedChildren, true)) {
+                    $this->fail("{$path}.children.{$index}.type", 'This child block type is not allowed inside the parent block.');
+                }
+            }
+        }
+
         $validatedChildren = [];
         foreach ($children as $index => $child) $validatedChildren[] = $this->validateBlock($child, "{$path}.children.{$index}", $depth + 1, $seenIds, $count);
 
