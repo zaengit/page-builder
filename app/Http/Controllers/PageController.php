@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Blocks\PageContentValidator;
 use App\Models\Page;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,26 +17,26 @@ final class PageController
         return response()->json($page);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, PageContentValidator $validator): JsonResponse
     {
         $data = $request->validate([
             'title' => ['required','string','max:255'],
             'slug' => ['nullable','string','max:255'],
             'content' => ['required','array'],
-            'content.blocks' => ['present','array'],
         ]);
+        $content = $validator->validate($data['content']);
 
         $page = $request->user()->pages()->create([
             'title' => $data['title'],
             'slug' => $data['slug'] ?? Str::slug($data['title']),
             'status' => 'draft',
-            'draft_content' => $data['content'],
+            'draft_content' => $content,
         ]);
 
         return response()->json($page, 201);
     }
 
-    public function update(Request $request, Page $page): JsonResponse
+    public function update(Request $request, Page $page, PageContentValidator $validator): JsonResponse
     {
         Gate::authorize('update', $page);
 
@@ -43,14 +44,14 @@ final class PageController
             'title' => ['sometimes','string','max:255'],
             'slug' => ['sometimes','string','max:255'],
             'content' => ['required','array'],
-            'content.blocks' => ['present','array'],
         ]);
+        $content = $validator->validate($data['content']);
 
         $page->fill(array_filter([
             'title' => $data['title'] ?? null,
             'slug' => $data['slug'] ?? null,
         ], fn ($v) => $v !== null));
-        $page->draft_content = $data['content'];
+        $page->draft_content = $content;
         $page->save();
 
         return response()->json($page->fresh());
