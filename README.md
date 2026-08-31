@@ -134,4 +134,4 @@ The project tracks the latest stable major versions instead of prerelease builds
 
 ## Next slices
 
-Next implementation targets: DataProviderRegistry + product-grid, AssetCollector, carousel React Island runtime, undo/redo, auth/policies, manifest cache, CSP and preview rate limits.
+Next implementation target: **DataProviderRegistry + commerce/product-grid**, followed by AssetCollector, carousel React Island runtime, undo/redo, auth/policies, manifest cache, CSP, and preview rate limits.
