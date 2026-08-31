@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer without the v prefix, for example 1.0.0
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Validate version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
+          ! git rev-parse "v$VERSION" >/dev/null 2>&1
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: mbstring, pdo_sqlite
+          coverage: none
+
+      - name: Verify backend
+        run: |
+          composer validate --strict
+          composer install --no-interaction --prefer-dist --no-progress
+          cp .env.example .env
+          php artisan key:generate
+          APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=':memory:' CACHE_STORE=array SESSION_DRIVER=array vendor/bin/phpunit
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26.8.1'
+
+      - name: Build distributable editor
+        working-directory: editor
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+          test -s ../resources/dist/page-builder.js
+          test -s ../resources/dist/page-builder.css
+
+      - name: Commit distributable assets and tag
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -f resources/dist/page-builder.js resources/dist/page-builder.js.map resources/dist/page-builder.css
+          if ! git diff --cached --quiet; then
+            git commit -m "build: compile editor for v$VERSION"
+            git push origin HEAD:main
+          fi
+          git tag -a "v$VERSION" -m "v$VERSION"
+          git push origin "v$VERSION"
+          gh release create "v$VERSION" --generate-notes --title "v$VERSION"

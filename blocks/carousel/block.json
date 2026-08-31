@@ -3,17 +3,17 @@
   "title": "Carousel",
   "category": "media",
   "icon": "images",
+  "description": "SSR-first carousel progressively enhanced on the frontend.",
   "attributes": {
     "title": {"type": "string", "label": "Title", "default": "Featured slides"},
     "autoplay": {"type": "boolean", "label": "Autoplay", "default": true},
-    "interval": {"type": "number", "label": "Interval (ms)", "default": 4000},
+    "interval": {"type": "number", "label": "Interval (ms)", "default": 4000, "min": 1000, "max": 30000},
     "items": {
       "type": "repeater",
       "label": "Slides",
       "default": [
-        {"title": "First slide", "description": "SSR content is visible before JavaScript mounts.", "image": "https://picsum.photos/seed/page-builder-1/1200/700"},
-        {"title": "Second slide", "description": "Each carousel is mounted as an independent React island.", "image": "https://picsum.photos/seed/page-builder-2/1200/700"},
-        {"title": "Third slide", "description": "The frontend module only loads when this block is used.", "image": "https://picsum.photos/seed/page-builder-3/1200/700"}
+        {"title": "First slide", "description": "SSR content is visible before JavaScript mounts.", "image": ""},
+        {"title": "Second slide", "description": "Each carousel is mounted as an independent island.", "image": ""}
       ],
       "fields": {
         "title": {"type": "string", "label": "Title", "default": ""},
@@ -22,8 +22,5 @@
       }
     }
   },
-  "assets": {
-    "css": ["style.css"],
-    "js": ["frontend.js"]
-  }
+  "assets": {"css": ["style.css"], "js": ["frontend.js"]}
 }

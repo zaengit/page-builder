@@ -1,0 +1,14 @@
+{
+  "name": "core/image",
+  "title": "Image",
+  "category": "media",
+  "icon": "image",
+  "description": "Responsive image with alt text and optional caption.",
+  "attributes": {
+    "src": {"type": "image", "label": "Image", "default": ""},
+    "alt": {"type": "string", "label": "Alt text", "default": ""},
+    "caption": {"type": "string", "label": "Caption", "default": ""},
+    "width": {"type": "select", "label": "Width", "default": "100%", "options": ["25%", "50%", "75%", "100%"]},
+    "alignment": {"type": "select", "label": "Alignment", "default": "center", "options": ["left", "center", "right"]}
+  }
+}
