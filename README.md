@@ -4,15 +4,17 @@ Minimal end-to-end vertical slice for a Gutenberg/Shopify-style page builder.
 
 ## Current stack
 
-- **PHP 8.5** (latest stable PHP major)
-- **Laravel 13**
-- **MySQL** with native `JSON` columns
-- **React 19.2**
-- **TypeScript 7**
-- **Vite 8**
-- **Zustand 5**
-- **dnd-kit 6 / sortable 10**
-- **Node.js 24 LTS or newer**
+- **PHP 8.5.10**
+- **Laravel 13.29**
+- **MySQL 26.7.1**
+- **React 19.2.8**
+- **TypeScript 7.0.2**
+- **Vite 8.2.2**
+- **Zustand 5.0.15**
+- **dnd-kit core 6.3.1 / sortable 10.0.0**
+- **Node.js 26.8.1**
+
+Only stable production releases are targeted. Beta, RC, canary, and experimental builds are intentionally excluded.
 
 ## Architecture
 
@@ -29,8 +31,8 @@ Requirements:
 ```text
 PHP >= 8.5
 Composer 2.x
-Node.js >= 24.20.0
-MySQL 8+
+Node.js >= 26.8.1
+MySQL >= 26.7.1
 ```
 
 Backend:
@@ -92,7 +94,7 @@ Current tests cover heading defaulting/XSS escaping and draft-to-published flow.
 
 ## Dependency policy
 
-The project tracks the latest stable major versions instead of prerelease / beta / canary releases. Composer and npm constraints use current stable release lines so patch/minor updates can be picked up normally.
+The project tracks the latest stable major versions instead of prerelease builds. Composer and npm constraints stay on the current stable release lines so compatible patch/minor releases can be picked up normally.
 
 ## Next slices
 
