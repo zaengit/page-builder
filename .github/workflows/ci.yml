@@ -35,7 +35,7 @@ jobs:
           DB_DATABASE: ':memory:'
           CACHE_STORE: array
           SESSION_DRIVER: array
-        run: php artisan test
+        run: vendor/bin/phpunit
 
   editor:
     runs-on: ubuntu-latest
