@@ -3,31 +3,27 @@ name: CI
 on:
   pull_request:
   push:
-    branches:
-      - main
-      - feat/mvp-vertical-slice
+    branches: [main]
 
 jobs:
   backend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v5
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
           extensions: mbstring, pdo_sqlite
           coverage: none
-
+      - name: Validate Composer metadata
+        run: composer validate --strict
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
-
       - name: Prepare environment
         run: |
           cp .env.example .env
           php artisan key:generate
-
       - name: Run backend tests
         env:
           APP_ENV: testing
@@ -43,15 +39,16 @@ jobs:
       run:
         working-directory: editor
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@v5
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: '26.8.1'
-
       - name: Install editor dependencies
-        run: npm install
-
+        run: npm install --no-audit --no-fund
       - name: Build editor
         run: npm run build
+      - name: Verify package assets
+        run: |
+          test -s ../resources/dist/page-builder.js
+          test -s ../resources/dist/page-builder.css

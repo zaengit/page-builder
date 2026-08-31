@@ -1,97 +1,82 @@
 # Zaengit Page Builder
 
-A Gutenberg/Shopify-style **page builder package for Laravel** with a React editor and Laravel Blade SSR.
+Production-oriented Gutenberg/Shopify-style **page builder package for Laravel** with a React editor and Laravel Blade SSR. It is intentionally not a CMS: the host application owns users, authorization, models, persistence, publishing, tenancy and rate limiting.
 
-This package is intentionally **not a CMS**. It does not own users, authentication, authorization, pages, publishing, slugs, statuses, tenancy, database tables, rate limiting, or application CSP. The host Laravel application owns those concerns and decides where Page JSON is stored.
-
-## Package structure
-
-```text
-src/
-  PageBuilderServiceProvider.php
-  Blocks/
-  DataProviders/
-  Http/Controllers/
-config/
-  page-builder.php
-routes/
-  page-builder.php
-  console.php
-resources/views/
-  preview.blade.php
-blocks/
-  heading/
-  container/
-  columns/
-  carousel/
-editor/
-```
-
-Composer autoloads:
-
-```text
-Zaengit\PageBuilder\ => src/
-```
-
-`PageBuilderServiceProvider` is registered through Laravel package discovery. The Laravel application files kept in this repository are only a development/test harness.
-
-## Install in a Laravel application
+## Install
 
 ```bash
 composer require zaengit/page-builder
 php artisan vendor:publish --tag=page-builder-config
 ```
 
-The package ships its own core blocks and also reads application-owned custom blocks from `base_path('blocks')` by default.
+Production tags include the compiled React editor. Mount it directly from Blade:
 
-## Core data contract
-
-The builder only consumes and produces Page JSON:
-
-```json
-{
-  "blocks": [
-    {
-      "id": "block-1",
-      "type": "core/heading",
-      "attrs": {
-        "text": "Hello World",
-        "level": 2,
-        "alignment": "left"
-      }
-    }
-  ]
-}
+```blade
+<x-page-builder::editor name="layout" :content="$page->layout ?? ['blocks' => []]" />
 ```
 
-The host application can store this JSON anywhere:
+The hidden `layout` input is kept synchronized with Page JSON. You can also omit `name` and listen for the bubbling `page-builder:change` browser event.
 
-```php
-$post->layout = $pageJson;
-$post->save();
-```
-
-Rendering is independent from persistence:
-
-```php
-use Zaengit\PageBuilder\Blocks\PageRenderer;
-
-$html = app(PageRenderer::class)->render($post->layout);
-```
-
-## Routes
-
-Defaults:
+## Architecture
 
 ```text
-GET  /api/page-builder/blocks
-POST /api/page-builder/render-block
-POST /api/page-builder/render-page
-GET  /page-builder/preview
-GET  /block-assets/{namespace}/{block}/{asset}
+Page JSON
+  -> PageContentValidator
+  -> PageRenderer
+  -> BlockRenderer
+  -> Blade SSR
+  -> lazy/deduplicated block CSS + JS
 ```
 
-The host application can configure prefixes and middleware in `config/page-builder.php`:
+Core package code lives under `src/`; reusable block manifests under `blocks/`; the React editor under `editor/`; compiled release assets under `resources/dist/`.
+
+## Custom blocks
+
+```text
+blocks/testimonial/
+  block.json
+  template.blade.php
+  style.css       # optional
+  frontend.js     # optional
+```
+
+Create one with:
+
+```bash
+php artisan make:block custom/testimonial
+```
+
+Manifests drive both SSR and the editor inspector. Supported attribute types include string, textarea, URL, image, number, range, boolean, select and nested repeaters. Manifests can declare `category`, `variations`, `supports.children` and `supports.allowedChildren`.
+
+## Editor extension API
+
+Register custom inspector controls after `page-builder:ready`:
+
+```js
+window.addEventListener('page-builder:ready', event => {
+  event.detail.registerControl('color', ColorControl)
+  event.detail.registerCategory('commerce', 'Commerce')
+})
+```
+
+The editor supports grouped block insertion, presets/variations, nested drag-and-drop, undo/redo, duplicate, copy/paste and multiple editor mounts on one page.
+
+### Media picker bridge
+
+For an `image` control the editor emits `page-builder:media-request` from the editor root and, when embedded, `PAGE_BUILDER_MEDIA_REQUEST` through `postMessage`. The host returns:
+
+```js
+editorWindow.postMessage({
+  type: 'PAGE_BUILDER_MEDIA_SELECTED',
+  url: '/storage/example.jpg'
+}, location.origin)
+```
+
+The package does not impose a media library.
+
+## Runtime configuration
+
+No editor endpoint is hard-coded when using the Blade component. URLs are generated from named Laravel routes, so custom `route_prefix` and `api_prefix` values work correctly.
 
 ```php
 return [
@@ -102,38 +87,32 @@ return [
 ];
 ```
 
-The package does not impose authentication or authorization itself.
+For local editor development only:
 
-## Block discovery
-
-By default manifests are discovered from both:
-
-```text
-vendor/zaengit/page-builder/blocks   # package core blocks
-base_path('blocks')                  # application custom blocks
+```dotenv
+PAGE_BUILDER_EDITOR_DEV_SERVER=http://127.0.0.1:5173
 ```
 
-Paths can be changed through `page-builder.block_paths`.
+## Persistence
 
-A custom block can look like:
+The package stores nothing. The host application persists Page JSON wherever it wants:
 
-```text
-blocks/testimonial/
-  block.json
-  template.blade.php
-  style.css
-  frontend.js        # optional
+```php
+$page->layout = $request->input('layout');
+$page->save();
 ```
 
-Generate one with:
+For direct rendering:
 
-```bash
-php artisan make:block custom/testimonial
+```php
+$html = app(\Zaengit\PageBuilder\Blocks\PageRenderer::class)->render($page->layout);
 ```
 
-The generator writes to `page-builder.custom_blocks_path`.
+## Security boundary
 
-Manifest tooling:
+The package provides recursive manifest validation, globally unique block IDs, type/bounds/options validation, maximum nesting/document size, Blade escaping, asset allowlisting, path traversal protection and same-origin preview messaging. Authentication, authorization, tenant boundaries and application CSP remain host responsibilities.
+
+## Block tooling
 
 ```bash
 php artisan blocks:list
@@ -141,115 +120,25 @@ php artisan blocks:cache
 php artisan blocks:clear
 ```
 
-## Block contract
-
-`block.json` drives both Laravel rendering and the React inspector. It can define attribute schemas, nested-block support, runtime provider names, and optional CSS/JS assets.
-
-`PageContentValidator` recursively enforces the manifest contract before render:
-
-- globally unique block IDs
-- registered block types only
-- declared attributes only
-- string/textarea/url/image values
-- number/range bounds
-- booleans
-- select options
-- nested repeater fields
-- `supports.children`
-- maximum nesting depth 20
-- maximum 1000 blocks per document
-
-## Rendering
-
-```text
-Page JSON
-  ↓
-PageContentValidator
-  ↓
-PageRenderer
-  ↓
-BlockRenderer
-  ↓
-Blade SSR
-  ↓
-AssetCollector
-```
-
-Only assets belonging to blocks actually present in a document are returned, and repeated assets are deduplicated.
-
-`core/carousel` demonstrates SSR-first interactivity: usable Blade markup exists before its optional React Island enhances it.
-
-## Runtime data providers
-
-The package exposes generic contracts only:
-
-```php
-use Zaengit\PageBuilder\DataProviders\BlockDataProvider;
-use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
-```
-
-The host application registers domain-specific providers such as products, posts, menus, inventory, or external API data. The package ships no application model or database migration.
-
-## React editor
-
-The editor stores only `PageContent`; it knows nothing about model IDs, users, slugs, draft/published state, or persistence.
-
-A host can send initial content:
-
-```js
-editorWindow.postMessage({
-  type: 'SET_PAGE_BUILDER_CONTENT',
-  content: pageJson
-}, location.origin)
-```
-
-Changes are emitted as `PAGE_BUILDER_CHANGE` messages and `page-builder:change` browser events. The host decides when/how to persist them.
-
-## Security boundary
-
-The package handles rendering-level concerns:
-
-- Blade escaping
-- recursive manifest-driven validation
-- asset allowlisting
-- filesystem path traversal protection
-- same-origin preview messaging
-
-The host application owns authentication, policies, tenant isolation, global CSP/security headers, and rate limiting.
-
 ## Development
 
 ```bash
-cp .env.example .env
 composer install
+cp .env.example .env
 php artisan key:generate
-php artisan serve
-```
+vendor/bin/phpunit
 
-Editor:
-
-```bash
 cd editor
 npm install
-npm run dev
+npm run build
 ```
 
-## CI
+`npm run build` writes deterministic `resources/dist/page-builder.js` and `resources/dist/page-builder.css` files used by Laravel in production.
 
-GitHub Actions verifies:
+## Release process
 
-```text
-backend
-  PHP 8.5
-  composer install
-  php artisan test
+Run the GitHub **Release** workflow from `main` with a SemVer such as `1.0.0`. The workflow builds the editor, commits distributable assets, and only then creates/pushes `v1.0.0`. This guarantees Composer tags contain the compiled editor and production consumers do not need Node.js.
 
-editor
-  Node.js 26.8.1
-  npm install
-  npm run build
-```
+## CI production gate
 
-## Next
-
-Package the built React editor assets for direct Laravel integration, add a first-class Blade/editor mount component, and expose extension hooks for custom inspector controls and block categories.
+Every pull request validates Composer metadata, installs dependencies, runs PHPUnit, compiles the React editor, and verifies the expected distributable assets exist. Merge only when both `backend` and `editor` jobs are green.

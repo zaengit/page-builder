@@ -3,6 +3,11 @@
   "title": "Heading",
   "category": "text",
   "icon": "heading",
+  "description": "Semantic heading with level and alignment controls.",
+  "variations": [
+    {"name":"hero","title":"Hero heading","attrs":{"level":1,"alignment":"center","text":"Build something remarkable"}},
+    {"name":"section","title":"Section heading","attrs":{"level":2,"alignment":"left","text":"Section title"}}
+  ],
   "attributes": {
     "text": {"type": "string", "label": "Text", "default": "Hello World"},
     "level": {"type": "select", "label": "Level", "default": 2, "options": [1,2,3,4,5,6]},

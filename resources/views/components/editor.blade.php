@@ -15,25 +15,15 @@
         'previewUrl' => route('page-builder.preview'),
         'mediaPicker' => $mediaPicker ?? (bool) config('page-builder.media_picker', true),
     ];
-    $js = $devServer !== ''
-        ? $devServer.'/src/main.tsx'
-        : route('page-builder.editor-asset', ['asset' => config('page-builder.editor_js', 'page-builder.js')]);
-    $css = $devServer !== ''
-        ? null
-        : route('page-builder.editor-asset', ['asset' => config('page-builder.editor_css', 'page-builder.css')]);
+    $runtimeJson = e(json_encode($runtime, JSON_THROW_ON_ERROR));
+    $contentJson = e(json_encode($content, JSON_THROW_ON_ERROR));
+    $inputJson = e(json_encode($content, JSON_THROW_ON_ERROR));
+    $js = $devServer !== '' ? $devServer.'/src/main.tsx' : route('page-builder.editor-asset', ['asset' => config('page-builder.editor_js', 'page-builder.js')]);
+    $css = $devServer !== '' ? null : route('page-builder.editor-asset', ['asset' => config('page-builder.editor_css', 'page-builder.css')]);
 @endphp
 
-<div
-    id="{{ $id }}"
-    data-page-builder-root
-    data-page-builder-runtime='@json($runtime)'
-    data-page-builder-content='@json($content)'
-    style="min-height: {{ $height }}"
-    {{ $attributes }}
-></div>
-@if($name)
-    <input type="hidden" name="{{ $name }}" value='@json($content)' data-page-builder-input="{{ $id }}">
-@endif
+<div id="{{ $id }}" data-page-builder-root data-page-builder-runtime="{!! $runtimeJson !!}" data-page-builder-content="{!! $contentJson !!}" style="min-height: {{ $height }}" {{ $attributes }}></div>
+@if($name)<input type="hidden" name="{{ $name }}" value="{!! $inputJson !!}" data-page-builder-input="{{ $id }}">@endif
 
 @once
     @if($css)<link rel="stylesheet" href="{{ $css }}">@endif
@@ -44,7 +34,7 @@
 (() => {
     const root = document.getElementById(@js($id));
     if (!root) return;
-    root.addEventListener('page-builder:change', (event) => {
+    root.addEventListener('page-builder:change', event => {
         const input = document.querySelector(`[data-page-builder-input="${root.id}"]`);
         if (input) input.value = JSON.stringify(event.detail.content);
     });
