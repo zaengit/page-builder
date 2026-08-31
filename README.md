@@ -6,7 +6,7 @@ Minimal end-to-end vertical slice for a Gutenberg/Shopify-style page builder.
 
 - **Laravel 12**: API, page storage, block registry, manifest loader, Blade SSR, preview and public rendering.
 - **React + TypeScript + Zustand**: visual editor only.
-- **Page JSON**: source of truth; draft and published versions are stored separately in PostgreSQL JSONB.
+- **Page JSON**: source of truth; draft and published versions are stored separately in MySQL JSON columns.
 - **block.json**: block contract. The editor builds its inserter and inspector from the manifest.
 - **Blade**: SSR source of truth for both preview and production.
 
@@ -16,9 +16,20 @@ Minimal end-to-end vertical slice for a Gutenberg/Shopify-style page builder.
 cp .env.example .env
 composer install
 php artisan key:generate
-# create the PostgreSQL database configured in .env
+# create the MySQL database configured in .env
 php artisan migrate
 php artisan serve
+```
+
+Default local database configuration:
+
+```env
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=page_builder
+DB_USERNAME=root
+DB_PASSWORD=
 ```
 
 In a second terminal:
