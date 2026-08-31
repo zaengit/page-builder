@@ -1,0 +1,11 @@
+{
+  "name": "core/container",
+  "title": "Container",
+  "category": "layout",
+  "icon": "container",
+  "supports": {"children": true},
+  "attributes": {
+    "maxWidth": {"type": "select", "label": "Max width", "default": "1200px", "options": ["960px", "1200px", "1440px", "100%"]},
+    "padding": {"type": "select", "label": "Padding", "default": "24px", "options": ["0", "16px", "24px", "32px", "48px"]}
+  }
+}
