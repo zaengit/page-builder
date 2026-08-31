@@ -12,10 +12,20 @@ final class BlockManifestLoader
         if (!is_array($paths)) $paths = [$paths];
 
         $definitions = [];
+        $loadedRoots = [];
+
         foreach ($paths as $configuredPath) {
             if (!is_string($configuredPath) || $configuredPath === '') continue;
+
             $root = realpath($configuredPath);
             if ($root === false) continue;
+
+            // In a standalone checkout, the package block directory and the host
+            // application's default blocks directory can resolve to the exact same
+            // filesystem path. Scan a physical root only once while still rejecting
+            // duplicate block names that come from genuinely different roots.
+            if (isset($loadedRoots[$root])) continue;
+            $loadedRoots[$root] = true;
 
             foreach (glob($root.'/*/block.json') ?: [] as $manifestPath) {
                 $realManifest = realpath($manifestPath);
