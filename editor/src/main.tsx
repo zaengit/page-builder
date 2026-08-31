@@ -46,7 +46,7 @@ function TreeItem({block,definitions,selectedId,onSelect,onRemove}:{block:PageBl
 }
 
 function App(){
-  const {page,definitions,selectedId,dirty,bootstrap,select,addBlock,updateAttrs,moveBlock,removeBlock,save,publish}=useBuilder();
+  const {page,definitions,selectedId,dirty,past,future,bootstrap,select,addBlock,updateAttrs,moveBlock,removeBlock,undo,redo,save,publish}=useBuilder();
   const iframe=useRef<HTMLIFrameElement>(null);
   const sensors=useSensors(useSensor(PointerSensor,{activationConstraint:{distance:5}}),useSensor(KeyboardSensor,{coordinateGetter:sortableKeyboardCoordinates}));
   const selected=useMemo(()=>findBlock(page?.draft_content.blocks??[],selectedId),[page?.draft_content.blocks,selectedId]);
@@ -55,6 +55,16 @@ function App(){
 
   useEffect(()=>{bootstrap().catch(console.error)},[]);
   useEffect(()=>{const fn=(e:MessageEvent)=>{if(e.origin!==location.origin||e.data?.type!=='SELECT_BLOCK')return;select(e.data.blockId)};addEventListener('message',fn);return()=>removeEventListener('message',fn)},[select]);
+  useEffect(()=>{
+    const fn=(event:KeyboardEvent)=>{
+      if(!(event.ctrlKey||event.metaKey)||event.altKey)return;
+      const key=event.key.toLowerCase();
+      if(key==='z'&&!event.shiftKey){event.preventDefault();undo();return;}
+      if((key==='z'&&event.shiftKey)||key==='y'){event.preventDefault();redo();}
+    };
+    addEventListener('keydown',fn);
+    return()=>removeEventListener('keydown',fn);
+  },[undo,redo]);
 
   useEffect(()=>{
     if(!page)return;
@@ -68,7 +78,7 @@ function App(){
   const onDragEnd=({active,over}:DragEndEvent)=>{if(over&&active.id!==over.id)moveBlock(String(active.id),String(over.id));};
 
   if(!page)return <div className="loading">Loading editor…</div>;
-  return <main><header><strong>Page Builder</strong><span>{dirty?'Unsaved changes':'Saved'}</span><button onClick={()=>void save()}>Save</button><button onClick={()=>void publish()}>Publish</button><a href={`http://127.0.0.1:8000/${page.slug}`} target="_blank" rel="noreferrer">View page</a></header><section className="layout">
+  return <main><header><strong>Page Builder</strong><span>{dirty?'Unsaved changes':'Saved'}</span><div className="history-controls"><button disabled={past.length===0} onClick={undo} title="Undo (Ctrl/Cmd+Z)">Undo</button><button disabled={future.length===0} onClick={redo} title="Redo (Ctrl/Cmd+Shift+Z or Ctrl+Y)">Redo</button></div><button onClick={()=>void save()}>Save</button><button onClick={()=>void publish()}>Publish</button><a href={`http://127.0.0.1:8000/${page.slug}`} target="_blank" rel="noreferrer">View page</a></header><section className="layout">
     <aside><h3>Blocks</h3><DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}><Tree blocks={page.draft_content.blocks} definitions={definitions} selectedId={selectedId} onSelect={select} onRemove={removeBlock}/></DndContext><select defaultValue="" onChange={e=>{if(e.target.value)addBlock(e.target.value);e.target.value=''}}><option value="">+ Add block</option>{definitions.map(d=><option value={d.name} key={d.name}>{d.title}</option>)}</select>{selected&&definition?.supports?.children&&<select defaultValue="" onChange={e=>{if(e.target.value)addBlock(e.target.value,selected.id);e.target.value=''}}><option value="">+ Add child</option>{definitions.map(d=><option value={d.name} key={d.name}>{d.title}</option>)}</select>}</aside>
     <div className="preview"><iframe ref={iframe} src={previewUrl}/></div>
     <aside><h3>Inspector</h3>{selected&&definition?<><div className="inspector-title">{definition.title}</div>{Object.entries(definition.attributes).map(([name,schema])=><Control key={name} name={name} schema={schema} value={selected.attrs[name]} onChange={v=>updateAttrs(selected.id,{[name]:v})}/>)}</>:<p>Select a block</p>}</aside>
