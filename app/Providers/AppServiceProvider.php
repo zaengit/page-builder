@@ -11,7 +11,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(AssetCollector::class);
+        $this->app->scoped(AssetCollector::class);
 
         $this->app->singleton(DataProviderRegistry::class, function (): DataProviderRegistry {
             $registry = new DataProviderRegistry();
