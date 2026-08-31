@@ -7,10 +7,11 @@ use App\Models\Page;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/preview/{page}', [PreviewController::class, 'show'])
-    ->middleware('auth')
+    ->middleware(['auth', 'throttle:builder-preview', 'security.headers'])
     ->name('preview');
 
 Route::get('/block-assets/{namespace}/{block}/{asset}', [BlockAssetController::class, 'show'])
+    ->middleware('security.headers')
     ->where([
         'namespace' => '[a-z0-9-]+',
         'block' => '[a-z0-9-]+',
@@ -27,4 +28,4 @@ Route::get('/{slug}', function (string $slug, PageRenderer $renderer) {
         'assets' => $renderer->assets(),
         'preview' => false,
     ]);
-})->where('slug', '^(?!api|preview|block-assets|up).+$');
+})->middleware('security.headers')->where('slug', '^(?!api|preview|block-assets|up).+$');
