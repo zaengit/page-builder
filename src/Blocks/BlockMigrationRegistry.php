@@ -23,16 +23,19 @@ final class BlockMigrationRegistry
         if (!is_int($version) || $version < 1) throw new RuntimeException("Invalid block version for {$type}.");
         if ($version > $targetVersion) throw new RuntimeException("Block {$type} uses future schema v{$version}; current schema is v{$targetVersion}.");
 
+        $attrs = $block['attrs'] ?? [];
+        if (!is_array($attrs)) throw new RuntimeException("Invalid block attrs for {$type}.");
+
         while ($version < $targetVersion) {
             $migration = $this->migrations[$type][$version] ?? null;
             if (!$migration) throw new RuntimeException("Missing migration for {$type} v{$version} to v".($version + 1).'.');
-            $next = $migration($block);
-            if (!is_array($next)) throw new RuntimeException("Migration for {$type} v{$version} must return a block array.");
-            $block = $next;
+            $nextAttrs = $migration($attrs, $block);
+            if (!is_array($nextAttrs)) throw new RuntimeException("Migration for {$type} v{$version} must return an attrs array.");
+            $attrs = $nextAttrs;
             $version++;
-            $block['version'] = $version;
         }
 
+        $block['attrs'] = $attrs;
         $block['version'] = $targetVersion;
         return $block;
     }
