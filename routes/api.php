@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/blocks', [BlockController::class, 'index']);
 Route::post('/render-block', [BlockController::class, 'render']);
+Route::post('/render-page', [BlockController::class, 'renderPage']);
 Route::get('/pages/{page}', [PageController::class, 'show']);
 Route::post('/pages', [PageController::class, 'store']);
 Route::put('/pages/{page}', [PageController::class, 'update']);
