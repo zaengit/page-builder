@@ -93,9 +93,32 @@ class PageBuilderTest extends TestCase
         $this->assertSame([], $assets['js']);
     }
 
+    public function test_carousel_is_ssr_first_and_react_assets_are_lazy_and_deduplicated(): void
+    {
+        $renderer = app(PageRenderer::class);
+        $html = $renderer->render(['blocks'=>[
+            ['id'=>'carousel-a','type'=>'core/carousel','attrs'=>['items'=>[['title'=>'Alpha','description'=>'First','image'=>'']]]],
+            ['id'=>'heading','type'=>'core/heading','attrs'=>['text'=>'Between carousels']],
+            ['id'=>'carousel-b','type'=>'core/carousel','attrs'=>['items'=>[['title'=>'Beta','description'=>'Second','image'=>'']]]],
+        ]], false);
+
+        $this->assertStringContainsString('Alpha', $html);
+        $this->assertStringContainsString('Beta', $html);
+        $this->assertStringContainsString('data-block-module="/block-assets/core/carousel/frontend.js"', $html);
+        $this->assertSame(['/block-assets/core/carousel/style.css'], $renderer->assets()['css']);
+        $this->assertSame(['/block-assets/core/carousel/frontend.js'], $renderer->assets()['js']);
+
+        $renderer->render(['blocks'=>[['id'=>'heading-only','type'=>'core/heading','attrs'=>[]]]], false);
+        $this->assertSame(['css'=>[], 'js'=>[]], $renderer->assets());
+    }
+
     public function test_only_manifest_declared_assets_can_be_served(): void
     {
         $this->get('/block-assets/commerce/product-grid/style.css')
+            ->assertOk()
+            ->assertHeader('X-Content-Type-Options', 'nosniff');
+
+        $this->get('/block-assets/core/carousel/frontend.js')
             ->assertOk()
             ->assertHeader('X-Content-Type-Options', 'nosniff');
 
