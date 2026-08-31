@@ -5,6 +5,9 @@ namespace App\Providers;
 use App\Blocks\AssetCollector;
 use App\DataProviders\DataProviderRegistry;
 use App\DataProviders\ProductDataProvider;
+use App\Models\Page;
+use App\Policies\PagePolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,5 +23,8 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
-    public function boot(): void {}
+    public function boot(): void
+    {
+        Gate::policy(Page::class, PagePolicy::class);
+    }
 }
