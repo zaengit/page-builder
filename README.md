@@ -21,23 +21,13 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **Laravel 13**: API, page storage, block registry, manifest loader, Blade SSR, preview and public rendering.
 - **React + TypeScript + Zustand**: visual editor only.
 - **Page JSON**: source of truth; draft and published versions are stored separately in MySQL JSON columns.
-- **block.json**: block contract. The editor builds its inserter and inspector from the manifest.
-- **Blade**: SSR source of truth for both preview and production.
+- **block.json**: block contract for schema, runtime data, and optional assets.
+- **Blade**: SSR source of truth for preview and production.
 - **dnd-kit**: recursive block-tree sorting and movement.
-- **DataProviderRegistry**: resolves trusted runtime data for dynamic blocks before Blade rendering.
+- **DataProviderRegistry**: resolves trusted runtime data before Blade rendering.
+- **AssetCollector**: collects only assets used by rendered blocks and deduplicates them.
 
 ## Run
-
-Requirements:
-
-```text
-PHP >= 8.5
-Composer 2.x
-Node.js >= 26.8.1
-MySQL >= 26.7.1
-```
-
-Backend:
 
 ```bash
 cp .env.example .env
@@ -45,17 +35,6 @@ composer install
 php artisan key:generate
 php artisan migrate
 php artisan serve
-```
-
-Default local database configuration:
-
-```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=page_builder
-DB_USERNAME=root
-DB_PASSWORD=
 ```
 
 Editor:
@@ -66,81 +45,67 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. With no `?page=` query, the editor creates a draft page containing one Heading block.
+Open `http://localhost:5173`.
 
 ## Implemented slices
 
 ### Slice 1 — end-to-end publishing
 
-```text
-Heading block
-  → block.json registry
-  → React editor + dynamic inspector
-  → Page JSON
-  → Laravel Blade renderer
-  → iframe preview
-  → save draft
-  → publish
-  → public SSR page
-```
+`Heading → React editor → Page JSON → Blade SSR → iframe preview → save → publish → public page`
 
 ### Slice 2 — nested layout + drag and drop
 
-Included blocks:
+Includes `core/container`, `core/columns`, recursive tree editing, nested selection, add/remove child blocks, dnd-kit reorder/move, and unsaved structural preview through `POST /api/render-page`.
 
-```text
-core/heading
-core/container
-core/columns
-```
+### Slice 3 — dynamic data providers
 
-Nested page JSON is rendered recursively by the existing Laravel `PageRenderer`. The editor has a recursive block tree with dnd-kit, supports selecting nested blocks, adding children to blocks whose manifest declares `supports.children`, removing blocks, reordering siblings, and moving blocks between populated parents.
+`commerce/product-grid` declares `data.provider = products`. `DataProviderRegistry` resolves `ProductDataProvider`, builds runtime data, and passes it into Blade. Blade never queries MySQL directly.
 
-Structural changes are previewed without saving: the editor posts the current draft JSON to `POST /api/render-page`, Laravel renders the same Blade block tree used by production, and the iframe replaces `#pb-canvas` through same-origin `postMessage`.
+### Slice 4 — per-block assets
 
-### Slice 3 — dynamic data providers + product grid
-
-`commerce/product-grid` declares its runtime dependency in `block.json`:
+Blocks can declare assets in `block.json`:
 
 ```json
 {
-  "name": "commerce/product-grid",
-  "data": {"provider": "products"}
+  "assets": {
+    "css": ["style.css"],
+    "js": ["frontend.js"]
+  }
 }
 ```
 
-The renderer applies attribute defaults, creates a `BlockRenderContext`, resolves the named provider through `DataProviderRegistry`, and passes `$data` to Blade. The Blade template never queries MySQL directly.
+During recursive render:
 
 ```text
-Page JSON attrs
-      +
-ProductDataProvider
-      ↓
-BlockRenderContext
-      ↓
-Blade SSR
-      ↓
-Preview / public HTML
+PageRenderer
+   ↓
+BlockRenderer
+   ↓
+AssetCollector
+   ↓
+deduplicated CSS / JS URLs
+   ↓
+Preview + public HTML
 ```
 
-The sample `ProductDataProvider` supports category filtering and clamps the requested limit to 1–24 records. Add sample products with Tinker if you want visible data immediately:
+Only assets from blocks actually present on the page are returned. Five instances of the same block still produce one CSS/JS URL.
 
-```bash
-php artisan tinker
-```
+Custom block assets remain outside `public/`. Laravel serves only manifest-declared files through `/block-assets/{namespace}/{block}/{asset}`. Asset names/extensions are validated by `BlockManifestLoader`, real paths are checked against the block directory, and the route rejects undeclared files.
 
-```php
-App\Models\Product::create([
-    'name' => 'Demo Shirt',
-    'slug' => 'demo-shirt',
-    'price' => 199000,
-    'category' => 'apparel',
-]);
-```
+The live editor also receives `assets` from `/api/render-page`. The preview iframe injects missing styles/modules dynamically and deduplicates them, so adding an asset-bearing block does not require an iframe reload.
 
-Then add **Product Grid** from the editor block inserter. Its title/category/limit/columns fields are generated from the manifest inspector schema.
+`commerce/product-grid` now demonstrates this system with its own `style.css`.
 
-Security already present: Blade escaping for user attributes, strict block-name/path checks, Laravel request validation, and `postMessage` origin validation. Layout templates output `$children` as trusted renderer-generated HTML; arbitrary database HTML is not executed.
+## Security
+
+- Blade escaping for user-controlled values
+- trusted manifest registry
+- path traversal protection
+- asset filename + extension whitelist
+- only manifest-declared assets can be served
+- `X-Content-Type-Options: nosniff`
+- same-origin `postMessage` validation
+- mutable AssetCollector is request/lifecycle scoped
 
 ## Tests
 
@@ -148,12 +113,8 @@ Security already present: Blade escaping for user attributes, strict block-name/
 php artisan test
 ```
 
-Tests cover heading defaulting/XSS escaping, recursive nested rendering, render-page preview, dynamic product-provider filtering/limits, and draft-to-published flow.
+Tests cover XSS/defaulting, recursive rendering, dynamic product data, draft/publish, asset deduplication, and rejection of undeclared block assets.
 
-## Dependency policy
+## Next slice
 
-The project tracks the latest stable major versions instead of prerelease builds. Composer and npm constraints stay on the current stable release lines so compatible patch/minor releases can be picked up normally.
-
-## Next slices
-
-Next implementation target: **AssetCollector**, then carousel React Island runtime, undo/redo, auth/policies, manifest cache, CSP, and preview rate limits.
+**Carousel React Island runtime**: SSR carousel markup first, then lazy client-side hydration/mount only when `core/carousel` exists on the page.
