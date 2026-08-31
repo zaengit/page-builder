@@ -1,0 +1,11 @@
+{
+  "name": "core/heading",
+  "title": "Heading",
+  "category": "text",
+  "icon": "heading",
+  "attributes": {
+    "text": {"type": "string", "label": "Text", "default": "Hello World"},
+    "level": {"type": "select", "label": "Level", "default": 2, "options": [1,2,3,4,5,6]},
+    "alignment": {"type": "select", "label": "Alignment", "default": "left", "options": ["left","center","right"]}
+  }
+}
