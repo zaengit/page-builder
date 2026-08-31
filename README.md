@@ -27,6 +27,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **DataProviderRegistry**: resolves trusted runtime data before Blade rendering.
 - **AssetCollector**: collects only assets used by rendered blocks and deduplicates them.
 - **React Islands**: optional per-block storefront interactivity; non-interactive pages do not load carousel React code.
+- **Editor history**: immutable Page JSON snapshots back undo/redo across attrs, repeaters, nested add/remove, and drag/drop.
 
 ## Run
 
@@ -113,7 +114,7 @@ frontend.js loads only on pages using carousel
 React mounts each carousel independently
 ```
 
-The block manifest contains `title`, `autoplay`, `interval`, and a schema-driven `items` repeater. The editor now supports repeater fields generically, so slide add/remove/title/description/image controls are generated from `block.json` rather than hard-coded for carousel.
+The block manifest contains `title`, `autoplay`, `interval`, and a schema-driven `items` repeater. The editor supports repeater fields generically, so slide add/remove/title/description/image controls are generated from `block.json` rather than hard-coded for carousel.
 
 Blade prints all slide content before JavaScript executes. `frontend.js` then mounts a React 19 island into each `[data-carousel-island]`, adding previous/next controls, dots, and autoplay. A `MutationObserver` discovers carousel blocks inserted by live preview updates, so structural edits do not require an iframe reload.
 
@@ -125,6 +126,34 @@ Multiple carousel instances have independent state while AssetCollector emits on
 ```
 
 A heading-only page resets to an empty JS asset list, so the visitor storefront does not download carousel React code when no interactive block exists.
+
+### Slice 6 — undo / redo editor history
+
+All Page JSON mutations now use one bounded history model:
+
+```text
+current draft
+   ↓ edit
+past[] ← previous draft
+future[] cleared
+   ↓ undo
+previous draft restored
+current draft → future[]
+   ↓ redo
+future draft restored
+```
+
+History is capped at 100 snapshots. Attribute edits, repeater changes, adding/removing blocks, nested child edits, and dnd-kit moves all use the same undo/redo path. Save and Publish do not erase history.
+
+The editor exposes Undo/Redo buttons and keyboard shortcuts:
+
+```text
+Ctrl/Cmd + Z          Undo
+Ctrl/Cmd + Shift + Z  Redo
+Ctrl + Y              Redo
+```
+
+Dirty state is compared with the last saved Page JSON snapshot. If undo returns exactly to the last saved content, the editor correctly returns to `Saved`. After undo, any new edit clears the redo branch.
 
 ## Security
 
@@ -144,8 +173,8 @@ A heading-only page resets to an empty JS asset list, so the visitor storefront 
 php artisan test
 ```
 
-Tests cover XSS/defaulting, recursive rendering, dynamic product data, draft/publish, asset deduplication, rejection of undeclared block assets, carousel SSR output, lazy React asset loading, and carousel asset deduplication.
+Backend tests cover XSS/defaulting, recursive rendering, dynamic product data, draft/publish, asset deduplication, rejection of undeclared block assets, carousel SSR output, lazy React asset loading, and carousel asset deduplication.
 
 ## Next slice
 
-**Undo/redo editor history**, followed by authentication/policies, manifest cache + Artisan block commands, CSP, and preview rate limiting.
+**Authentication + page authorization/policies**, followed by manifest cache + Artisan block commands, CSP, preview rate limiting, and production hardening.
