@@ -10,6 +10,7 @@ final class BlockRenderer
     public function __construct(
         private readonly BlockRegistry $registry,
         private readonly DataProviderRegistry $providers,
+        private readonly AssetCollector $assets,
     ) {}
 
     public function render(array $block, bool $preview = false, string $children = ''): string
@@ -18,6 +19,8 @@ final class BlockRenderer
         if (!$definition) {
             return $preview ? '<div class="pb-missing">Unknown block: '.e($block['type'] ?? '').'</div>' : '';
         }
+
+        $this->assets->collect($definition);
 
         $attrs = $block['attrs'] ?? [];
         foreach (($definition['attributes'] ?? []) as $key => $schema) {
