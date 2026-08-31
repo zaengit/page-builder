@@ -1,6 +1,6 @@
 # Laravel + React Visual Page Builder
 
-Minimal end-to-end vertical slice for a Gutenberg/Shopify-style page builder.
+Runnable Gutenberg/Shopify-style visual page builder with Laravel SSR as the rendering source of truth.
 
 ## Current stack
 
@@ -11,7 +11,7 @@ Minimal end-to-end vertical slice for a Gutenberg/Shopify-style page builder.
 - **TypeScript 7.0.2**
 - **Vite 8.2.2**
 - **Zustand 5.0.15**
-- **dnd-kit core 6.3.1 / sortable 10.0.0**
+- **dnd-kit core 6.3.1 / sortable 10.0.0 / utilities 3.2.2**
 - **Node.js 26.8.1**
 
 Only stable production releases are targeted. Beta, RC, canary, and experimental builds are intentionally excluded.
@@ -23,6 +23,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **Page JSON**: source of truth; draft and published versions are stored separately in MySQL JSON columns.
 - **block.json**: block contract. The editor builds its inserter and inspector from the manifest.
 - **Blade**: SSR source of truth for both preview and production.
+- **dnd-kit**: recursive block-tree sorting and movement.
 
 ## Run
 
@@ -41,7 +42,6 @@ Backend:
 cp .env.example .env
 composer install
 php artisan key:generate
-# create the MySQL database configured in .env
 php artisan migrate
 php artisan serve
 ```
@@ -57,7 +57,7 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-In a second terminal:
+Editor:
 
 ```bash
 cd editor
@@ -65,9 +65,11 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. With no `?page=` query, the editor creates a draft page containing one Heading block. Editing the heading calls `POST /api/render-block` and patches the block inside the iframe through `postMessage`. Save writes draft JSON; Publish copies draft JSON to published JSON. The **View page** link opens Laravel SSR production output.
+Open `http://localhost:5173`. With no `?page=` query, the editor creates a draft page containing one Heading block.
 
-## Implemented vertical slice
+## Implemented slices
+
+### Slice 1 — end-to-end publishing
 
 ```text
 Heading block
@@ -76,13 +78,47 @@ Heading block
   → Page JSON
   → Laravel Blade renderer
   → iframe preview
-  → partial block render
   → save draft
   → publish
   → public SSR page
 ```
 
-Security already present in this slice: Blade escaping, strict block-name/path checks, Laravel request validation, and `postMessage` origin validation.
+### Slice 2 — nested layout + drag and drop
+
+Included blocks:
+
+```text
+core/heading
+core/container
+core/columns
+```
+
+Nested page JSON is rendered recursively by the existing Laravel `PageRenderer`. The editor has a recursive block tree with dnd-kit, supports selecting nested blocks, adding children to blocks whose manifest declares `supports.children`, removing blocks, reordering siblings, and moving blocks between populated parents.
+
+Structural changes are previewed without saving: the editor posts the current draft JSON to `POST /api/render-page`, Laravel renders the same Blade block tree used by production, and the iframe replaces `#pb-canvas` through same-origin `postMessage`.
+
+Example:
+
+```json
+{
+  "blocks": [
+    {
+      "id": "container-1",
+      "type": "core/container",
+      "attrs": {"maxWidth": "1200px", "padding": "24px"},
+      "children": [
+        {
+          "id": "heading-1",
+          "type": "core/heading",
+          "attrs": {"text": "Nested heading", "level": 2, "alignment": "left"}
+        }
+      ]
+    }
+  ]
+}
+```
+
+Security already present: Blade escaping for user attributes, strict block-name/path checks, Laravel request validation, and `postMessage` origin validation. Layout templates output `$children` as trusted renderer-generated HTML; arbitrary database HTML is not executed.
 
 ## Tests
 
@@ -90,7 +126,7 @@ Security already present in this slice: Blade escaping, strict block-name/path c
 php artisan test
 ```
 
-Current tests cover heading defaulting/XSS escaping and draft-to-published flow.
+Tests cover heading defaulting/XSS escaping, recursive nested rendering, render-page preview, and draft-to-published flow.
 
 ## Dependency policy
 
@@ -98,4 +134,4 @@ The project tracks the latest stable major versions instead of prerelease builds
 
 ## Next slices
 
-The architecture intentionally leaves the next features incremental: nested container/columns UI, DataProviderRegistry + product-grid, AssetCollector, carousel React Island runtime, undo/redo, dnd-kit sorting, auth/policies, manifest cache, CSP and preview rate limits.
+Next implementation targets: DataProviderRegistry + product-grid, AssetCollector, carousel React Island runtime, undo/redo, auth/policies, manifest cache, CSP and preview rate limits.
