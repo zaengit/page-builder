@@ -31,6 +31,19 @@ final class BlockManifestLoader
                 throw new RuntimeException("Missing or unsafe template for {$name}");
             }
 
+            foreach (['css' => 'css', 'js' => 'js'] as $group => $extension) {
+                foreach (($manifest['assets'][$group] ?? []) as $asset) {
+                    if (!is_string($asset) || !preg_match('/^[A-Za-z0-9._-]+$/', $asset) || strtolower(pathinfo($asset, PATHINFO_EXTENSION)) !== $extension) {
+                        throw new RuntimeException("Invalid {$group} asset for {$name}");
+                    }
+
+                    $realAsset = realpath($directory.DIRECTORY_SEPARATOR.$asset);
+                    if ($realAsset === false || !str_starts_with($realAsset, $directory.DIRECTORY_SEPARATOR)) {
+                        throw new RuntimeException("Missing or unsafe asset {$asset} for {$name}");
+                    }
+                }
+            }
+
             $manifest['_template'] = $template;
             $definitions[$name] = $manifest;
         }
