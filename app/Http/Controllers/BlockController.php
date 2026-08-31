@@ -25,16 +25,23 @@ final class BlockController
             'type' => ['required', 'string', 'max:100'],
             'attrs' => ['present', 'array'],
             'children' => ['sometimes', 'array'],
-            'children.*.id' => ['required_with:children', 'string', 'max:100'],
-            'children.*.type' => ['required_with:children', 'string', 'max:100'],
-            'children.*.attrs' => ['required_with:children', 'array'],
         ]);
-
-        $html = $renderer->render(['blocks' => [$block]], true);
 
         return response()->json([
             'id' => $block['id'],
-            'html' => $html,
+            'html' => $renderer->render(['blocks' => [$block]], true),
+            'assets' => ['css' => [], 'js' => []],
+        ]);
+    }
+
+    public function renderPage(Request $request, PageRenderer $renderer): JsonResponse
+    {
+        $content = $request->validate([
+            'blocks' => ['present', 'array'],
+        ]);
+
+        return response()->json([
+            'html' => $renderer->render($content, true),
             'assets' => ['css' => [], 'js' => []],
         ]);
     }
