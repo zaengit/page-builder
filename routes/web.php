@@ -6,9 +6,7 @@ use App\Http\Controllers\PreviewController;
 use App\Models\Page;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/preview/{page}', [PreviewController::class, 'show'])
-    ->middleware('auth')
-    ->name('preview');
+Route::get('/preview/{page}', [PreviewController::class, 'show'])->name('preview');
 
 Route::get('/block-assets/{namespace}/{block}/{asset}', [BlockAssetController::class, 'show'])
     ->where([
