@@ -30,6 +30,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **Editor history**: immutable Page JSON snapshots back undo/redo across attrs, repeaters, nested add/remove, and drag/drop.
 - **Laravel session auth + PagePolicy**: editor API and draft preview are owner-restricted while published storefront routes remain public.
 - **Persistent block manifest cache**: validated block manifests can be warmed once and reused across requests.
+- **SecurityHeaders + RateLimiter**: CSP/security headers and named throttles protect storefront, preview, render, and auth traffic.
 
 ## Run
 
@@ -54,77 +55,27 @@ Open `http://localhost:5173`. Create an account or sign in from the editor. New 
 ## Implemented slices
 
 ### Slice 1 — end-to-end publishing
-
 `Heading → React editor → Page JSON → Blade SSR → iframe preview → save → publish → public page`
 
 ### Slice 2 — nested layout + drag and drop
-
 Includes `core/container`, `core/columns`, recursive tree editing, nested selection, add/remove child blocks, dnd-kit reorder/move, and unsaved structural preview through `POST /api/render-page`.
 
 ### Slice 3 — dynamic data providers
-
-`commerce/product-grid` declares `data.provider = products`. `DataProviderRegistry` resolves `ProductDataProvider`, builds runtime data, and passes it into Blade. Blade never queries MySQL directly.
+`commerce/product-grid` declares `data.provider = products`. `DataProviderRegistry` resolves `ProductDataProvider`, builds runtime data, and passes it into Blade.
 
 ### Slice 4 — per-block assets
-
-Blocks can declare CSS/JS in `block.json`. `AssetCollector` gathers only assets used by rendered blocks, deduplicates them, and serves manifest-declared files through `/block-assets/{namespace}/{block}/{asset}` with path validation.
+`AssetCollector` loads only manifest-declared CSS/JS for blocks actually rendered and deduplicates repeated block assets.
 
 ### Slice 5 — SSR carousel + lazy React Island
-
-`core/carousel` renders complete Blade SSR markup first. Its CSS and `frontend.js` load only when the block exists, and each carousel mounts as an independent React 19 island. Multiple instances still emit one CSS URL and one JS URL.
+`core/carousel` renders complete Blade SSR markup first. Its CSS and `frontend.js` load only when the block exists, and each carousel mounts as an independent React 19 island.
 
 ### Slice 6 — undo / redo editor history
-
-All Page JSON mutations use one bounded 100-snapshot history model. Undo/Redo covers attrs, repeaters, add/remove, nested changes, and dnd-kit moves. Save/Publish preserve history, and dirty state is compared against the last saved Page JSON snapshot.
-
-Keyboard shortcuts:
-
-```text
-Ctrl/Cmd + Z          Undo
-Ctrl/Cmd + Shift + Z  Redo
-Ctrl + Y              Redo
-```
+All Page JSON mutations use one bounded 100-snapshot history model. Save/Publish preserve history and dirty state compares against the last saved Page JSON snapshot.
 
 ### Slice 7 — authentication + authorization
-
-The editor uses Laravel's built-in session guard. No external auth package is required.
-
-```text
-React login/register
-      ↓
-Laravel session
-      ↓
-authenticated builder API
-      ↓
-Page.user_id
-      ↓
-PagePolicy
-      ↓
-view / update / publish / preview authorization
-```
-
-Endpoints:
-
-```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
-POST /api/auth/logout
-```
-
-Builder routes (`/api/blocks`, render endpoints, and page CRUD/publish) require an authenticated session. Session cookies use Laravel cookie encryption, queued-cookie handling, and session middleware. `PagePolicy` only permits the owner to read, update, publish, or preview a draft page. New pages are created through `$request->user()->pages()` so ownership is assigned server-side rather than trusted from client JSON.
-
-Draft preview requires authentication before policy authorization. Published storefront routes remain public and only render `published_content`.
-
-For local development, Vite proxies `/api`, `/preview`, and `/block-assets` to Laravel so the same session cookie works inside the editor and preview iframe.
-
-Existing installations receive a nullable `pages.user_id` migration to avoid breaking old rows. Legacy pages with no owner are intentionally inaccessible from the editor until ownership is assigned.
+Laravel session auth protects builder APIs. `Page.user_id` plus `PagePolicy` enforce owner-only read/update/publish/preview while published storefront routes remain public.
 
 ### Slice 8 — persistent manifest cache + Artisan block commands
-
-`BlockRegistry` now stores validated definitions in Laravel cache under a versioned key. This avoids rescanning and reparsing every `blocks/*/block.json` on every request while keeping the loader as the validation source of truth.
-
-Commands:
 
 ```bash
 php artisan blocks:list
@@ -133,32 +84,59 @@ php artisan blocks:clear
 php artisan make:block custom/promo-banner
 ```
 
-`blocks:cache` reloads and validates every manifest before writing the persistent cache. `blocks:clear` invalidates it. `blocks:list` shows the currently registered block name/title/category.
+`make:block` scaffolds a validated `block.json` plus an escaped Blade template and clears stale manifest cache.
 
-`make:block namespace/block` creates:
+### Slice 9 — CSP, rate limiting, and CI
+
+Public pages, preview pages, and block assets now pass through `SecurityHeaders` with:
+
+- `Content-Security-Policy`
+- `Referrer-Policy`
+- `X-Content-Type-Options`
+- `X-Frame-Options`
+- `Permissions-Policy`
+
+The current CSP stays compatible with the existing inline preview runtime and the carousel React Island imported from `https://esm.sh`. A later production-hardening pass can remove `'unsafe-inline'` by moving preview code to nonce/module assets and bundling storefront React locally.
+
+Named Laravel rate limiters:
 
 ```text
-blocks/block/
-  block.json
-  template.blade.php
+builder-auth     10 requests/minute/IP
+builder-render  120 requests/minute/user or IP
+builder-preview 120 requests/minute/user or IP
 ```
 
-The generated manifest contains one starter string attribute and the generated Blade template escapes it by default. Creating a block clears the existing registry cache so stale definitions are not kept accidentally.
+GitHub Actions CI contains two independent jobs:
+
+```text
+backend
+  PHP 8.5
+  composer install
+  SQLite in-memory
+  php artisan test
+
+editor
+  Node.js 26.8.1
+  npm install
+  npm run build
+```
+
+The repository currently has no committed Composer/npm lockfiles, so CI installs from the stable constraints declared in `composer.json` and `editor/package.json`.
 
 ## Security
 
 - Laravel session authentication for builder routes
-- encrypted session cookies
+- encrypted session-cookie handling
 - page ownership enforced with `PagePolicy`
-- draft previews are owner-only
-- ownership assigned server-side
+- owner-only draft previews
+- named rate limits on auth/render/preview
+- CSP and standard browser security headers
 - Blade escaping for user-controlled values
 - React renders slide text as text nodes, not raw HTML
 - trusted manifest registry
 - path traversal protection
 - asset filename + extension whitelist
 - only manifest-declared assets can be served
-- `X-Content-Type-Options: nosniff`
 - same-origin `postMessage` validation
 - mutable AssetCollector is request/lifecycle scoped
 
@@ -168,8 +146,8 @@ The generated manifest contains one starter string attribute and the generated B
 php artisan test
 ```
 
-Backend tests cover authentication requirements, page ownership, cross-user denial, owner preview/publish behavior, XSS/defaulting, recursive rendering, dynamic product data, asset deduplication, secure asset serving, carousel SSR/lazy React assets, and block registry cache command behavior.
+Backend tests cover authentication, ownership/policies, recursive rendering, dynamic data, asset deduplication, carousel SSR/lazy assets, secure asset serving, and block-registry cache commands. GitHub Actions also compiles the React/TypeScript editor.
 
 ## Next slice
 
-**CSP + preview rate limiting**, followed by CI/build verification and production hardening.
+**CI failure cleanup + production hardening**, then deeper recursive payload validation, local storefront bundling/nonced CSP, page management UI, autosave/versioning, and richer Gutenberg-style controls.
