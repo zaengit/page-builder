@@ -20,6 +20,10 @@ final class PageBuilderServiceProvider extends ServiceProvider
         $this->loadRoutesFrom(__DIR__.'/../routes/page-builder.php');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'page-builder');
 
+        if ($this->app->runningInConsole()) {
+            require __DIR__.'/../routes/console.php';
+        }
+
         $this->publishes([
             __DIR__.'/../config/page-builder.php' => config_path('page-builder.php'),
         ], 'page-builder-config');
