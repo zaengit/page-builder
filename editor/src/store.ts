@@ -1,7 +1,12 @@
 import { create } from 'zustand';
-import type { BlockDefinition, Page, PageBlock, PageContent } from './types';
+import type { BlockDefinition, Page, PageBlock, PageContent, User } from './types';
+
+type Credentials = {email:string;password:string};
+type Registration = Credentials & {name:string};
 
 type State = {
+  user: User | null;
+  authReady: boolean;
   page: Page | null;
   definitions: BlockDefinition[];
   selectedId: string | null;
@@ -10,6 +15,9 @@ type State = {
   future: PageContent[];
   savedSnapshot: string;
   bootstrap(): Promise<void>;
+  login(input:Credentials):Promise<void>;
+  register(input:Registration):Promise<void>;
+  logout():Promise<void>;
   select(id:string):void;
   addBlock(type:string,parentId?:string|null):void;
   updateAttrs(id:string,attrs:Record<string,unknown>):void;
@@ -24,6 +32,18 @@ type State = {
 const HISTORY_LIMIT = 100;
 const defaultContent: PageContent = {blocks:[{id:crypto.randomUUID(),type:'core/heading',attrs:{text:'Hello World',level:2,alignment:'left'}}]};
 const snapshot = (content:PageContent) => JSON.stringify(content);
+
+async function api<T>(url:string, init:RequestInit = {}):Promise<T>{
+  const headers = new Headers(init.headers);
+  headers.set('Accept','application/json');
+  if(init.body && !headers.has('Content-Type')) headers.set('Content-Type','application/json');
+  const response = await fetch(url,{...init,headers});
+  if(!response.ok){
+    const body = await response.json().catch(()=>({message:'Request failed'}));
+    throw new Error(body.message ?? Object.values(body.errors ?? {}).flat().join(' ') ?? 'Request failed');
+  }
+  return response.json();
+}
 
 function findBlock(blocks:PageBlock[], id:string):PageBlock|null {
   for(const block of blocks){
@@ -84,14 +104,40 @@ function historyUpdate(state:State, nextContent:PageContent, selectedId=state.se
 }
 
 export const useBuilder = create<State>((set,get)=>({
-  page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:'',
+  user:null,authReady:false,page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:'',
   async bootstrap(){
-    const definitions = await fetch('/api/blocks').then(r=>r.json());
+    const me = await fetch('/api/auth/me',{headers:{Accept:'application/json'}});
+    if(!me.ok){
+      set({user:null,authReady:true,page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:''});
+      return;
+    }
+
+    const {user} = await me.json() as {user:User};
+    const definitions = await api<BlockDefinition[]>('/api/blocks');
     const queryId = new URLSearchParams(location.search).get('page');
     let page: Page;
-    if(queryId){ page = await fetch(`/api/pages/${queryId}`).then(r=>{if(!r.ok) throw new Error('Page not found'); return r.json();}); }
-    else { page = await fetch('/api/pages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Home',slug:`home-${Date.now()}`,content:defaultContent})}).then(r=>r.json()); history.replaceState(null,'',`?page=${page.id}`); }
-    set({definitions,page,selectedId:page.draft_content.blocks[0]?.id ?? null,dirty:false,past:[],future:[],savedSnapshot:snapshot(page.draft_content)});
+    if(queryId){
+      page = await api<Page>(`/api/pages/${queryId}`);
+    } else {
+      page = await api<Page>('/api/pages',{method:'POST',body:JSON.stringify({title:'Home',slug:`home-${Date.now()}`,content:defaultContent})});
+      history.replaceState(null,'',`?page=${page.id}`);
+    }
+    set({user,authReady:true,definitions,page,selectedId:page.draft_content.blocks[0]?.id ?? null,dirty:false,past:[],future:[],savedSnapshot:snapshot(page.draft_content)});
+  },
+  async login(input){
+    const {user}=await api<{user:User}>('/api/auth/login',{method:'POST',body:JSON.stringify(input)});
+    set({user,authReady:true});
+    await get().bootstrap();
+  },
+  async register(input){
+    const {user}=await api<{user:User}>('/api/auth/register',{method:'POST',body:JSON.stringify(input)});
+    set({user,authReady:true});
+    await get().bootstrap();
+  },
+  async logout(){
+    await api<{ok:boolean}>('/api/auth/logout',{method:'POST'});
+    history.replaceState(null,'',location.pathname);
+    set({user:null,authReady:true,page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:''});
   },
   select(selectedId){set({selectedId});},
   addBlock(type,parentId){
@@ -137,31 +183,24 @@ export const useBuilder = create<State>((set,get)=>({
     const previous=s.past[s.past.length-1];
     const current=s.page.draft_content;
     const selectedId=s.selectedId&&findBlock(previous.blocks,s.selectedId)?s.selectedId:null;
-    set({
-      page:{...s.page,draft_content:previous},
-      past:s.past.slice(0,-1),
-      future:[current,...s.future].slice(0,HISTORY_LIMIT),
-      selectedId,
-      dirty:snapshot(previous)!==s.savedSnapshot,
-    });
+    set({page:{...s.page,draft_content:previous},past:s.past.slice(0,-1),future:[current,...s.future].slice(0,HISTORY_LIMIT),selectedId,dirty:snapshot(previous)!==s.savedSnapshot});
   },
   redo(){
     const s=get(); if(!s.page||s.future.length===0)return;
     const next=s.future[0];
     const current=s.page.draft_content;
     const selectedId=s.selectedId&&findBlock(next.blocks,s.selectedId)?s.selectedId:null;
-    set({
-      page:{...s.page,draft_content:next},
-      past:[...s.past,current].slice(-HISTORY_LIMIT),
-      future:s.future.slice(1),
-      selectedId,
-      dirty:snapshot(next)!==s.savedSnapshot,
-    });
+    set({page:{...s.page,draft_content:next},past:[...s.past,current].slice(-HISTORY_LIMIT),future:s.future.slice(1),selectedId,dirty:snapshot(next)!==s.savedSnapshot});
   },
   async save(){
     const s=get(); if(!s.page)return;
-    const page=await fetch(`/api/pages/${s.page.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:s.page.draft_content})}).then(r=>r.json());
+    const page=await api<Page>(`/api/pages/${s.page.id}`,{method:'PUT',body:JSON.stringify({content:s.page.draft_content})});
     set({page,dirty:false,savedSnapshot:snapshot(page.draft_content)});
   },
-  async publish(){await get().save(); const s=get(); if(!s.page)return; const page=await fetch(`/api/pages/${s.page.id}/publish`,{method:'POST'}).then(r=>r.json()); set({page});}
+  async publish(){
+    await get().save();
+    const s=get(); if(!s.page)return;
+    const page=await api<Page>(`/api/pages/${s.page.id}/publish`,{method:'POST'});
+    set({page});
+  }
 }));
