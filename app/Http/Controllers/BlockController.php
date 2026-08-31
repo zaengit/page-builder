@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Blocks\BlockRegistry;
+use App\Blocks\PageContentValidator;
 use App\Blocks\PageRenderer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,22 +13,19 @@ final class BlockController
     public function index(BlockRegistry $registry): JsonResponse
     {
         $blocks = array_values(array_map(function (array $definition): array {
-            unset($definition['_template']);
+            foreach (array_keys($definition) as $key) {
+                if (str_starts_with((string) $key, '_')) unset($definition[$key]);
+            }
             return $definition;
         }, $registry->all()));
         return response()->json($blocks);
     }
 
-    public function render(Request $request, PageRenderer $renderer): JsonResponse
+    public function render(Request $request, PageRenderer $renderer, PageContentValidator $validator): JsonResponse
     {
-        $block = $request->validate([
-            'id' => ['required', 'string', 'max:100'],
-            'type' => ['required', 'string', 'max:100'],
-            'attrs' => ['present', 'array'],
-            'children' => ['sometimes', 'array'],
-        ]);
-
-        $html = $renderer->render(['blocks' => [$block]], true);
+        $content = $validator->validate(['blocks' => [$request->all()]]);
+        $block = $content['blocks'][0];
+        $html = $renderer->render($content, true);
 
         return response()->json([
             'id' => $block['id'],
@@ -36,12 +34,9 @@ final class BlockController
         ]);
     }
 
-    public function renderPage(Request $request, PageRenderer $renderer): JsonResponse
+    public function renderPage(Request $request, PageRenderer $renderer, PageContentValidator $validator): JsonResponse
     {
-        $content = $request->validate([
-            'blocks' => ['present', 'array'],
-        ]);
-
+        $content = $validator->validate($request->all());
         $html = $renderer->render($content, true);
 
         return response()->json([
