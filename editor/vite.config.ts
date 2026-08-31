@@ -1,10 +1,25 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { resolve } from 'node:path';
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    outDir: resolve(__dirname, '../resources/dist'),
+    emptyOutDir: true,
+    sourcemap: true,
+    rollupOptions: {
+      input: resolve(__dirname, 'src/main.tsx'),
+      output: {
+        entryFileNames: 'page-builder.js',
+        chunkFileNames: 'chunks/[name]-[hash].js',
+        assetFileNames: asset => asset.name?.endsWith('.css') ? 'page-builder.css' : 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
   server: {
     port: 5173,
+    cors: true,
     proxy: {
       '/api': 'http://127.0.0.1:8000',
       '/page-builder': 'http://127.0.0.1:8000',
