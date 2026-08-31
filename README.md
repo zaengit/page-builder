@@ -2,15 +2,38 @@
 
 Minimal end-to-end vertical slice for a Gutenberg/Shopify-style page builder.
 
+## Current stack
+
+- **PHP 8.5** (latest stable PHP major)
+- **Laravel 13**
+- **MySQL** with native `JSON` columns
+- **React 19.2**
+- **TypeScript 7**
+- **Vite 8**
+- **Zustand 5**
+- **dnd-kit 6 / sortable 10**
+- **Node.js 24 LTS or newer**
+
 ## Architecture
 
-- **Laravel 12**: API, page storage, block registry, manifest loader, Blade SSR, preview and public rendering.
+- **Laravel 13**: API, page storage, block registry, manifest loader, Blade SSR, preview and public rendering.
 - **React + TypeScript + Zustand**: visual editor only.
 - **Page JSON**: source of truth; draft and published versions are stored separately in MySQL JSON columns.
 - **block.json**: block contract. The editor builds its inserter and inspector from the manifest.
 - **Blade**: SSR source of truth for both preview and production.
 
 ## Run
+
+Requirements:
+
+```text
+PHP >= 8.5
+Composer 2.x
+Node.js >= 24.20.0
+MySQL 8+
+```
+
+Backend:
 
 ```bash
 cp .env.example .env
@@ -66,6 +89,10 @@ php artisan test
 ```
 
 Current tests cover heading defaulting/XSS escaping and draft-to-published flow.
+
+## Dependency policy
+
+The project tracks the latest stable major versions instead of prerelease / beta / canary releases. Composer and npm constraints use current stable release lines so patch/minor updates can be picked up normally.
 
 ## Next slices
 
