@@ -1,28 +1,53 @@
 {
   "$schema": "https://getcomposer.org/schema.json",
   "name": "zaengit/page-builder",
-  "type": "project",
+  "description": "Laravel + React block-based visual page builder package",
+  "type": "library",
+  "license": "MIT",
   "require": {
     "php": "^8.5",
-    "laravel/framework": "^13.29",
-    "laravel/tinker": "^3.0"
+    "illuminate/cache": "^13.29",
+    "illuminate/config": "^13.29",
+    "illuminate/contracts": "^13.29",
+    "illuminate/http": "^13.29",
+    "illuminate/routing": "^13.29",
+    "illuminate/support": "^13.29",
+    "illuminate/validation": "^13.29",
+    "illuminate/view": "^13.29"
   },
   "require-dev": {
-    "fakerphp/faker": "^1.23",
-    "laravel/pail": "^1.2.5",
-    "laravel/pint": "^1.27",
+    "laravel/framework": "^13.29",
     "mockery/mockery": "^1.6",
-    "nunomaduro/collision": "^8.6",
     "phpunit/phpunit": "^13.3.2"
   },
-  "autoload": {"psr-4": {"App\\": "app/"}},
-  "autoload-dev": {"psr-4": {"Tests\\": "tests/"}},
-  "scripts": {
-    "post-autoload-dump": ["Illuminate\\Foundation\\ComposerScripts::postAutoloadDump", "@php artisan package:discover --ansi"],
-    "post-root-package-install": ["@php -r \"file_exists('.env') || copy('.env.example', '.env');\""],
-    "post-create-project-cmd": ["@php artisan key:generate --ansi"]
+  "autoload": {
+    "psr-4": {
+      "Zaengit\\PageBuilder\\": "src/"
+    }
   },
-  "config": {"optimize-autoloader": true, "preferred-install": "dist", "sort-packages": true},
+  "autoload-dev": {
+    "psr-4": {
+      "Tests\\": "tests/"
+    }
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "Zaengit\\PageBuilder\\PageBuilderServiceProvider"
+      ]
+    }
+  },
+  "scripts": {
+    "post-autoload-dump": [
+      "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+      "@php artisan package:discover --ansi"
+    ]
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "preferred-install": "dist",
+    "sort-packages": true
+  },
   "minimum-stability": "stable",
   "prefer-stable": true
 }
