@@ -10,9 +10,12 @@ final class PreviewController
 {
     public function show(Page $page, PageRenderer $renderer): View
     {
+        $content = $renderer->render($page->draft_content ?? ['blocks' => []], true);
+
         return view('page', [
             'title' => $page->title.' — Preview',
-            'content' => $renderer->render($page->draft_content ?? ['blocks' => []], true),
+            'content' => $content,
+            'assets' => $renderer->assets(),
             'preview' => true,
         ]);
     }
