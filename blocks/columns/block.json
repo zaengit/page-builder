@@ -1,0 +1,11 @@
+{
+  "name": "core/columns",
+  "title": "Columns",
+  "category": "layout",
+  "icon": "columns",
+  "supports": {"children": true},
+  "attributes": {
+    "columns": {"type": "select", "label": "Columns", "default": 2, "options": [2, 3, 4]},
+    "gap": {"type": "select", "label": "Gap", "default": "24px", "options": ["8px", "16px", "24px", "32px", "48px"]}
+  }
+}
