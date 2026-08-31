@@ -19,7 +19,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 ## Architecture
 
 - **Laravel 13**: API, page storage, block registry, manifest loader, Blade SSR, preview and public rendering.
-- **React + TypeScript + Zustand**: visual editor only.
+- **React + TypeScript + Zustand**: authenticated visual editor only.
 - **Page JSON**: source of truth; draft and published versions are stored separately in MySQL JSON columns.
 - **block.json**: block contract for schema, runtime data, and optional assets.
 - **Blade**: SSR source of truth for preview and production.
@@ -28,6 +28,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **AssetCollector**: collects only assets used by rendered blocks and deduplicates them.
 - **React Islands**: optional per-block storefront interactivity; non-interactive pages do not load carousel React code.
 - **Editor history**: immutable Page JSON snapshots back undo/redo across attrs, repeaters, nested add/remove, and drag/drop.
+- **Laravel session auth + PagePolicy**: editor API and draft preview are owner-restricted while published storefront routes remain public.
 
 ## Run
 
@@ -47,7 +48,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://localhost:5173`. Create an account or sign in from the editor. New pages are automatically owned by the authenticated user.
 
 ## Implemented slices
 
@@ -65,87 +66,17 @@ Includes `core/container`, `core/columns`, recursive tree editing, nested select
 
 ### Slice 4 — per-block assets
 
-Blocks can declare assets in `block.json`:
-
-```json
-{
-  "assets": {
-    "css": ["style.css"],
-    "js": ["frontend.js"]
-  }
-}
-```
-
-During recursive render:
-
-```text
-PageRenderer
-   ↓
-BlockRenderer
-   ↓
-AssetCollector
-   ↓
-deduplicated CSS / JS URLs
-   ↓
-Preview + public HTML
-```
-
-Only assets from blocks actually present on the page are returned. Five instances of the same block still produce one CSS/JS URL.
-
-Custom block assets remain outside `public/`. Laravel serves only manifest-declared files through `/block-assets/{namespace}/{block}/{asset}`. Asset names/extensions are validated by `BlockManifestLoader`, real paths are checked against the block directory, and the route rejects undeclared files.
-
-The live editor also receives `assets` from `/api/render-page`. The preview iframe injects missing styles/modules dynamically and deduplicates them, so adding an asset-bearing block does not require an iframe reload.
+Blocks can declare CSS/JS in `block.json`. `AssetCollector` gathers only assets used by rendered blocks, deduplicates them, and serves manifest-declared files through `/block-assets/{namespace}/{block}/{asset}` with path validation.
 
 ### Slice 5 — SSR carousel + lazy React Island
 
-`core/carousel` demonstrates optional storefront React:
-
-```text
-Page JSON
-   ↓
-Blade SSR carousel markup
-   ↓
-HTML + CSS works without JavaScript
-   ↓
-AssetCollector sees frontend.js
-   ↓
-frontend.js loads only on pages using carousel
-   ↓
-React mounts each carousel independently
-```
-
-The block manifest contains `title`, `autoplay`, `interval`, and a schema-driven `items` repeater. The editor supports repeater fields generically, so slide add/remove/title/description/image controls are generated from `block.json` rather than hard-coded for carousel.
-
-Blade prints all slide content before JavaScript executes. `frontend.js` then mounts a React 19 island into each `[data-carousel-island]`, adding previous/next controls, dots, and autoplay. A `MutationObserver` discovers carousel blocks inserted by live preview updates, so structural edits do not require an iframe reload.
-
-Multiple carousel instances have independent state while AssetCollector emits only one copy of:
-
-```text
-/block-assets/core/carousel/style.css
-/block-assets/core/carousel/frontend.js
-```
-
-A heading-only page resets to an empty JS asset list, so the visitor storefront does not download carousel React code when no interactive block exists.
+`core/carousel` renders complete Blade SSR markup first. Its CSS and `frontend.js` load only when the block exists, and each carousel mounts as an independent React 19 island. Multiple instances still emit one CSS URL and one JS URL.
 
 ### Slice 6 — undo / redo editor history
 
-All Page JSON mutations now use one bounded history model:
+All Page JSON mutations use one bounded 100-snapshot history model. Undo/Redo covers attrs, repeaters, add/remove, nested changes, and dnd-kit moves. Save/Publish preserve history, and dirty state is compared against the last saved Page JSON snapshot.
 
-```text
-current draft
-   ↓ edit
-past[] ← previous draft
-future[] cleared
-   ↓ undo
-previous draft restored
-current draft → future[]
-   ↓ redo
-future draft restored
-```
-
-History is capped at 100 snapshots. Attribute edits, repeater changes, adding/removing blocks, nested child edits, and dnd-kit moves all use the same undo/redo path. Save and Publish do not erase history.
-
-The editor exposes Undo/Redo buttons and keyboard shortcuts:
+Keyboard shortcuts:
 
 ```text
 Ctrl/Cmd + Z          Undo
@@ -153,10 +84,47 @@ Ctrl/Cmd + Shift + Z  Redo
 Ctrl + Y              Redo
 ```
 
-Dirty state is compared with the last saved Page JSON snapshot. If undo returns exactly to the last saved content, the editor correctly returns to `Saved`. After undo, any new edit clears the redo branch.
+### Slice 7 — authentication + authorization
+
+The editor uses Laravel's built-in session guard. No external auth package is required.
+
+```text
+React login/register
+      ↓
+Laravel session
+      ↓
+authenticated builder API
+      ↓
+Page.user_id
+      ↓
+PagePolicy
+      ↓
+view / update / publish / preview authorization
+```
+
+Endpoints:
+
+```text
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+POST /api/auth/logout
+```
+
+Builder routes (`/api/blocks`, render endpoints, and page CRUD/publish) require an authenticated session. `PagePolicy` only permits the owner to read, update, publish, or preview a draft page. New pages are created through `$request->user()->pages()` so ownership is assigned server-side rather than trusted from client JSON.
+
+Draft preview uses policy authorization directly, so unauthenticated or non-owner access is denied. Published storefront routes remain public and only render `published_content`.
+
+For local development, Vite proxies `/api`, `/preview`, and `/block-assets` to Laravel so the same session cookie works inside the editor and preview iframe.
+
+Existing installations receive a nullable `pages.user_id` migration to avoid breaking old rows. Legacy pages with no owner are intentionally inaccessible from the editor until ownership is assigned.
 
 ## Security
 
+- Laravel session authentication for builder routes
+- page ownership enforced with `PagePolicy`
+- draft previews are owner-only
+- ownership assigned server-side
 - Blade escaping for user-controlled values
 - React renders slide text as text nodes, not raw HTML
 - trusted manifest registry
@@ -173,8 +141,8 @@ Dirty state is compared with the last saved Page JSON snapshot. If undo returns 
 php artisan test
 ```
 
-Backend tests cover XSS/defaulting, recursive rendering, dynamic product data, draft/publish, asset deduplication, rejection of undeclared block assets, carousel SSR output, lazy React asset loading, and carousel asset deduplication.
+Backend tests cover authentication requirements, page ownership, cross-user denial, owner preview/publish behavior, XSS/defaulting, recursive rendering, dynamic product data, asset deduplication, secure asset serving, carousel SSR, and lazy React asset loading.
 
 ## Next slice
 
-**Authentication + page authorization/policies**, followed by manifest cache + Artisan block commands, CSP, preview rate limiting, and production hardening.
+**Manifest cache + Artisan block commands**, followed by CSP, preview rate limiting, CI/build verification, and production hardening.
