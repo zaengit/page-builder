@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Blocks\AssetCollector;
 use App\DataProviders\DataProviderRegistry;
 use App\DataProviders\ProductDataProvider;
 use Illuminate\Support\ServiceProvider;
@@ -10,6 +11,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(AssetCollector::class);
+
         $this->app->singleton(DataProviderRegistry::class, function (): DataProviderRegistry {
             $registry = new DataProviderRegistry();
             $registry->register('products', ProductDataProvider::class);
