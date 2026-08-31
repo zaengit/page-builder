@@ -3,19 +3,20 @@
 use App\Blocks\BlockRegistry;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Symfony\Component\Console\Command\Command;
 
 Artisan::command('blocks:cache', function (): int {
     $definitions = app(BlockRegistry::class)->warm();
     $this->info('Cached '.count($definitions).' block manifests.');
 
-    return self::SUCCESS;
+    return Command::SUCCESS;
 })->purpose('Validate and cache all block manifests');
 
 Artisan::command('blocks:clear', function (): int {
     app(BlockRegistry::class)->clear();
     $this->info('Block manifest cache cleared.');
 
-    return self::SUCCESS;
+    return Command::SUCCESS;
 })->purpose('Clear the cached block manifests');
 
 Artisan::command('blocks:list', function (): int {
@@ -23,7 +24,7 @@ Artisan::command('blocks:list', function (): int {
 
     if ($definitions === []) {
         $this->warn('No blocks registered.');
-        return self::SUCCESS;
+        return Command::SUCCESS;
     }
 
     $this->table(
@@ -38,13 +39,13 @@ Artisan::command('blocks:list', function (): int {
         ),
     );
 
-    return self::SUCCESS;
+    return Command::SUCCESS;
 })->purpose('List registered page builder blocks');
 
 Artisan::command('make:block {name}', function (string $name): int {
     if (!preg_match('/^[a-z0-9-]+\/[a-z0-9-]+$/', $name)) {
         $this->error('Block name must use namespace/block format, for example core/button.');
-        return self::FAILURE;
+        return Command::FAILURE;
     }
 
     [, $slug] = explode('/', $name, 2);
@@ -52,7 +53,7 @@ Artisan::command('make:block {name}', function (string $name): int {
 
     if (File::exists($directory)) {
         $this->error("Block directory already exists: blocks/{$slug}");
-        return self::FAILURE;
+        return Command::FAILURE;
     }
 
     File::makeDirectory($directory, 0755, true);
@@ -86,5 +87,5 @@ Artisan::command('make:block {name}', function (string $name): int {
     $this->info("Created {$name} in blocks/{$slug}.");
     $this->line('Run php artisan blocks:cache after customizing the manifest.');
 
-    return self::SUCCESS;
+    return Command::SUCCESS;
 })->purpose('Create a new custom block scaffold');
