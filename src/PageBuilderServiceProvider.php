@@ -2,6 +2,7 @@
 
 namespace Zaengit\PageBuilder;
 
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Zaengit\PageBuilder\Blocks\AssetCollector;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
@@ -19,6 +20,7 @@ final class PageBuilderServiceProvider extends ServiceProvider
     {
         $this->loadRoutesFrom(__DIR__.'/../routes/page-builder.php');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'page-builder');
+        Blade::anonymousComponentPath(__DIR__.'/../resources/views/components', 'page-builder');
 
         if ($this->app->runningInConsole()) {
             require __DIR__.'/../routes/console.php';
