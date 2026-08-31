@@ -29,6 +29,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **React Islands**: optional per-block storefront interactivity; non-interactive pages do not load carousel React code.
 - **Editor history**: immutable Page JSON snapshots back undo/redo across attrs, repeaters, nested add/remove, and drag/drop.
 - **Laravel session auth + PagePolicy**: editor API and draft preview are owner-restricted while published storefront routes remain public.
+- **Persistent block manifest cache**: validated block manifests can be warmed once and reused across requests.
 
 ## Run
 
@@ -111,17 +112,43 @@ GET  /api/auth/me
 POST /api/auth/logout
 ```
 
-Builder routes (`/api/blocks`, render endpoints, and page CRUD/publish) require an authenticated session. `PagePolicy` only permits the owner to read, update, publish, or preview a draft page. New pages are created through `$request->user()->pages()` so ownership is assigned server-side rather than trusted from client JSON.
+Builder routes (`/api/blocks`, render endpoints, and page CRUD/publish) require an authenticated session. Session cookies use Laravel cookie encryption, queued-cookie handling, and session middleware. `PagePolicy` only permits the owner to read, update, publish, or preview a draft page. New pages are created through `$request->user()->pages()` so ownership is assigned server-side rather than trusted from client JSON.
 
-Draft preview uses policy authorization directly, so unauthenticated or non-owner access is denied. Published storefront routes remain public and only render `published_content`.
+Draft preview requires authentication before policy authorization. Published storefront routes remain public and only render `published_content`.
 
 For local development, Vite proxies `/api`, `/preview`, and `/block-assets` to Laravel so the same session cookie works inside the editor and preview iframe.
 
 Existing installations receive a nullable `pages.user_id` migration to avoid breaking old rows. Legacy pages with no owner are intentionally inaccessible from the editor until ownership is assigned.
 
+### Slice 8 — persistent manifest cache + Artisan block commands
+
+`BlockRegistry` now stores validated definitions in Laravel cache under a versioned key. This avoids rescanning and reparsing every `blocks/*/block.json` on every request while keeping the loader as the validation source of truth.
+
+Commands:
+
+```bash
+php artisan blocks:list
+php artisan blocks:cache
+php artisan blocks:clear
+php artisan make:block custom/promo-banner
+```
+
+`blocks:cache` reloads and validates every manifest before writing the persistent cache. `blocks:clear` invalidates it. `blocks:list` shows the currently registered block name/title/category.
+
+`make:block namespace/block` creates:
+
+```text
+blocks/block/
+  block.json
+  template.blade.php
+```
+
+The generated manifest contains one starter string attribute and the generated Blade template escapes it by default. Creating a block clears the existing registry cache so stale definitions are not kept accidentally.
+
 ## Security
 
 - Laravel session authentication for builder routes
+- encrypted session cookies
 - page ownership enforced with `PagePolicy`
 - draft previews are owner-only
 - ownership assigned server-side
@@ -141,8 +168,8 @@ Existing installations receive a nullable `pages.user_id` migration to avoid bre
 php artisan test
 ```
 
-Backend tests cover authentication requirements, page ownership, cross-user denial, owner preview/publish behavior, XSS/defaulting, recursive rendering, dynamic product data, asset deduplication, secure asset serving, carousel SSR, and lazy React asset loading.
+Backend tests cover authentication requirements, page ownership, cross-user denial, owner preview/publish behavior, XSS/defaulting, recursive rendering, dynamic product data, asset deduplication, secure asset serving, carousel SSR/lazy React assets, and block registry cache command behavior.
 
 ## Next slice
 
-**Manifest cache + Artisan block commands**, followed by CSP, preview rate limiting, CI/build verification, and production hardening.
+**CSP + preview rate limiting**, followed by CI/build verification and production hardening.
