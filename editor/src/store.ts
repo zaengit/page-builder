@@ -6,17 +6,24 @@ type State = {
   definitions: BlockDefinition[];
   selectedId: string | null;
   dirty: boolean;
+  past: PageContent[];
+  future: PageContent[];
+  savedSnapshot: string;
   bootstrap(): Promise<void>;
   select(id:string):void;
   addBlock(type:string,parentId?:string|null):void;
   updateAttrs(id:string,attrs:Record<string,unknown>):void;
   moveBlock(activeId:string,overId:string):void;
   removeBlock(id:string):void;
+  undo():void;
+  redo():void;
   save():Promise<void>;
   publish():Promise<void>;
 };
 
+const HISTORY_LIMIT = 100;
 const defaultContent: PageContent = {blocks:[{id:crypto.randomUUID(),type:'core/heading',attrs:{text:'Hello World',level:2,alignment:'left'}}]};
+const snapshot = (content:PageContent) => JSON.stringify(content);
 
 function findBlock(blocks:PageBlock[], id:string):PageBlock|null {
   for(const block of blocks){
@@ -64,15 +71,27 @@ function insertBefore(blocks:PageBlock[], targetId:string, blockToInsert:PageBlo
   return next;
 }
 
+function historyUpdate(state:State, nextContent:PageContent, selectedId=state.selectedId){
+  if(!state.page || snapshot(state.page.draft_content)===snapshot(nextContent)) return null;
+  const past=[...state.past,state.page.draft_content].slice(-HISTORY_LIMIT);
+  return {
+    page:{...state.page,draft_content:nextContent},
+    selectedId,
+    past,
+    future:[],
+    dirty:snapshot(nextContent)!==state.savedSnapshot,
+  };
+}
+
 export const useBuilder = create<State>((set,get)=>({
-  page:null,definitions:[],selectedId:null,dirty:false,
+  page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:'',
   async bootstrap(){
     const definitions = await fetch('/api/blocks').then(r=>r.json());
     const queryId = new URLSearchParams(location.search).get('page');
     let page: Page;
     if(queryId){ page = await fetch(`/api/pages/${queryId}`).then(r=>{if(!r.ok) throw new Error('Page not found'); return r.json();}); }
     else { page = await fetch('/api/pages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Home',slug:`home-${Date.now()}`,content:defaultContent})}).then(r=>r.json()); history.replaceState(null,'',`?page=${page.id}`); }
-    set({definitions,page,selectedId:page.draft_content.blocks[0]?.id ?? null});
+    set({definitions,page,selectedId:page.draft_content.blocks[0]?.id ?? null,dirty:false,past:[],future:[],savedSnapshot:snapshot(page.draft_content)});
   },
   select(selectedId){set({selectedId});},
   addBlock(type,parentId){
@@ -86,9 +105,13 @@ export const useBuilder = create<State>((set,get)=>({
     const blocks=targetParent
       ? updateBlock(s.page.draft_content.blocks,targetParent,parent=>({...parent,children:[...(parent.children??[]),block]}))
       : [...s.page.draft_content.blocks,block];
-    set({page:{...s.page,draft_content:{blocks}},selectedId:block.id,dirty:true});
+    const update=historyUpdate(s,{blocks},block.id); if(update)set(update);
   },
-  updateAttrs(id,attrs){const s=get(); if(!s.page)return; const blocks=updateBlock(s.page.draft_content.blocks,id,b=>({...b,attrs:{...b.attrs,...attrs}})); set({page:{...s.page,draft_content:{blocks}},dirty:true});},
+  updateAttrs(id,attrs){
+    const s=get(); if(!s.page)return;
+    const blocks=updateBlock(s.page.draft_content.blocks,id,b=>({...b,attrs:{...b.attrs,...attrs}}));
+    const update=historyUpdate(s,{blocks}); if(update)set(update);
+  },
   moveBlock(activeId,overId){
     if(activeId===overId)return;
     const s=get(); if(!s.page)return;
@@ -101,9 +124,44 @@ export const useBuilder = create<State>((set,get)=>({
     let next=removed.blocks;
     if(overParent===null){next=insertBefore(next,overId,removed.removed);}
     else if(overParent!==undefined){next=updateBlock(next,overParent,parent=>({...parent,children:insertBefore(parent.children??[],overId,removed.removed!)}));}
-    set({page:{...s.page,draft_content:{blocks:next}},dirty:true});
+    const update=historyUpdate(s,{blocks:next}); if(update)set(update);
   },
-  removeBlock(id){const s=get();if(!s.page)return;const result=removeFromTree(s.page.draft_content.blocks,id);if(!result.removed)return;set({page:{...s.page,draft_content:{blocks:result.blocks}},selectedId:s.selectedId===id?null:s.selectedId,dirty:true});},
-  async save(){const s=get(); if(!s.page)return; const page=await fetch(`/api/pages/${s.page.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:s.page.draft_content})}).then(r=>r.json()); set({page,dirty:false});},
+  removeBlock(id){
+    const s=get();if(!s.page)return;
+    const result=removeFromTree(s.page.draft_content.blocks,id);if(!result.removed)return;
+    const selectedId=s.selectedId===id||Boolean(s.selectedId&&findBlock(result.removed.children??[],s.selectedId))?null:s.selectedId;
+    const update=historyUpdate(s,{blocks:result.blocks},selectedId); if(update)set(update);
+  },
+  undo(){
+    const s=get(); if(!s.page||s.past.length===0)return;
+    const previous=s.past[s.past.length-1];
+    const current=s.page.draft_content;
+    const selectedId=s.selectedId&&findBlock(previous.blocks,s.selectedId)?s.selectedId:null;
+    set({
+      page:{...s.page,draft_content:previous},
+      past:s.past.slice(0,-1),
+      future:[current,...s.future].slice(0,HISTORY_LIMIT),
+      selectedId,
+      dirty:snapshot(previous)!==s.savedSnapshot,
+    });
+  },
+  redo(){
+    const s=get(); if(!s.page||s.future.length===0)return;
+    const next=s.future[0];
+    const current=s.page.draft_content;
+    const selectedId=s.selectedId&&findBlock(next.blocks,s.selectedId)?s.selectedId:null;
+    set({
+      page:{...s.page,draft_content:next},
+      past:[...s.past,current].slice(-HISTORY_LIMIT),
+      future:s.future.slice(1),
+      selectedId,
+      dirty:snapshot(next)!==s.savedSnapshot,
+    });
+  },
+  async save(){
+    const s=get(); if(!s.page)return;
+    const page=await fetch(`/api/pages/${s.page.id}`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:s.page.draft_content})}).then(r=>r.json());
+    set({page,dirty:false,savedSnapshot:snapshot(page.draft_content)});
+  },
   async publish(){await get().save(); const s=get(); if(!s.page)return; const page=await fetch(`/api/pages/${s.page.id}/publish`,{method:'POST'}).then(r=>r.json()); set({page});}
 }));
