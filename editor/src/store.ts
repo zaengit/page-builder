@@ -31,20 +31,20 @@ function updateBlock(blocks:PageBlock[], id:string, updater:(block:PageBlock)=>P
   return blocks.map(block=>block.id===id?updater(block):{...block,children:block.children?updateBlock(block.children,id,updater):block.children});
 }
 
-function removeFromTree(blocks:PageBlock[], id:string):{blocks:PageBlock[];removed:PageBlock|null;parentId:string|null}{
+function removeFromTree(blocks:PageBlock[], id:string):{blocks:PageBlock[];removed:PageBlock|null}{
   const index=blocks.findIndex(block=>block.id===id);
   if(index>=0){
     const next=[...blocks];
     const [removed]=next.splice(index,1);
-    return {blocks:next,removed,parentId:null};
+    return {blocks:next,removed};
   }
   for(const block of blocks){
     const result=removeFromTree(block.children??[],id);
     if(result.removed){
-      return {blocks:blocks.map(item=>item.id===block.id?{...item,children:result.blocks}:item),removed:result.removed,parentId:block.id};
+      return {blocks:blocks.map(item=>item.id===block.id?{...item,children:result.blocks}:item),removed:result.removed};
     }
   }
-  return {blocks,removed:null,parentId:null};
+  return {blocks,removed:null};
 }
 
 function findParentId(blocks:PageBlock[], id:string, parentId:string|null=null):string|null|undefined {
@@ -58,8 +58,10 @@ function findParentId(blocks:PageBlock[], id:string, parentId:string|null=null):
 
 function insertBefore(blocks:PageBlock[], targetId:string, blockToInsert:PageBlock):PageBlock[]{
   const index=blocks.findIndex(block=>block.id===targetId);
-  if(index>=0){const next=[...blocks];next.splice(index,0,blockToInsert);return next;}
-  return blocks.map(block=>({...block,children:block.children?insertBefore(block.children,targetId,blockToInsert):block.children}));
+  if(index<0)return blocks;
+  const next=[...blocks];
+  next.splice(index,0,blockToInsert);
+  return next;
 }
 
 export const useBuilder = create<State>((set,get)=>({
@@ -92,9 +94,7 @@ export const useBuilder = create<State>((set,get)=>({
     const s=get(); if(!s.page)return;
     const blocks=s.page.draft_content.blocks;
     const active=findBlock(blocks,activeId); const over=findBlock(blocks,overId);
-    if(!active||!over)return;
-    const activeContainsOver=!!findBlock(active.children??[],overId);
-    if(activeContainsOver)return;
+    if(!active||!over||findBlock(active.children??[],overId))return;
     const overParent=findParentId(blocks,overId);
     const removed=removeFromTree(blocks,activeId);
     if(!removed.removed)return;
