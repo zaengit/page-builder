@@ -16,7 +16,7 @@ final class AssetCollector
     public function collect(array $definition): void
     {
         $name = $definition['name'] ?? null;
-        if (!is_string($name)) return;
+        if (!is_string($name) || !str_contains($name, '/')) return;
 
         foreach (($definition['assets']['css'] ?? []) as $asset) {
             if (is_string($asset)) $this->css[$this->url($name, $asset)] = true;
@@ -37,6 +37,11 @@ final class AssetCollector
 
     private function url(string $blockName, string $asset): string
     {
-        return '/block-assets/'.rawurlencode($blockName).'/'.rawurlencode($asset);
+        [$namespace, $block] = explode('/', $blockName, 2);
+
+        return '/block-assets/'
+            .rawurlencode($namespace).'/'
+            .rawurlencode($block).'/'
+            .rawurlencode($asset);
     }
 }
