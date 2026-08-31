@@ -1,23 +1,17 @@
 import { create } from 'zustand';
-import type { BlockDefinition, Page, PageBlock, PageContent, User } from './types';
-
-type Credentials = {email:string;password:string};
-type Registration = Credentials & {name:string};
+import type { BlockDefinition, PageBlock, PageContent } from './types';
 
 type State = {
-  user: User | null;
-  authReady: boolean;
-  page: Page | null;
+  content: PageContent;
   definitions: BlockDefinition[];
   selectedId: string | null;
   dirty: boolean;
   past: PageContent[];
   future: PageContent[];
-  savedSnapshot: string;
+  initialSnapshot: string;
   bootstrap(): Promise<void>;
-  login(input:Credentials):Promise<void>;
-  register(input:Registration):Promise<void>;
-  logout():Promise<void>;
+  replaceContent(content:PageContent):void;
+  markClean():void;
   select(id:string):void;
   addBlock(type:string,parentId?:string|null):void;
   updateAttrs(id:string,attrs:Record<string,unknown>):void;
@@ -25,8 +19,6 @@ type State = {
   removeBlock(id:string):void;
   undo():void;
   redo():void;
-  save():Promise<void>;
-  publish():Promise<void>;
 };
 
 const HISTORY_LIMIT = 100;
@@ -40,7 +32,8 @@ async function api<T>(url:string, init:RequestInit = {}):Promise<T>{
   const response = await fetch(url,{...init,headers});
   if(!response.ok){
     const body = await response.json().catch(()=>({message:'Request failed'}));
-    throw new Error(body.message ?? Object.values(body.errors ?? {}).flat().join(' ') ?? 'Request failed');
+    const details = Object.values(body.errors ?? {}).flat().join(' ');
+    throw new Error(details || body.message || 'Request failed');
   }
   return response.json();
 }
@@ -92,115 +85,97 @@ function insertBefore(blocks:PageBlock[], targetId:string, blockToInsert:PageBlo
 }
 
 function historyUpdate(state:State, nextContent:PageContent, selectedId=state.selectedId){
-  if(!state.page || snapshot(state.page.draft_content)===snapshot(nextContent)) return null;
-  const past=[...state.past,state.page.draft_content].slice(-HISTORY_LIMIT);
+  if(snapshot(state.content)===snapshot(nextContent)) return null;
   return {
-    page:{...state.page,draft_content:nextContent},
+    content:nextContent,
     selectedId,
-    past,
+    past:[...state.past,state.content].slice(-HISTORY_LIMIT),
     future:[],
-    dirty:snapshot(nextContent)!==state.savedSnapshot,
+    dirty:snapshot(nextContent)!==state.initialSnapshot,
   };
 }
 
 export const useBuilder = create<State>((set,get)=>({
-  user:null,authReady:false,page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:'',
-  async bootstrap(){
-    const me = await fetch('/api/auth/me',{headers:{Accept:'application/json'}});
-    if(!me.ok){
-      set({user:null,authReady:true,page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:''});
-      return;
-    }
+  content:defaultContent,
+  definitions:[],
+  selectedId:defaultContent.blocks[0]?.id ?? null,
+  dirty:false,
+  past:[],
+  future:[],
+  initialSnapshot:snapshot(defaultContent),
 
-    const {user} = await me.json() as {user:User};
-    const definitions = await api<BlockDefinition[]>('/api/blocks');
-    const queryId = new URLSearchParams(location.search).get('page');
-    let page: Page;
-    if(queryId){
-      page = await api<Page>(`/api/pages/${queryId}`);
-    } else {
-      page = await api<Page>('/api/pages',{method:'POST',body:JSON.stringify({title:'Home',slug:`home-${Date.now()}`,content:defaultContent})});
-      history.replaceState(null,'',`?page=${page.id}`);
-    }
-    set({user,authReady:true,definitions,page,selectedId:page.draft_content.blocks[0]?.id ?? null,dirty:false,past:[],future:[],savedSnapshot:snapshot(page.draft_content)});
+  async bootstrap(){
+    const definitions = await api<BlockDefinition[]>('/api/page-builder/blocks');
+    set({definitions});
   },
-  async login(input){
-    const {user}=await api<{user:User}>('/api/auth/login',{method:'POST',body:JSON.stringify(input)});
-    set({user,authReady:true});
-    await get().bootstrap();
+
+  replaceContent(content){
+    const next = content && Array.isArray(content.blocks) ? content : {blocks:[]};
+    set({content:next,selectedId:next.blocks[0]?.id ?? null,dirty:false,past:[],future:[],initialSnapshot:snapshot(next)});
   },
-  async register(input){
-    const {user}=await api<{user:User}>('/api/auth/register',{method:'POST',body:JSON.stringify(input)});
-    set({user,authReady:true});
-    await get().bootstrap();
+
+  markClean(){
+    const s=get();
+    set({dirty:false,initialSnapshot:snapshot(s.content)});
   },
-  async logout(){
-    await api<{ok:boolean}>('/api/auth/logout',{method:'POST'});
-    history.replaceState(null,'',location.pathname);
-    set({user:null,authReady:true,page:null,definitions:[],selectedId:null,dirty:false,past:[],future:[],savedSnapshot:''});
-  },
+
   select(selectedId){set({selectedId});},
+
   addBlock(type,parentId){
-    const s=get(); if(!s.page) return;
+    const s=get();
     const def=s.definitions.find(d=>d.name===type);
-    const attrs=Object.fromEntries(Object.entries(def?.attributes??{}).map(([k,v])=>[k,v.default]));
-    const block:PageBlock={id:crypto.randomUUID(),type,attrs,...(def?.supports?.children?{children:[]}: {})};
-    const selected= s.selectedId ? findBlock(s.page.draft_content.blocks,s.selectedId) : null;
+    if(!def)return;
+    const attrs=Object.fromEntries(Object.entries(def.attributes??{}).map(([k,v])=>[k,v.default]));
+    const block:PageBlock={id:crypto.randomUUID(),type,attrs,...(def.supports?.children?{children:[]}: {})};
+    const selected=s.selectedId?findBlock(s.content.blocks,s.selectedId):null;
     const selectedDef=s.definitions.find(d=>d.name===selected?.type);
     const targetParent=parentId!==undefined?parentId:(selected&&selectedDef?.supports?.children?selected.id:null);
     const blocks=targetParent
-      ? updateBlock(s.page.draft_content.blocks,targetParent,parent=>({...parent,children:[...(parent.children??[]),block]}))
-      : [...s.page.draft_content.blocks,block];
+      ? updateBlock(s.content.blocks,targetParent,parent=>({...parent,children:[...(parent.children??[]),block]}))
+      : [...s.content.blocks,block];
     const update=historyUpdate(s,{blocks},block.id); if(update)set(update);
   },
+
   updateAttrs(id,attrs){
-    const s=get(); if(!s.page)return;
-    const blocks=updateBlock(s.page.draft_content.blocks,id,b=>({...b,attrs:{...b.attrs,...attrs}}));
+    const s=get();
+    const blocks=updateBlock(s.content.blocks,id,b=>({...b,attrs:{...b.attrs,...attrs}}));
     const update=historyUpdate(s,{blocks}); if(update)set(update);
   },
+
   moveBlock(activeId,overId){
     if(activeId===overId)return;
-    const s=get(); if(!s.page)return;
-    const blocks=s.page.draft_content.blocks;
+    const s=get();
+    const blocks=s.content.blocks;
     const active=findBlock(blocks,activeId); const over=findBlock(blocks,overId);
     if(!active||!over||findBlock(active.children??[],overId))return;
     const overParent=findParentId(blocks,overId);
     const removed=removeFromTree(blocks,activeId);
     if(!removed.removed)return;
     let next=removed.blocks;
-    if(overParent===null){next=insertBefore(next,overId,removed.removed);}
-    else if(overParent!==undefined){next=updateBlock(next,overParent,parent=>({...parent,children:insertBefore(parent.children??[],overId,removed.removed!)}));}
+    if(overParent===null) next=insertBefore(next,overId,removed.removed);
+    else if(overParent!==undefined) next=updateBlock(next,overParent,parent=>({...parent,children:insertBefore(parent.children??[],overId,removed.removed!)}));
     const update=historyUpdate(s,{blocks:next}); if(update)set(update);
   },
+
   removeBlock(id){
-    const s=get();if(!s.page)return;
-    const result=removeFromTree(s.page.draft_content.blocks,id);if(!result.removed)return;
+    const s=get();
+    const result=removeFromTree(s.content.blocks,id);
+    if(!result.removed)return;
     const selectedId=s.selectedId===id||Boolean(s.selectedId&&findBlock(result.removed.children??[],s.selectedId))?null:s.selectedId;
     const update=historyUpdate(s,{blocks:result.blocks},selectedId); if(update)set(update);
   },
+
   undo(){
-    const s=get(); if(!s.page||s.past.length===0)return;
+    const s=get(); if(s.past.length===0)return;
     const previous=s.past[s.past.length-1];
-    const current=s.page.draft_content;
     const selectedId=s.selectedId&&findBlock(previous.blocks,s.selectedId)?s.selectedId:null;
-    set({page:{...s.page,draft_content:previous},past:s.past.slice(0,-1),future:[current,...s.future].slice(0,HISTORY_LIMIT),selectedId,dirty:snapshot(previous)!==s.savedSnapshot});
+    set({content:previous,past:s.past.slice(0,-1),future:[s.content,...s.future].slice(0,HISTORY_LIMIT),selectedId,dirty:snapshot(previous)!==s.initialSnapshot});
   },
+
   redo(){
-    const s=get(); if(!s.page||s.future.length===0)return;
+    const s=get(); if(s.future.length===0)return;
     const next=s.future[0];
-    const current=s.page.draft_content;
     const selectedId=s.selectedId&&findBlock(next.blocks,s.selectedId)?s.selectedId:null;
-    set({page:{...s.page,draft_content:next},past:[...s.past,current].slice(-HISTORY_LIMIT),future:s.future.slice(1),selectedId,dirty:snapshot(next)!==s.savedSnapshot});
+    set({content:next,past:[...s.past,s.content].slice(-HISTORY_LIMIT),future:s.future.slice(1),selectedId,dirty:snapshot(next)!==s.initialSnapshot});
   },
-  async save(){
-    const s=get(); if(!s.page)return;
-    const page=await api<Page>(`/api/pages/${s.page.id}`,{method:'PUT',body:JSON.stringify({content:s.page.draft_content})});
-    set({page,dirty:false,savedSnapshot:snapshot(page.draft_content)});
-  },
-  async publish(){
-    await get().save();
-    const s=get(); if(!s.page)return;
-    const page=await api<Page>(`/api/pages/${s.page.id}/publish`,{method:'POST'});
-    set({page});
-  }
 }));
