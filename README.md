@@ -1,45 +1,88 @@
-# Laravel + React Visual Page Builder
+# Laravel + React Page Builder
 
-Runnable Gutenberg/Shopify-style visual page builder with Laravel SSR as the rendering source of truth.
+A Gutenberg/Shopify-style **page builder engine** for Laravel with React editor tooling and Laravel Blade SSR.
+
+This project is intentionally **not a CMS**. It does not own users, authentication, authorization, pages, publishing workflows, database tables, slugs, or content lifecycle. The Laravel application that installs the package decides how and where the resulting Page JSON is stored.
+
+## Scope
+
+The package is responsible for:
+
+- block registry and `block.json` manifests
+- manifest-driven inspector controls
+- nested block editing and dnd-kit ordering
+- Page JSON validation
+- Blade SSR rendering
+- iframe live preview
+- per-block CSS/JS asset collection
+- optional React Islands for interactive blocks
+- generic runtime data-provider contracts
+- undo/redo editor history
+- block manifest cache and Artisan block tooling
+
+The host Laravel application is responsible for:
+
+- authentication and authorization
+- models and database schema
+- deciding which entity owns builder content
+- save/autosave/versioning workflows
+- publishing/status/slugs/routes
+- application-level rate limiting and CSP/security policy
+
+## Core data contract
+
+The builder only produces and consumes Page JSON:
+
+```json
+{
+  "blocks": [
+    {
+      "id": "block-1",
+      "type": "core/heading",
+      "attrs": {
+        "text": "Hello World",
+        "level": 2,
+        "alignment": "left"
+      }
+    }
+  ]
+}
+```
+
+A host application can store that JSON anywhere, for example in its own model:
+
+```php
+$model->layout = $pageBuilderJson;
+$model->save();
+```
+
+Rendering stays independent from persistence:
+
+```php
+$html = app(\App\Blocks\PageRenderer::class)->render($model->layout);
+```
+
+The namespace is still `App\\...` while this repository is used as the development harness. The next packaging step is extracting the engine to `src/` with a dedicated `PageBuilderServiceProvider` and package namespace.
 
 ## Current stack
 
-- **PHP 8.5.10**
-- **Laravel 13.29**
-- **MySQL 26.7.1**
-- **React 19.2.8**
-- **TypeScript 7.0.2**
-- **Vite 8.2.2**
-- **Zustand 5.0.15**
-- **dnd-kit core 6.3.1 / sortable 10.0.0 / utilities 3.2.2**
-- **Node.js 26.8.1**
+- PHP 8.5.10
+- Laravel 13.29
+- React 19.2.8
+- TypeScript 7.0.2
+- Vite 8.2.2
+- Zustand 5.0.15
+- dnd-kit core 6.3.1 / sortable 10.0.0 / utilities 3.2.2
+- Node.js 26.8.1
 
-Only stable production releases are targeted. Beta, RC, canary, and experimental builds are intentionally excluded.
+Only stable releases are targeted.
 
-## Architecture
-
-- **Laravel 13**: API, page storage, block registry, manifest loader, Blade SSR, preview and public rendering.
-- **React + TypeScript + Zustand**: authenticated visual editor only.
-- **Page JSON**: source of truth; draft and published versions are stored separately in MySQL JSON columns.
-- **block.json**: block contract for schema, runtime data, and optional assets.
-- **Blade**: SSR source of truth for preview and production.
-- **dnd-kit**: recursive block-tree sorting and movement.
-- **DataProviderRegistry**: resolves trusted runtime data before Blade rendering.
-- **AssetCollector**: collects only assets used by rendered blocks and deduplicates them.
-- **React Islands**: optional per-block storefront interactivity; non-interactive pages do not load carousel React code.
-- **Editor history**: immutable Page JSON snapshots back undo/redo across attrs, repeaters, nested add/remove, and drag/drop.
-- **Laravel session auth + PagePolicy**: editor API and draft preview are owner-restricted while published storefront routes remain public.
-- **Persistent block manifest cache**: validated block manifests can be warmed once and reused across requests.
-- **SecurityHeaders + RateLimiter**: CSP/security headers and named throttles protect storefront, preview, render, and auth traffic.
-- **PageContentValidator**: recursively enforces page structure and `block.json` attribute contracts before preview rendering or persistence.
-
-## Run
+## Development harness
 
 ```bash
 cp .env.example .env
 composer install
 php artisan key:generate
-php artisan migrate
 php artisan serve
 ```
 
@@ -51,108 +94,165 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Create an account or sign in from the editor. New pages are automatically owned by the authenticated user.
+Open `http://localhost:5173`.
 
-## Implemented slices
+No login, page record, or publish flow is required.
 
-### Slice 1 — end-to-end publishing
-`Heading → React editor → Page JSON → Blade SSR → iframe preview → save → publish → public page`
+## Builder endpoints
 
-### Slice 2 — nested layout + drag and drop
-Includes `core/container`, `core/columns`, recursive tree editing, nested selection, add/remove child blocks, dnd-kit reorder/move, and unsaved structural preview through `POST /api/render-page`.
+```text
+GET  /api/page-builder/blocks
+POST /api/page-builder/render-block
+POST /api/page-builder/render-page
+GET  /page-builder/preview
+GET  /block-assets/{namespace}/{block}/{asset}
+```
 
-### Slice 3 — dynamic data providers
-`commerce/product-grid` declares `data.provider = products`. `DataProviderRegistry` resolves `ProductDataProvider`, builds runtime data, and passes it into Blade.
+These endpoints are intentionally builder-only. A host application may wrap them in its own auth, policies, middleware, route prefix, or tenancy rules.
 
-### Slice 4 — per-block assets
-`AssetCollector` loads only manifest-declared CSS/JS for blocks actually rendered and deduplicates repeated block assets.
+## Editor integration
 
-### Slice 5 — SSR carousel + lazy React Island
-`core/carousel` renders complete Blade SSR markup first. Its CSS and `frontend.js` load only when the block exists, and each carousel mounts as an independent React 19 island.
+The editor keeps only `PageContent` in Zustand. It does not know about page IDs, users, slugs, draft/published states, or database models.
 
-### Slice 6 — undo / redo editor history
-All Page JSON mutations use one bounded 100-snapshot history model. Save/Publish preserve history and dirty state compares against the last saved Page JSON snapshot.
+Host code can provide content to an embedded editor with same-origin `postMessage`:
 
-### Slice 7 — authentication + authorization
-Laravel session auth protects builder APIs. `Page.user_id` plus `PagePolicy` enforce owner-only read/update/publish/preview while published storefront routes remain public.
+```js
+editorWindow.postMessage({
+  type: 'SET_PAGE_BUILDER_CONTENT',
+  content: pageJson
+}, location.origin)
+```
 
-### Slice 8 — persistent manifest cache + Artisan block commands
+Changes are emitted as:
+
+```js
+{
+  type: 'PAGE_BUILDER_CHANGE',
+  content: pageJson
+}
+```
+
+The editor also dispatches a local `page-builder:change` CustomEvent and includes a development-only **Copy JSON** action.
+
+## Blocks
+
+Current core examples:
+
+```text
+blocks/
+  heading/
+  container/
+  columns/
+  carousel/
+```
+
+Typical custom block:
+
+```text
+blocks/
+  testimonial/
+    block.json
+    template.blade.php
+    style.css
+    frontend.js        # optional
+```
+
+Generate a starter block:
+
+```bash
+php artisan make:block custom/testimonial
+```
+
+Manifest tools:
 
 ```bash
 php artisan blocks:list
 php artisan blocks:cache
 php artisan blocks:clear
-php artisan make:block custom/promo-banner
 ```
 
-`make:block` scaffolds a validated `block.json` plus an escaped Blade template and clears stale manifest cache.
+## Runtime data providers
 
-### Slice 9 — CSP, rate limiting, and CI
+`DataProviderRegistry` and `BlockDataProvider` stay generic, but the package registers **no application-specific providers**. The host application can register its own provider for products, posts, inventory, API data, or any other domain model.
 
-Public pages, preview pages, and block assets pass through `SecurityHeaders` with CSP, referrer policy, content-type protection, frame policy, and permissions policy. Named rate limiters protect auth, render, and preview traffic.
+## Recursive validation
 
-GitHub Actions CI contains independent backend and editor jobs. The latest verified run completed successfully: backend Composer install + `php artisan test`, and editor TypeScript + Vite production build both passed.
+`PageContentValidator` validates Page JSON using the registered block manifests:
 
-### Slice 10 — recursive Page JSON validation
+- block IDs are required and globally unique
+- block types must exist in `BlockRegistry`
+- only manifest-declared attributes are accepted
+- string, textarea, URL/image, number/range, boolean, select, and repeater schemas are validated
+- select options and numeric limits are enforced
+- nested repeater fields are validated recursively
+- children are accepted only for blocks with `supports.children=true`
+- maximum nesting depth: 20
+- maximum blocks per document: 1000
 
-`PageContentValidator` is shared by live render and page persistence, so the payload accepted by preview is the same payload allowed into `draft_content`.
+Invalid content returns Laravel 422 errors with dotted paths such as `blocks.1.children.0.attrs.level`.
 
-It validates recursively:
+## Rendering and assets
 
 ```text
 Page JSON
-  blocks[]
-    id      → required, <=100 chars, globally unique
-    type    → must exist in BlockRegistry
-    attrs   → object, known keys only
-      ↓
-    block.json attribute schema
-      string / textarea / url / image
-      number / range + min/max
-      boolean
-      select + allowed options
-      repeater + nested field schemas
-    children[]
-      → list
-      → only when supports.children=true
-      → recursively validated
+   ↓
+PageContentValidator
+   ↓
+PageRenderer
+   ↓
+BlockRenderer
+   ↓
+Blade SSR
+   ↓
+AssetCollector
 ```
 
-Safety bounds:
+Only assets belonging to blocks present in the document are emitted, and repeated block assets are deduplicated.
+
+`core/carousel` demonstrates SSR-first interactivity: its complete content exists in Blade HTML before its optional React Island enhances the block.
+
+## Security boundary
+
+The builder package handles security that belongs to block rendering itself:
+
+- Blade escaping for user-controlled values
+- manifest validation
+- recursive Page JSON validation
+- block asset allowlisting
+- filesystem path traversal protection
+- same-origin preview messaging
+
+Authentication, authorization, global CSP, security headers, and rate limiting belong to the host application and are deliberately not imposed by the builder package.
+
+## CI
+
+GitHub Actions verifies:
 
 ```text
-maximum nesting depth: 20
-maximum blocks/page:    1000
+backend
+  PHP 8.5
+  composer install
+  php artisan test
+
+editor
+  Node.js 26.8.1
+  npm install
+  npm run build
 ```
 
-Unknown block types, duplicate IDs, unknown attributes/repeater fields, invalid select values, invalid attribute types, and unsupported children return Laravel 422 validation errors with dotted paths such as `blocks.1.children.0.attrs.level`.
+## Next packaging step
 
-## Security
+Extract the development-harness implementation into a real Laravel package structure:
 
-- Laravel session authentication for builder routes
-- encrypted session-cookie handling
-- page ownership enforced with `PagePolicy`
-- owner-only draft previews
-- named rate limits on auth/render/preview
-- CSP and standard browser security headers
-- recursive manifest-driven Page JSON validation
-- Blade escaping for user-controlled values
-- React renders slide text as text nodes, not raw HTML
-- trusted manifest registry
-- path traversal protection
-- asset filename + extension whitelist
-- only manifest-declared assets can be served
-- same-origin `postMessage` validation
-- mutable AssetCollector is request/lifecycle scoped
-
-## Tests
-
-```bash
-php artisan test
+```text
+src/
+  PageBuilderServiceProvider.php
+  Blocks/
+  DataProviders/
+  Http/
+resources/
+routes/
+editor/
 ```
 
-Backend tests cover authentication, ownership/policies, recursive rendering, recursive payload validation, dynamic data, asset deduplication, carousel SSR/lazy assets, secure asset serving, and block-registry cache commands. GitHub Actions also compiles the React/TypeScript editor.
-
-## Next slice
-
-**Local storefront bundling + nonce-based CSP**, followed by page management UI, autosave/versioning, and richer Gutenberg-style controls.
+Then expose configurable route prefixes, block paths, views, editor assets, and extension hooks without shipping CMS concerns.
