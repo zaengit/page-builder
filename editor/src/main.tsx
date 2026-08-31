@@ -7,10 +7,20 @@ import { useBuilder } from './store';
 import type { AttrSchema, BlockDefinition, PageBlock } from './types';
 import './style.css';
 
+function defaults(fields:Record<string,AttrSchema> = {}){
+  return Object.fromEntries(Object.entries(fields).map(([key,schema])=>[key,schema.default ?? '']));
+}
+
 function Control({name,schema,value,onChange}:{name:string;schema:AttrSchema;value:unknown;onChange:(v:unknown)=>void}){
   if(schema.type==='select') return <label>{schema.label??name}<select value={String(value??'')} onChange={e=>{const option=schema.options?.find(o=>String(o)===e.target.value);onChange(option??e.target.value)}}>{schema.options?.map(o=><option key={String(o)} value={String(o)}>{String(o)}</option>)}</select></label>;
   if(schema.type==='boolean') return <label className="check"><input type="checkbox" checked={Boolean(value)} onChange={e=>onChange(e.target.checked)}/>{schema.label??name}</label>;
-  return <label>{schema.label??name}<input value={String(value??'')} onChange={e=>onChange(e.target.value)} /></label>;
+  if(schema.type==='textarea') return <label>{schema.label??name}<textarea value={String(value??'')} onChange={e=>onChange(e.target.value)} /></label>;
+  if(schema.type==='number'||schema.type==='range') return <label>{schema.label??name}<input type={schema.type==='range'?'range':'number'} min={schema.min} max={schema.max} step={schema.step} value={Number(value??0)} onChange={e=>onChange(Number(e.target.value))}/>{schema.type==='range'&&<span>{String(value??0)}</span>}</label>;
+  if(schema.type==='repeater'){
+    const items=Array.isArray(value)?value as Array<Record<string,unknown>>:[];
+    return <fieldset className="repeater"><legend>{schema.label??name}</legend>{items.map((item,index)=><div className="repeater-item" key={index}><div className="repeater-head"><strong>Item {index+1}</strong><button type="button" onClick={()=>onChange(items.filter((_,i)=>i!==index))}>Remove</button></div>{Object.entries(schema.fields??{}).map(([field,fieldSchema])=><Control key={field} name={field} schema={fieldSchema} value={item[field]} onChange={next=>onChange(items.map((current,i)=>i===index?{...current,[field]:next}:current))}/>)}</div>)}<button type="button" onClick={()=>onChange([...items,defaults(schema.fields)])}>+ Add item</button></fieldset>;
+  }
+  return <label>{schema.label??name}<input type={schema.type==='url'||schema.type==='image'?'url':'text'} value={String(value??'')} onChange={e=>onChange(e.target.value)} /></label>;
 }
 
 function findBlock(blocks:PageBlock[],id:string|null):PageBlock|undefined{
