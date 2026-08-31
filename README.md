@@ -26,6 +26,7 @@ Only stable production releases are targeted. Beta, RC, canary, and experimental
 - **dnd-kit**: recursive block-tree sorting and movement.
 - **DataProviderRegistry**: resolves trusted runtime data before Blade rendering.
 - **AssetCollector**: collects only assets used by rendered blocks and deduplicates them.
+- **React Islands**: optional per-block storefront interactivity; non-interactive pages do not load carousel React code.
 
 ## Run
 
@@ -94,11 +95,41 @@ Custom block assets remain outside `public/`. Laravel serves only manifest-decla
 
 The live editor also receives `assets` from `/api/render-page`. The preview iframe injects missing styles/modules dynamically and deduplicates them, so adding an asset-bearing block does not require an iframe reload.
 
-`commerce/product-grid` now demonstrates this system with its own `style.css`.
+### Slice 5 — SSR carousel + lazy React Island
+
+`core/carousel` demonstrates optional storefront React:
+
+```text
+Page JSON
+   ↓
+Blade SSR carousel markup
+   ↓
+HTML + CSS works without JavaScript
+   ↓
+AssetCollector sees frontend.js
+   ↓
+frontend.js loads only on pages using carousel
+   ↓
+React mounts each carousel independently
+```
+
+The block manifest contains `title`, `autoplay`, `interval`, and a schema-driven `items` repeater. The editor now supports repeater fields generically, so slide add/remove/title/description/image controls are generated from `block.json` rather than hard-coded for carousel.
+
+Blade prints all slide content before JavaScript executes. `frontend.js` then mounts a React 19 island into each `[data-carousel-island]`, adding previous/next controls, dots, and autoplay. A `MutationObserver` discovers carousel blocks inserted by live preview updates, so structural edits do not require an iframe reload.
+
+Multiple carousel instances have independent state while AssetCollector emits only one copy of:
+
+```text
+/block-assets/core/carousel/style.css
+/block-assets/core/carousel/frontend.js
+```
+
+A heading-only page resets to an empty JS asset list, so the visitor storefront does not download carousel React code when no interactive block exists.
 
 ## Security
 
 - Blade escaping for user-controlled values
+- React renders slide text as text nodes, not raw HTML
 - trusted manifest registry
 - path traversal protection
 - asset filename + extension whitelist
@@ -113,8 +144,8 @@ The live editor also receives `assets` from `/api/render-page`. The preview ifra
 php artisan test
 ```
 
-Tests cover XSS/defaulting, recursive rendering, dynamic product data, draft/publish, asset deduplication, and rejection of undeclared block assets.
+Tests cover XSS/defaulting, recursive rendering, dynamic product data, draft/publish, asset deduplication, rejection of undeclared block assets, carousel SSR output, lazy React asset loading, and carousel asset deduplication.
 
 ## Next slice
 
-**Carousel React Island runtime**: SSR carousel markup first, then lazy client-side hydration/mount only when `core/carousel` exists on the page.
+**Undo/redo editor history**, followed by authentication/policies, manifest cache + Artisan block commands, CSP, and preview rate limiting.
