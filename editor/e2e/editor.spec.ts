@@ -53,16 +53,20 @@ test.describe('mobile workspace', () => {
   test('uses sheets for blocks and inspector and supports mobile preview', async ({ page }) => {
     await page.getByLabel('Open blocks panel').click();
     await addHeading(page);
+    const sheet = page.locator('[data-slot="sheet-content"]');
     await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toBeHidden();
 
     await page.getByLabel('Mobile preview').click();
     await expect(page.getByLabel('Mobile preview')).toHaveAttribute('data-state', 'on');
     await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeHidden();
 
     await page.getByLabel('Open inspector panel').click();
-    await expect(page.getByLabel('Text').filter({ visible: true })).toBeVisible();
-    await page.getByLabel('Text').filter({ visible: true }).fill('Mobile title');
+    const mobileText = page.getByLabel('Text').filter({ visible: true });
+    await expect(mobileText).toBeVisible();
+    await mobileText.fill('Mobile title');
     await page.getByRole('button', { name: 'Close' }).click();
+    await expect(sheet).toBeHidden();
     await expect(page.frameLocator('iframe[title="Page builder preview"]').locator('h2')).toHaveText('Mobile title');
     await captureEditor(page, 'page-builder-mobile');
   });
