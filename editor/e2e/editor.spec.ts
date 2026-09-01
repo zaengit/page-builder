@@ -31,7 +31,7 @@ test('exposes keyboard-accessible editor controls', async ({ page }) => {
   await expect(inserter).toBeFocused();
   await inserter.selectOption('core/heading');
 
-  const move = page.getByRole('button', { name: 'Move Heading' });
+  const move = page.getByRole('button', { name: 'Move Heading', exact: true });
   await move.focus();
   await expect(move).toBeFocused();
   await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeVisible();
