@@ -3,10 +3,13 @@
 namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Tests\TestCase;
 use Zaengit\PageBuilder\Blocks\BlockManifestLoader;
+use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
+use Zaengit\PageBuilder\Blocks\PageContentValidator;
 
 class ProductionIntegrationTest extends TestCase
 {
@@ -84,6 +87,61 @@ class ProductionIntegrationTest extends TestCase
         } finally {
             $this->removeDirectory($root);
         }
+    }
+
+    public function test_old_block_attrs_are_migrated_before_validation(): void
+    {
+        $root = $this->makeBlockRoot([
+            'versioned' => [
+                'name' => 'test/versioned', 'title' => 'Versioned', 'category' => 'test', 'version' => 2,
+                'attributes' => ['text' => ['type' => 'string', 'default' => '']],
+            ],
+        ]);
+        config()->set('page-builder.block_paths', [$root]);
+        app(BlockRegistry::class)->clear();
+        app(BlockMigrationRegistry::class)->register('test/versioned', 1, fn (array $attrs): array => ['text' => (string) ($attrs['legacyText'] ?? '')]);
+
+        try {
+            $content = app(PageContentValidator::class)->validate(['blocks' => [[
+                'id' => 'legacy', 'type' => 'test/versioned', 'version' => 1, 'attrs' => ['legacyText' => 'Migrated'],
+            ]]]);
+            $this->assertSame(2, $content['blocks'][0]['version']);
+            $this->assertSame(['text' => 'Migrated'], $content['blocks'][0]['attrs']);
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_missing_block_migration_is_rejected(): void
+    {
+        $root = $this->makeBlockRoot([
+            'unmigrated' => [
+                'name' => 'test/unmigrated', 'title' => 'Unmigrated', 'category' => 'test', 'version' => 2,
+                'attributes' => ['text' => ['type' => 'string', 'default' => '']],
+            ],
+        ]);
+        config()->set('page-builder.block_paths', [$root]);
+        app(BlockRegistry::class)->clear();
+
+        try {
+            app(PageContentValidator::class)->validate(['blocks' => [[
+                'id' => 'legacy', 'type' => 'test/unmigrated', 'version' => 1, 'attrs' => ['text' => 'Old'],
+            ]]]);
+            $this->fail('Expected missing migration validation failure.');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('blocks.0.version', $e->errors());
+            $this->assertStringContainsString('Missing migration', $e->errors()['blocks.0.version'][0]);
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
+    public function test_future_block_schema_version_is_rejected(): void
+    {
+        $this->expectException(ValidationException::class);
+        app(PageContentValidator::class)->validate(['blocks' => [[
+            'id' => 'future', 'type' => 'core/heading', 'version' => 99, 'attrs' => [],
+        ]]]);
     }
 
     private function makeBlockRoot(array $blocks): string
