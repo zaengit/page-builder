@@ -24,7 +24,15 @@ final class PageRenderer
     private function renderBlock(array $block, bool $preview): string
     {
         $children = implode('', array_map(fn (array $child) => $this->renderBlock($child, $preview), $block['children'] ?? []));
+        $html = $this->blocks->render($block, $preview, $children);
 
-        return $this->blocks->render($block, $preview, $children);
+        if (! $preview) {
+            return $html;
+        }
+
+        $id = e((string) ($block['id'] ?? ''));
+        $type = e((string) ($block['type'] ?? ''));
+
+        return '<div class="pb-preview-block" data-pb-block-id="'.$id.'" data-pb-block-type="'.$type.'">'.$html.'</div>';
     }
 }
