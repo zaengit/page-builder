@@ -1,15 +1,216 @@
 import { create } from 'zustand';
 import type { BlockDefinition, BlockVariation, EditorRuntime, PageBlock, PageContent } from './types';
+import { clone, EMPTY_CONTENT, setPathValue } from './utils';
 
-export type BuilderState={content:PageContent;definitions:BlockDefinition[];runtime:EditorRuntime|null;selectedId:string|null;dirty:boolean;past:PageContent[];future:PageContent[];initialSnapshot:string;bootstrap:(runtime:EditorRuntime,initial?:PageContent)=>Promise<void>;replaceContent:(content:PageContent)=>void;select:(id:string|null)=>void;addBlock:(type:string,parentId?:string|null,variation?:BlockVariation)=>void;insertBlock:(block:PageBlock,parentId?:string|null)=>void;duplicateBlock:(id:string)=>void;updateAttrs:(id:string,attrs:Record<string,unknown>)=>void;moveBlock:(activeId:string,overId:string)=>void;removeBlock:(id:string)=>void;undo:()=>void;redo:()=>void;};
-const LIMIT=100;const empty:PageContent={blocks:[]};const snap=(v:PageContent)=>JSON.stringify(v);const copy=<T,>(v:T):T=>structuredClone(v);
-async function api<T>(url:string):Promise<T>{const r=await fetch(url,{headers:{Accept:'application/json'},credentials:'same-origin'});if(!r.ok)throw new Error(`Request failed (${r.status})`);return r.json();}
-export function findBlock(blocks:PageBlock[],id:string|null):PageBlock|null{if(!id)return null;for(const b of blocks){if(b.id===id)return b;const c=findBlock(b.children??[],id);if(c)return c;}return null;}
-function update(blocks:PageBlock[],id:string,fn:(b:PageBlock)=>PageBlock):PageBlock[]{return blocks.map(b=>b.id===id?fn(b):{...b,children:b.children?update(b.children,id,fn):b.children});}
-function remove(blocks:PageBlock[],id:string):{blocks:PageBlock[];removed:PageBlock|null}{const i=blocks.findIndex(b=>b.id===id);if(i>=0){const next=[...blocks];const [removed]=next.splice(i,1);return{blocks:next,removed};}for(const b of blocks){const r=remove(b.children??[],id);if(r.removed)return{blocks:blocks.map(x=>x.id===b.id?{...x,children:r.blocks}:x),removed:r.removed};}return{blocks,removed:null};}
-function parentId(blocks:PageBlock[],id:string,parent:string|null=null):string|null|undefined{for(const b of blocks){if(b.id===id)return parent;const found=parentId(b.children??[],id,b.id);if(found!==undefined)return found;}return undefined;}
-function before(blocks:PageBlock[],target:string,item:PageBlock){const i=blocks.findIndex(b=>b.id===target);if(i<0)return blocks;const next=[...blocks];next.splice(i,0,item);return next;}
-function renew(b:PageBlock):PageBlock{return{...copy(b),id:crypto.randomUUID(),children:b.children?.map(renew)};}
-function hist(s:BuilderState,content:PageContent,selectedId=s.selectedId){if(snap(s.content)===snap(content))return null;return{content,selectedId,past:[...s.past,s.content].slice(-LIMIT),future:[],dirty:snap(content)!==s.initialSnapshot};}
+export type BuilderState = {
+  content: PageContent;
+  definitions: BlockDefinition[];
+  runtime: EditorRuntime | null;
+  selectedId: string | null;
+  dirty: boolean;
+  past: PageContent[];
+  future: PageContent[];
+  initialSnapshot: string;
+  bootstrap: (runtime: EditorRuntime, initial?: PageContent) => Promise<void>;
+  replaceContent: (content: PageContent) => void;
+  select: (id: string | null) => void;
+  addBlock: (type: string, parentId?: string | null, variation?: BlockVariation) => void;
+  insertBlock: (block: PageBlock, parentId?: string | null) => void;
+  duplicateBlock: (id: string) => void;
+  updateAttrs: (id: string, attrs: Record<string, unknown>) => void;
+  updateAttrPath: (id: string, path: string[], value: unknown) => void;
+  moveBlock: (activeId: string, overId: string) => void;
+  removeBlock: (id: string) => void;
+  undo: () => void;
+  redo: () => void;
+};
 
-export function createBuilderStore(){return create<BuilderState>((set,get)=>({content:empty,definitions:[],runtime:null,selectedId:null,dirty:false,past:[],future:[],initialSnapshot:snap(empty),async bootstrap(runtime,initial){const definitions=await api<BlockDefinition[]>(runtime.blocksUrl);const content=initial&&Array.isArray(initial.blocks)?initial:empty;set({runtime,definitions,content,selectedId:content.blocks[0]?.id??null,dirty:false,past:[],future:[],initialSnapshot:snap(content)});},replaceContent(content){const next=content&&Array.isArray(content.blocks)?content:empty;set({content:next,selectedId:next.blocks[0]?.id??null,dirty:false,past:[],future:[],initialSnapshot:snap(next)});},select(selectedId){set({selectedId});},addBlock(type,parent,variation){const s=get(),def=s.definitions.find(d=>d.name===type);if(!def)return;const attrs=Object.fromEntries(Object.entries(def.attributes??{}).map(([k,v])=>[k,copy(v.default)]));get().insertBlock({id:crypto.randomUUID(),type,version:def.version??1,attrs:{...attrs,...copy(variation?.attrs??{})},...(def.supports?.children?{children:[]}:{})},parent);},insertBlock(block,parent=null){const s=get(),item=renew(block);let blocks;if(parent){const p=findBlock(s.content.blocks,parent),def=s.definitions.find(d=>d.name===p?.type);if(!p||!def?.supports?.children)return;if(def.supports.allowedChildren?.length&&!def.supports.allowedChildren.includes(item.type))return;blocks=update(s.content.blocks,parent,b=>({...b,children:[...(b.children??[]),item]}));}else blocks=[...s.content.blocks,item];const u=hist(s,{blocks},item.id);if(u)set(u);},duplicateBlock(id){const s=get(),b=findBlock(s.content.blocks,id);if(b)get().insertBlock(b,parentId(s.content.blocks,id)??null);},updateAttrs(id,attrs){const s=get(),blocks=update(s.content.blocks,id,b=>({...b,attrs:{...b.attrs,...attrs}}));const u=hist(s,{blocks});if(u)set(u);},moveBlock(activeId,overId){if(activeId===overId)return;const s=get(),active=findBlock(s.content.blocks,activeId);if(!active)return;const child=overId.startsWith('children:')?overId.slice(9):null;const target=findBlock(s.content.blocks,child??overId);if(!target||findBlock(active.children??[],target.id))return;if(child){const def=s.definitions.find(d=>d.name===target.type);if(!def?.supports?.children||(def.supports.allowedChildren?.length&&!def.supports.allowedChildren.includes(active.type)))return;}const r=remove(s.content.blocks,activeId);if(!r.removed)return;let blocks=r.blocks;if(child)blocks=update(blocks,child,b=>({...b,children:[...(b.children??[]),r.removed!]}));else{const p=parentId(blocks,overId);if(p===null)blocks=before(blocks,overId,r.removed);else if(p!==undefined)blocks=update(blocks,p,b=>({...b,children:before(b.children??[],overId,r.removed!)}));}const u=hist(s,{blocks});if(u)set(u);},removeBlock(id){const s=get(),r=remove(s.content.blocks,id);if(!r.removed)return;const selectedRemoved=s.selectedId===id||Boolean(s.selectedId&&findBlock(r.removed.children??[],s.selectedId));const u=hist(s,{blocks:r.blocks},selectedRemoved?null:s.selectedId);if(u)set(u);},undo(){const s=get();if(!s.past.length)return;const content=s.past.at(-1)!;set({content,past:s.past.slice(0,-1),future:[s.content,...s.future].slice(0,LIMIT),selectedId:s.selectedId&&findBlock(content.blocks,s.selectedId)?s.selectedId:null,dirty:snap(content)!==s.initialSnapshot});},redo(){const s=get();if(!s.future.length)return;const content=s.future[0];set({content,past:[...s.past,s.content].slice(-LIMIT),future:s.future.slice(1),selectedId:s.selectedId&&findBlock(content.blocks,s.selectedId)?s.selectedId:null,dirty:snap(content)!==s.initialSnapshot});}}));}
+const HISTORY_LIMIT = 100;
+const snapshot = (content: PageContent) => JSON.stringify(content);
+
+async function api<T>(url: string): Promise<T> {
+  const response = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+  if (!response.ok) throw new Error(`Request failed (${response.status})`);
+  return response.json() as Promise<T>;
+}
+
+export function findBlock(blocks: PageBlock[], id: string | null): PageBlock | null {
+  if (!id) return null;
+  for (const block of blocks) {
+    if (block.id === id) return block;
+    const child = findBlock(block.children ?? [], id);
+    if (child) return child;
+  }
+  return null;
+}
+
+function updateBlock(blocks: PageBlock[], id: string, transform: (block: PageBlock) => PageBlock): PageBlock[] {
+  return blocks.map(block => block.id === id ? transform(block) : { ...block, children: block.children ? updateBlock(block.children, id, transform) : block.children });
+}
+
+function removeBlockFromTree(blocks: PageBlock[], id: string): { blocks: PageBlock[]; removed: PageBlock | null } {
+  const index = blocks.findIndex(block => block.id === id);
+  if (index >= 0) {
+    const next = [...blocks];
+    const [removed] = next.splice(index, 1);
+    return { blocks: next, removed };
+  }
+
+  for (const block of blocks) {
+    const result = removeBlockFromTree(block.children ?? [], id);
+    if (result.removed) return { blocks: blocks.map(item => item.id === block.id ? { ...item, children: result.blocks } : item), removed: result.removed };
+  }
+  return { blocks, removed: null };
+}
+
+function findParentId(blocks: PageBlock[], id: string, parent: string | null = null): string | null | undefined {
+  for (const block of blocks) {
+    if (block.id === id) return parent;
+    const found = findParentId(block.children ?? [], id, block.id);
+    if (found !== undefined) return found;
+  }
+  return undefined;
+}
+
+function insertBefore(blocks: PageBlock[], target: string, item: PageBlock): PageBlock[] {
+  const index = blocks.findIndex(block => block.id === target);
+  if (index < 0) return blocks;
+  const next = [...blocks];
+  next.splice(index, 0, item);
+  return next;
+}
+
+function renewIds(block: PageBlock): PageBlock {
+  return { ...clone(block), id: crypto.randomUUID(), children: block.children?.map(renewIds) };
+}
+
+function historyUpdate(state: BuilderState, content: PageContent, selectedId = state.selectedId) {
+  if (snapshot(state.content) === snapshot(content)) return null;
+  return {
+    content,
+    selectedId,
+    past: [...state.past, state.content].slice(-HISTORY_LIMIT),
+    future: [],
+    dirty: snapshot(content) !== state.initialSnapshot,
+  };
+}
+
+export function createBuilderStore() {
+  return create<BuilderState>((set, get) => ({
+    content: EMPTY_CONTENT,
+    definitions: [],
+    runtime: null,
+    selectedId: null,
+    dirty: false,
+    past: [],
+    future: [],
+    initialSnapshot: snapshot(EMPTY_CONTENT),
+
+    async bootstrap(runtime, initial) {
+      const definitions = await api<BlockDefinition[]>(runtime.blocksUrl);
+      const content = initial && Array.isArray(initial.blocks) ? initial : EMPTY_CONTENT;
+      set({ runtime, definitions, content, selectedId: content.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(content) });
+    },
+
+    replaceContent(content) {
+      const next = content && Array.isArray(content.blocks) ? content : EMPTY_CONTENT;
+      set({ content: next, selectedId: next.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(next) });
+    },
+
+    select(selectedId) { set({ selectedId }); },
+
+    addBlock(type, parent, variation) {
+      const state = get();
+      const definition = state.definitions.find(item => item.name === type);
+      if (!definition) return;
+      const attrs = Object.fromEntries(Object.entries(definition.attributes ?? {}).map(([key, schema]) => [key, clone(schema.default)]));
+      get().insertBlock({ id: crypto.randomUUID(), type, version: definition.version ?? 1, attrs: { ...attrs, ...clone(variation?.attrs ?? {}) }, ...(definition.supports?.children ? { children: [] } : {}) }, parent);
+    },
+
+    insertBlock(block, parent = null) {
+      const state = get();
+      const item = renewIds(block);
+      let blocks: PageBlock[];
+      if (parent) {
+        const parentBlock = findBlock(state.content.blocks, parent);
+        const definition = state.definitions.find(candidate => candidate.name === parentBlock?.type);
+        if (!parentBlock || !definition?.supports?.children) return;
+        if (definition.supports.allowedChildren?.length && !definition.supports.allowedChildren.includes(item.type)) return;
+        blocks = updateBlock(state.content.blocks, parent, candidate => ({ ...candidate, children: [...(candidate.children ?? []), item] }));
+      } else {
+        blocks = [...state.content.blocks, item];
+      }
+      const update = historyUpdate(state, { blocks }, item.id);
+      if (update) set(update);
+    },
+
+    duplicateBlock(id) {
+      const state = get();
+      const block = findBlock(state.content.blocks, id);
+      if (block) get().insertBlock(block, findParentId(state.content.blocks, id) ?? null);
+    },
+
+    updateAttrs(id, attrs) {
+      const state = get();
+      const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, attrs: { ...block.attrs, ...attrs } }));
+      const update = historyUpdate(state, { blocks });
+      if (update) set(update);
+    },
+
+    updateAttrPath(id, path, value) {
+      if (path.length === 0) return;
+      const state = get();
+      const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, attrs: setPathValue(block.attrs, path, value) as Record<string, unknown> }));
+      const update = historyUpdate(state, { blocks });
+      if (update) set(update);
+    },
+
+    moveBlock(activeId, overId) {
+      if (activeId === overId) return;
+      const state = get();
+      const active = findBlock(state.content.blocks, activeId);
+      if (!active) return;
+      const childTarget = overId.startsWith('children:') ? overId.slice(9) : null;
+      const target = findBlock(state.content.blocks, childTarget ?? overId);
+      if (!target || findBlock(active.children ?? [], target.id)) return;
+      if (childTarget) {
+        const definition = state.definitions.find(candidate => candidate.name === target.type);
+        if (!definition?.supports?.children || (definition.supports.allowedChildren?.length && !definition.supports.allowedChildren.includes(active.type))) return;
+      }
+      const result = removeBlockFromTree(state.content.blocks, activeId);
+      if (!result.removed) return;
+      let blocks = result.blocks;
+      if (childTarget) blocks = updateBlock(blocks, childTarget, block => ({ ...block, children: [...(block.children ?? []), result.removed!] }));
+      else {
+        const parent = findParentId(blocks, overId);
+        if (parent === null) blocks = insertBefore(blocks, overId, result.removed);
+        else if (parent !== undefined) blocks = updateBlock(blocks, parent, block => ({ ...block, children: insertBefore(block.children ?? [], overId, result.removed!) }));
+      }
+      const update = historyUpdate(state, { blocks });
+      if (update) set(update);
+    },
+
+    removeBlock(id) {
+      const state = get();
+      const result = removeBlockFromTree(state.content.blocks, id);
+      if (!result.removed) return;
+      const selectedRemoved = state.selectedId === id || Boolean(state.selectedId && findBlock(result.removed.children ?? [], state.selectedId));
+      const update = historyUpdate(state, { blocks: result.blocks }, selectedRemoved ? null : state.selectedId);
+      if (update) set(update);
+    },
+
+    undo() {
+      const state = get();
+      if (!state.past.length) return;
+      const content = state.past.at(-1)!;
+      set({ content, past: state.past.slice(0, -1), future: [state.content, ...state.future].slice(0, HISTORY_LIMIT), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot });
+    },
+
+    redo() {
+      const state = get();
+      if (!state.future.length) return;
+      const content = state.future[0];
+      set({ content, past: [...state.past, state.content].slice(-HISTORY_LIMIT), future: state.future.slice(1), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot });
+    },
+  }));
+}
