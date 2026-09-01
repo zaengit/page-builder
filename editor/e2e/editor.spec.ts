@@ -1,9 +1,9 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
 
 const definitions = [{ name: 'core/heading', title: 'Heading', category: 'text', version: 1, description: 'Heading block', attributes: { text: { type: 'string', label: 'Text', default: 'Hello' }, level: { type: 'select', label: 'Level', default: 2, options: [1, 2, 3] } } }];
 
-async function captureEditor(page: Parameters<typeof test>[0] extends never ? never : any, name: string): Promise<void> {
+async function captureEditor(page: Page, name: string): Promise<void> {
   await mkdir('artifacts/screenshots', { recursive: true });
   await page.screenshot({ path: `artifacts/screenshots/${name}.png`, fullPage: true });
 }
