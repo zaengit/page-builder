@@ -2,14 +2,16 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'node:path';
 
+const root = import.meta.dirname;
+
 export default defineConfig({
   plugins: [react()],
   build: {
-    outDir: resolve(__dirname, '../resources/dist'),
+    outDir: resolve(root, '../resources/dist'),
     emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/main.tsx'),
+      input: resolve(root, 'src/main.tsx'),
       output: {
         entryFileNames: 'page-builder.js',
         chunkFileNames: 'chunks/[name]-[hash].js',
