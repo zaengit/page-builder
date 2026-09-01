@@ -5,6 +5,7 @@ namespace Zaengit\PageBuilder;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Zaengit\PageBuilder\Blocks\AssetCollector;
+use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 
 final class PageBuilderServiceProvider extends ServiceProvider
@@ -14,6 +15,7 @@ final class PageBuilderServiceProvider extends ServiceProvider
         $this->mergeConfigFrom(__DIR__.'/../config/page-builder.php', 'page-builder');
         $this->app->scoped(AssetCollector::class);
         $this->app->singleton(DataProviderRegistry::class, fn () => new DataProviderRegistry());
+        $this->app->singleton(BlockMigrationRegistry::class, fn () => new BlockMigrationRegistry());
     }
 
     public function boot(): void

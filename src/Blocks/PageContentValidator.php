@@ -3,13 +3,17 @@
 namespace Zaengit\PageBuilder\Blocks;
 
 use Illuminate\Validation\ValidationException;
+use RuntimeException;
 
 final class PageContentValidator
 {
     private const MAX_DEPTH = 20;
     private const MAX_BLOCKS = 1000;
 
-    public function __construct(private readonly BlockRegistry $registry) {}
+    public function __construct(
+        private readonly BlockRegistry $registry,
+        private readonly BlockMigrationRegistry $migrations,
+    ) {}
 
     public function validate(array $content): array
     {
@@ -39,6 +43,13 @@ final class PageContentValidator
         $definition = $this->registry->get($type);
         if (!$definition) $this->fail("{$path}.type", "Unknown block type [{$type}].");
 
+        try {
+            $block = $this->migrations->migrate($block, (int) ($definition['version'] ?? 1));
+        } catch (RuntimeException $e) {
+            $this->fail("{$path}.version", $e->getMessage());
+        }
+
+        $version = $block['version'];
         $attrs = $block['attrs'] ?? null;
         if (!is_array($attrs)) $this->fail("{$path}.attrs", 'Block attrs must be an object.');
         foreach ($attrs as $name => $value) {
@@ -63,7 +74,7 @@ final class PageContentValidator
         $validatedChildren = [];
         foreach ($children as $index => $child) $validatedChildren[] = $this->validateBlock($child, "{$path}.children.{$index}", $depth + 1, $seenIds, $count);
 
-        $validated = ['id'=>$id, 'type'=>$type, 'attrs'=>$attrs];
+        $validated = ['id'=>$id, 'type'=>$type, 'version'=>$version, 'attrs'=>$attrs];
         if (array_key_exists('children', $block) || ($definition['supports']['children'] ?? false)) $validated['children'] = $validatedChildren;
         return $validated;
     }

@@ -48,6 +48,29 @@ php artisan make:block custom/testimonial
 
 Manifests drive both SSR and the editor inspector. Supported attribute types include string, textarea, URL, image, number, range, boolean, select and nested repeaters. Manifests can declare `category`, `variations`, `supports.children` and `supports.allowedChildren`.
 
+### Block schema versioning
+
+Every block manifest has a positive integer `version`; omitted versions default to `1`. New blocks created by the React editor are stamped with the current manifest version.
+
+When a manifest changes incompatibly, increment its version and register one migration for each version step in the host application:
+
+```php
+use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
+
+app(BlockMigrationRegistry::class)->register('custom/testimonial', 1,
+    function (array $attrs): array {
+        return [
+            'quote' => $attrs['text'] ?? '',
+            'author' => $attrs['author'] ?? '',
+        ];
+    }
+);
+```
+
+The callback migrates **attributes only**. Validation runs after all sequential migrations complete. A missing migration or Page JSON created by a future block schema is rejected with a validation error instead of being rendered with the wrong contract.
+
+For example, moving directly from manifest version `1` to `3` requires registrations for both `1 -> 2` and `2 -> 3`.
+
 ## Editor extension API
 
 Register custom inspector controls after `page-builder:ready`:
