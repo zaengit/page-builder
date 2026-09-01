@@ -23,6 +23,7 @@ export type BlockDefinition = {
   name:string;
   title:string;
   category:string;
+  version:number;
   icon?:string;
   description?:string;
   attributes:Record<string,AttrSchema>;
@@ -36,6 +37,7 @@ export type BlockDefinition = {
 export type PageBlock = {
   id:string;
   type:string;
+  version?:number;
   attrs:Record<string,unknown>;
   children?:PageBlock[];
 };
