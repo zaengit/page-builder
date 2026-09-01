@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { Control } from './components/Controls';
@@ -22,7 +22,18 @@ export function EditorApp({ root, runtime, initial }: Props) {
   const selected = useMemo(() => findBlock(content.blocks, selectedId), [content.blocks, selectedId]);
   const definition = definitions.find(item => item.name === selected?.type);
 
-  useState(() => { bootstrap(runtime, initial).then(() => setReady(true)).catch(reason => { setError(reason instanceof Error ? reason.message : 'Failed to load builder'); setReady(true); }); });
+  useEffect(() => {
+    let active = true;
+    bootstrap(runtime, initial)
+      .then(() => { if (active) setReady(true); })
+      .catch(reason => {
+        if (!active) return;
+        setError(reason instanceof Error ? reason.message : 'Failed to load builder');
+        setReady(true);
+      });
+    return () => { active = false; };
+  }, [bootstrap, initial, runtime]);
+
   useEditorMessages(mediaRequest, { replaceContent, select, updateAttrPath });
   useEditorShortcuts(selectedId, undo, redo, duplicateBlock);
   usePreview(content, ready, runtime, iframe, setError);
