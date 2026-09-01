@@ -63,6 +63,7 @@ jobs:
       - name: Browser E2E
         run: npm run test:e2e
       - name: Preserve generated lockfile
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: editor-package-lock
