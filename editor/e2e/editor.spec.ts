@@ -9,8 +9,10 @@ async function captureEditor(page: Page, name: string): Promise<void> {
 }
 
 async function addHeading(page: Page): Promise<void> {
-  await page.getByRole('combobox', { name: 'Add block' }).filter({ visible: true }).click();
-  await page.getByRole('option', { name: 'Heading', exact: true }).click();
+  await page.getByRole('button', { name: 'Add section', exact: true }).filter({ visible: true }).first().click();
+  const picker = page.getByRole('dialog', { name: 'Add section' });
+  await expect(picker).toBeVisible();
+  await picker.getByRole('button', { name: 'Heading', exact: true }).click();
 }
 
 test.beforeEach(async ({ page }) => {
@@ -30,7 +32,7 @@ test('desktop workspace edits, previews, and supports keyboard history', async (
   await text.fill('Production title');
   const preview = page.frameLocator('iframe[title="Page builder preview"]');
   await expect(preview.locator('h2')).toHaveText('Production title');
-  await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeVisible();
+  await expect(page.getByRole('complementary', { name: 'Section inspector' })).toBeVisible();
   await expect(page.getByLabel('Desktop preview')).toHaveAttribute('data-state', 'on');
   await captureEditor(page, 'page-builder-desktop');
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
@@ -50,23 +52,22 @@ test('desktop exposes keyboard-accessible drag controls', async ({ page }) => {
 test.describe('mobile workspace', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('uses sheets for blocks and inspector and supports mobile preview', async ({ page }) => {
-    await page.getByLabel('Open blocks panel').click();
+  test('uses sheets for page structure and inspector and supports mobile preview', async ({ page }) => {
+    await page.getByLabel('Open page structure').click();
     await addHeading(page);
-    const sheet = page.locator('[data-slot="sheet-content"]');
-    await page.getByRole('button', { name: 'Close' }).click();
+    const sheet = page.locator('[data-slot="sheet-content"]').filter({ visible: true });
+    await page.getByRole('button', { name: 'Close' }).filter({ visible: true }).click();
     await expect(sheet).toBeHidden();
 
     await page.getByLabel('Mobile preview').click();
     await expect(page.getByLabel('Mobile preview')).toHaveAttribute('data-state', 'on');
-    await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeHidden();
+    await expect(page.getByRole('complementary', { name: 'Section inspector' })).toBeHidden();
 
-    await page.getByLabel('Open inspector panel').click();
+    await page.getByLabel('Open inspector').click();
     const mobileText = page.getByLabel('Text').filter({ visible: true });
     await expect(mobileText).toBeVisible();
     await mobileText.fill('Mobile title');
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(sheet).toBeHidden();
+    await page.getByRole('button', { name: 'Close' }).filter({ visible: true }).click();
     await expect(page.frameLocator('iframe[title="Page builder preview"]').locator('h2')).toHaveText('Mobile title');
     await captureEditor(page, 'page-builder-mobile');
   });
