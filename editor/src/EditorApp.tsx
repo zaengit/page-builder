@@ -1,8 +1,7 @@
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
-import { ClipboardPaste, Copy, Layers3, Monitor, PanelLeft, PanelRight, Redo2, Settings2, Smartphone, Tablet, Undo2 } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ClipboardPaste, Copy, Laptop, Monitor, MoreHorizontal, PanelLeft, PanelRight, Redo2, Save, Settings2, Smartphone, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
@@ -11,27 +10,30 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Control } from './components/Controls';
 import { Inserter } from './components/Inserter';
-import { Tree } from './components/Tree';
+import { SectionTree } from './components/Tree';
 import { readClipboardBlock, useChangeEmitter, useEditorMessages, useEditorShortcuts, usePreview } from './hooks/useEditorEffects';
 import { createBuilderStore, findBlock } from './store';
 import type { BlockDefinition, EditorRuntime, PageBlock, PageContent } from './types';
 
 type Props = { root: HTMLElement; runtime: EditorRuntime; initial: PageContent };
-type Viewport = 'desktop' | 'tablet' | 'mobile';
+type Viewport = 'desktop' | 'mobile';
 
-type PanelShellProps = {
-  title: string;
-  icon: ReactNode;
-  description?: string;
-  children: ReactNode;
-};
+type PanelShellProps = { title: string; icon?: ReactNode; children: ReactNode };
 
-function PanelShell({ title, icon, description, children }: PanelShellProps) {
-  return <div className="flex h-full min-h-0 flex-col bg-background"><div className="border-b px-4 py-3"><div className="flex items-center gap-2 text-sm font-semibold">{icon}{title}</div>{description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>}</div><ScrollArea className="min-h-0 flex-1"><div className="grid gap-4 p-4">{children}</div></ScrollArea></div>;
+function PanelShell({ title, icon, children }: PanelShellProps) {
+  return <div className="flex h-full min-h-0 flex-col bg-white"><div className="flex h-10 shrink-0 items-center gap-2 border-b px-3"><span className="text-muted-foreground">{icon}</span><span className="truncate text-sm font-semibold">{title}</span></div><ScrollArea className="min-h-0 flex-1">{children}</ScrollArea></div>;
 }
 
-function InspectorPanel({ selected, definition, onChange, requestMedia }: { selected: PageBlock | null; definition?: BlockDefinition; onChange: (id: string, patch: Record<string, unknown>) => void; requestMedia?: (path: string[]) => void }) {
-  return <PanelShell title="Inspector" icon={<Settings2 className="size-4" />} description="Configure the selected block and its content.">{selected && definition ? <><div className="rounded-lg border bg-muted/30 p-3"><p className="text-sm font-semibold">{definition.title}</p>{definition.description && <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{definition.description}</p>}</div>{Object.entries(definition.attributes).map(([name, schema]) => <Control key={name} name={name} path={[name]} schema={schema} value={selected.attrs[name]} onChange={value => onChange(selected.id, { [name]: value })} requestMedia={requestMedia} />)}</> : <div className="rounded-xl border border-dashed p-8 text-center"><Settings2 className="mx-auto mb-3 size-8 text-muted-foreground/60" /><p className="text-sm font-medium">No block selected</p><p className="mt-1 text-xs text-muted-foreground">Select a block from the layers panel to edit it.</p></div>}</PanelShell>;
+function InspectorPanel({ selected, definition, onChange, requestMedia, onClose }: { selected: PageBlock | null; definition?: BlockDefinition; onChange: (id: string, patch: Record<string, unknown>) => void; requestMedia?: (path: string[]) => void; onClose?: () => void }) {
+  return <div className="flex h-full min-h-0 flex-col bg-white">
+    <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3"><Settings2 className="size-4 text-muted-foreground" /><span className="min-w-0 flex-1 truncate text-sm font-semibold">{definition?.title ?? 'Section settings'}</span><Button type="button" variant="ghost" size="icon-sm" className="size-7"><MoreHorizontal className="size-4" /></Button>{onClose && <Button type="button" variant="ghost" size="icon-sm" className="size-7 lg:hidden" onClick={onClose} aria-label="Close inspector">×</Button>}</div>
+    <ScrollArea className="min-h-0 flex-1"><div className="grid gap-0">
+      {selected && definition ? <>
+        {definition.description && <div className="border-b bg-[#f8f8f8] px-4 py-3 text-xs leading-relaxed text-muted-foreground">{definition.description}</div>}
+        <div className="grid gap-4 px-4 py-4">{Object.entries(definition.attributes).map(([name, schema]) => <Control key={name} name={name} path={[name]} schema={schema} value={selected.attrs[name]} onChange={value => onChange(selected.id, { [name]: value })} requestMedia={requestMedia} />)}</div>
+      </> : <div className="m-4 rounded-lg border border-dashed p-8 text-center"><Settings2 className="mx-auto mb-3 size-7 text-muted-foreground/60" /><p className="text-sm font-medium">Select a section</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Choose a section or block from the page tree or click it in the preview.</p></div>}
+    </div></ScrollArea>
+  </div>;
 }
 
 function ActionButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
@@ -53,13 +55,7 @@ export function EditorApp({ root, runtime, initial }: Props) {
 
   useEffect(() => {
     let active = true;
-    bootstrap(runtime, initial)
-      .then(() => { if (active) setReady(true); })
-      .catch(reason => {
-        if (!active) return;
-        setError(reason instanceof Error ? reason.message : 'Failed to load builder');
-        setReady(true);
-      });
+    bootstrap(runtime, initial).then(() => { if (active) setReady(true); }).catch(reason => { if (!active) return; setError(reason instanceof Error ? reason.message : 'Failed to load builder'); setReady(true); });
     return () => { active = false; };
   }, [bootstrap, initial, runtime]);
 
@@ -67,6 +63,11 @@ export function EditorApp({ root, runtime, initial }: Props) {
   useEditorShortcuts(selectedId, undo, redo, duplicateBlock);
   usePreview(content, ready, runtime, iframe, setError);
   useChangeEmitter(root, content, ready);
+
+  useEffect(() => {
+    if (!ready || !selectedId) return;
+    iframe.current?.contentWindow?.postMessage({ type: 'PB_EDITOR_SELECTION', blockId: selectedId }, location.origin);
+  }, [ready, selectedId]);
 
   const onDragEnd = ({ active, over }: DragEndEvent) => { if (over && active.id !== over.id) moveBlock(String(active.id), String(over.id)); };
 
@@ -90,41 +91,54 @@ export function EditorApp({ root, runtime, initial }: Props) {
     if (window.parent !== window) window.parent.postMessage({ type: 'PAGE_BUILDER_MEDIA_REQUEST', ...detail }, location.origin);
   };
 
-  const blocksPanel = <PanelShell title="Blocks" icon={<Layers3 className="size-4" />} description="Build the page structure and reorder blocks."><DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}><Tree blocks={content.blocks} definitions={definitions} selectedId={selectedId} onSelect={select} onRemove={removeBlock} onDuplicate={duplicateBlock} /></DndContext><Separator /><Inserter definitions={definitions} onAdd={(type, variation) => addBlock(type, selected && definition?.supports?.children ? selected.id : null, variation)} /></PanelShell>;
+  const save = () => {
+    const detail = { content };
+    root.dispatchEvent(new CustomEvent('page-builder:save', { detail, bubbles: true }));
+    if (window.parent !== window) window.parent.postMessage({ type: 'PAGE_BUILDER_SAVE', content }, location.origin);
+  };
+
+  const addTopLevel = (type: string, variation?: Parameters<typeof addBlock>[2]) => addBlock(type, null, variation);
+
+  const blocksPanel = <PanelShell title="Home page">
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SectionTree blocks={content.blocks} definitions={definitions} selectedId={selectedId} onSelect={select} onRemove={removeBlock} onDuplicate={duplicateBlock} renderAdd={() => <Inserter definitions={definitions.filter(item => !item.name.toLowerCase().includes('footer') && !item.name.toLowerCase().includes('header'))} onAdd={addTopLevel} />} />
+    </DndContext>
+  </PanelShell>;
+
   const inspectorPanel = <InspectorPanel selected={selected} definition={definition} onChange={updateAttrs} requestMedia={runtime.mediaPicker ? requestMedia : undefined} />;
 
-  if (!ready) return <div className="pb-editor flex min-h-[420px] items-center justify-center" role="status"><div className="flex items-center gap-3 rounded-xl border bg-background px-5 py-4 text-sm shadow-sm"><span className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" /> Loading page builder…</div></div>;
+  if (!ready) return <div className="pb-editor flex min-h-[420px] items-center justify-center" role="status"><div className="flex items-center gap-3 rounded-lg border bg-white px-5 py-4 text-sm shadow-sm"><span className="size-4 animate-spin rounded-full border-2 border-muted border-t-foreground" /> Loading page builder…</div></div>;
 
   return <TooltipProvider><main className="pb-editor flex h-svh min-h-[640px] flex-col overflow-hidden">
-    <header className="z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-2 backdrop-blur sm:px-3">
-      <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Open blocks panel"><PanelLeft /></Button></SheetTrigger><SheetContent side="left" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Blocks</SheetTitle><SheetDescription>Page blocks and inserter</SheetDescription></SheetHeader>{blocksPanel}</SheetContent></Sheet>
-      <div className="flex min-w-0 items-center gap-2"><div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-foreground text-background"><Layers3 className="size-4" /></div><div className="hidden min-w-0 sm:block"><p className="truncate text-sm font-semibold leading-none">Page Builder</p><p className="mt-1 text-[11px] text-muted-foreground">Visual editor</p></div></div>
-      <Badge variant={dirty ? 'secondary' : 'outline'} className="ml-1 hidden sm:inline-flex" aria-live="polite">{dirty ? 'Modified' : 'Saved'}</Badge>
-      <Separator orientation="vertical" className="mx-1 hidden h-6 sm:block" />
-      <div className="hidden items-center gap-0.5 sm:flex"><ActionButton label="Undo" disabled={!past.length} onClick={undo}><Undo2 /></ActionButton><ActionButton label="Redo" disabled={!future.length} onClick={redo}><Redo2 /></ActionButton></div>
-      <div className="ml-auto flex items-center gap-1 sm:gap-2">
-        <ToggleGroup type="single" value={viewport} onValueChange={value => value && setViewport(value as Viewport)} aria-label="Preview viewport">
-          <ToggleGroupItem value="desktop" aria-label="Desktop preview"><Monitor /></ToggleGroupItem>
-          <ToggleGroupItem value="tablet" aria-label="Tablet preview" className="hidden sm:inline-flex"><Tablet /></ToggleGroupItem>
-          <ToggleGroupItem value="mobile" aria-label="Mobile preview"><Smartphone /></ToggleGroupItem>
+    <header className="z-30 flex h-[60px] shrink-0 items-center gap-1 border-b bg-white px-2 sm:px-3">
+      <ActionButton label="Back" onClick={() => history.back()}><ChevronLeft /></ActionButton>
+      <Separator orientation="vertical" className="mx-1 h-6" />
+      <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Open page structure"><PanelLeft /></Button></SheetTrigger><SheetContent side="left" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Page structure</SheetTitle><SheetDescription>Sections and blocks</SheetDescription></SheetHeader>{blocksPanel}</SheetContent></Sheet>
+      <div className="hidden items-center gap-1 sm:flex"><Button type="button" variant="ghost" size="icon-sm" className="bg-[#eaf4ff] text-[#005bd3]"><PanelLeft /></Button><ActionButton label="Theme settings" onClick={() => undefined}><Settings2 /></ActionButton></div>
+      <div className="mx-auto flex min-w-0 items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium hover:bg-[#f1f2f3]"><Laptop className="size-4 text-muted-foreground" /><span className="max-w-[180px] truncate">Home page</span><ChevronDown className="size-3.5 text-muted-foreground" /></div>
+      <div className="ml-auto flex items-center gap-1">
+        <div className="hidden items-center gap-0.5 sm:flex"><ActionButton label="Undo" disabled={!past.length} onClick={undo}><Undo2 /></ActionButton><ActionButton label="Redo" disabled={!future.length} onClick={redo}><Redo2 /></ActionButton></div>
+        <ToggleGroup type="single" value={viewport} onValueChange={value => value && setViewport(value as Viewport)} aria-label="Preview viewport" className="hidden sm:flex">
+          <ToggleGroupItem value="desktop" aria-label="Desktop preview"><Monitor /></ToggleGroupItem><ToggleGroupItem value="mobile" aria-label="Mobile preview"><Smartphone /></ToggleGroupItem>
         </ToggleGroup>
-        <Separator orientation="vertical" className="mx-1 hidden h-6 md:block" />
-        <div className="hidden items-center gap-0.5 md:flex"><ActionButton label="Copy block" disabled={!selected} onClick={copySelected}><Copy /></ActionButton><ActionButton label="Paste block" disabled={!clipboard && !navigator.clipboard} onClick={paste}><ClipboardPaste /></ActionButton><ActionButton label="Duplicate block" disabled={!selectedId} onClick={() => selectedId && duplicateBlock(selectedId)}><Copy className="stroke-[2.5]" /></ActionButton></div>
-        <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Open inspector panel"><PanelRight /></Button></SheetTrigger><SheetContent side="right" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Inspector</SheetTitle><SheetDescription>Block settings</SheetDescription></SheetHeader>{inspectorPanel}</SheetContent></Sheet>
+        <ActionButton label="Copy block" disabled={!selected} onClick={copySelected}><Copy /></ActionButton>
+        <ActionButton label="Paste block" disabled={!clipboard && !navigator.clipboard} onClick={paste}><ClipboardPaste /></ActionButton>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="More actions"><MoreHorizontal /></Button>
+        <Button type="button" size="sm" disabled={!dirty} onClick={save} className="ml-1 gap-1.5 px-3">{dirty ? <Save className="size-4" /> : <Check className="size-4" />}{dirty ? 'Save' : 'Saved'}</Button>
+        <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Open inspector"><PanelRight /></Button></SheetTrigger><SheetContent side="right" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Inspector</SheetTitle><SheetDescription>Section settings</SheetDescription></SheetHeader>{inspectorPanel}</SheetContent></Sheet>
       </div>
     </header>
     {error && <div className="shrink-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>}
-    <section className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_320px] xl:grid-cols-[300px_minmax(0,1fr)_340px]">
-      <aside aria-label="Block tree" className="hidden min-h-0 border-r lg:block">{blocksPanel}</aside>
-      <div className="canvas-grid min-h-0 overflow-auto p-3 sm:p-5 lg:p-7">
-        <div className="mx-auto flex min-h-full items-start justify-center">
-          <div className="preview-device overflow-hidden rounded-xl border bg-background shadow-[0_14px_50px_rgba(0,0,0,0.12)]" data-viewport={viewport}>
-            <div className="flex h-8 items-center gap-1.5 border-b bg-muted/40 px-3"><span className="size-2 rounded-full bg-border" /><span className="size-2 rounded-full bg-border" /><span className="size-2 rounded-full bg-border" /><div className="mx-auto rounded-md bg-background px-3 py-0.5 text-[10px] text-muted-foreground shadow-xs">{viewport}</div></div>
-            <iframe ref={iframe} src={runtime.previewUrl} title="Page builder preview" className="block h-[calc(100svh-9rem)] min-h-[520px] w-full bg-white sm:h-[calc(100svh-10rem)]" />
+    <section className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)_300px]">
+      <aside aria-label="Page structure" className="relative hidden min-h-0 border-r bg-white lg:block">{blocksPanel}</aside>
+      <div className="pb-preview-workspace min-h-0 overflow-auto">
+        <div className="flex min-h-full items-start justify-center p-0 sm:p-3">
+          <div className="pb-preview-device bg-white" data-viewport={viewport}>
+            <iframe ref={iframe} src={runtime.previewUrl} title="Page builder preview" className="block h-[calc(100svh-60px)] min-h-[560px] w-full bg-white sm:h-[calc(100svh-84px)]" />
           </div>
         </div>
       </div>
-      <aside aria-label="Block inspector" className="hidden min-h-0 border-l lg:block">{inspectorPanel}</aside>
+      <aside aria-label="Section inspector" className="hidden min-h-0 border-l bg-white lg:block">{inspectorPanel}</aside>
     </section>
   </main></TooltipProvider>;
 }
