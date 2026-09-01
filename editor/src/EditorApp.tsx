@@ -135,15 +135,13 @@ export function EditorApp({ root, runtime, initial }: Props) {
 
     <section className="grid min-h-0 flex-1 grid-cols-1 gap-2 p-0 lg:grid-cols-[256px_minmax(0,1fr)_280px] lg:p-2">
       <aside aria-label="Page structure" className="hidden min-h-0 lg:block">{blocksPanel}</aside>
-      <Card className="min-h-0 gap-0 overflow-hidden rounded-none border-0 bg-muted/40 py-0 shadow-none lg:rounded-lg lg:border lg:shadow-sm">
-        <CardContent className="min-h-0 flex-1 overflow-auto p-2 lg:p-3">
-          <div className="flex min-h-full items-start justify-center">
-            <Card className={viewport === 'mobile' ? 'w-full max-w-[390px] overflow-hidden rounded-lg py-0' : 'w-full max-w-[1440px] overflow-hidden rounded-lg py-0'}>
-              <iframe ref={iframe} src={runtime.previewUrl} title="Page builder preview" className="block h-[calc(100svh-72px)] min-h-[540px] w-full bg-background" />
-            </Card>
+      <div className="min-h-0 overflow-auto bg-muted/40">
+        <div className="flex min-h-full items-start justify-center p-2 lg:p-3">
+          <div className={viewport === 'mobile' ? 'w-full max-w-[390px] overflow-hidden' : 'w-full max-w-[1440px] overflow-hidden'}>
+            <iframe ref={iframe} src={runtime.previewUrl} title="Page builder preview" className="block h-[calc(100svh-72px)] min-h-[540px] w-full bg-background" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       <aside aria-label="Section inspector" className="hidden min-h-0 lg:block">{inspectorPanel}</aside>
     </section>
   </main></TooltipProvider>;
