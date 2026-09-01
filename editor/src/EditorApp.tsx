@@ -2,7 +2,9 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { Check, ChevronDown, ChevronLeft, ClipboardPaste, Copy, Laptop, Monitor, MoreHorizontal, PanelLeft, PanelRight, Redo2, Save, Settings2, Smartphone, Undo2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -18,26 +20,25 @@ import type { BlockDefinition, EditorRuntime, PageBlock, PageContent } from './t
 type Props = { root: HTMLElement; runtime: EditorRuntime; initial: PageContent };
 type Viewport = 'desktop' | 'mobile';
 
-type PanelShellProps = { title: string; icon?: ReactNode; children: ReactNode };
-
-function PanelShell({ title, icon, children }: PanelShellProps) {
-  return <div className="pb-panel flex h-full min-h-0 flex-col"><div className="pb-panel-title flex h-12 shrink-0 items-center gap-2.5 border-b px-4"><span className="text-[#5c5f8f]">{icon}</span><span className="truncate text-sm font-semibold tracking-[-.01em]">{title}</span></div><ScrollArea className="min-h-0 flex-1">{children}</ScrollArea></div>;
-}
-
-function InspectorPanel({ selected, definition, onChange, requestMedia, onClose }: { selected: PageBlock | null; definition?: BlockDefinition; onChange: (id: string, patch: Record<string, unknown>) => void; requestMedia?: (path: string[]) => void; onClose?: () => void }) {
-  return <div className="pb-panel pb-inspector flex h-full min-h-0 flex-col">
-    <div className="pb-panel-title flex h-12 shrink-0 items-center gap-2.5 border-b px-4"><span className="grid size-7 place-items-center rounded-lg bg-[#ecebff] text-[#635bdb]"><Settings2 className="size-4" /></span><span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-[-.01em]">{definition?.title ?? 'Section settings'}</span><Button type="button" variant="ghost" size="icon-sm" className="size-7 rounded-lg"><MoreHorizontal className="size-4" /></Button>{onClose && <Button type="button" variant="ghost" size="icon-sm" className="size-7 lg:hidden" onClick={onClose} aria-label="Close inspector">×</Button>}</div>
-    <ScrollArea className="min-h-0 flex-1"><div className="grid gap-0">
-      {selected && definition ? <>
-        {definition.description && <div className="pb-inspector-intro border-b px-4 py-3 text-xs leading-relaxed text-muted-foreground">{definition.description}</div>}
-        <div className="pb-inspector-controls grid gap-4 p-4">{Object.entries(definition.attributes).map(([name, schema]) => <Control key={name} name={name} path={[name]} schema={schema} value={selected.attrs[name]} onChange={value => onChange(selected.id, { [name]: value })} requestMedia={requestMedia} />)}</div>
-      </> : <div className="pb-empty-state m-4 rounded-xl border border-dashed p-8 text-center"><span className="mx-auto mb-3 grid size-11 place-items-center rounded-xl bg-[#ecebff] text-[#635bdb]"><Settings2 className="size-5" /></span><p className="text-sm font-semibold">Select a section</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">Choose a section or block from the page tree or click it in the preview.</p></div>}
-    </div></ScrollArea>
-  </div>;
+function InspectorPanel({ selected, definition, onChange, requestMedia }: { selected: PageBlock | null; definition?: BlockDefinition; onChange: (id: string, patch: Record<string, unknown>) => void; requestMedia?: (path: string[]) => void }) {
+  return <Card className="h-full min-h-0 gap-0 overflow-hidden rounded-none border-0 lg:rounded-xl lg:border">
+    <CardHeader className="border-b py-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0"><CardTitle className="truncate text-sm">{definition?.title ?? 'Section settings'}</CardTitle><CardDescription>Section inspector</CardDescription></div>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="Inspector actions"><MoreHorizontal /></Button>
+      </div>
+    </CardHeader>
+    <ScrollArea className="min-h-0 flex-1">
+      {selected && definition ? <div className="space-y-4 p-4">
+        {definition.description && <Card><CardContent className="pt-6 text-sm text-muted-foreground">{definition.description}</CardContent></Card>}
+        {Object.entries(definition.attributes).map(([name, schema]) => <Card key={name}><CardContent className="pt-6"><Control name={name} path={[name]} schema={schema} value={selected.attrs[name]} onChange={value => onChange(selected.id, { [name]: value })} requestMedia={requestMedia} /></CardContent></Card>)}
+      </div> : <div className="p-4"><Card><CardHeader className="text-center"><div className="mx-auto flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground"><Settings2 /></div><CardTitle className="text-sm">Select a section</CardTitle><CardDescription>Choose a section from the page tree or click it in the preview.</CardDescription></CardHeader></Card></div>}
+    </ScrollArea>
+  </Card>;
 }
 
 function ActionButton({ label, disabled, onClick, children }: { label: string; disabled?: boolean; onClick: () => void; children: ReactNode }) {
-  return <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="pb-toolbar-action" disabled={disabled} onClick={onClick} aria-label={label}>{children}</Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
+  return <Tooltip><TooltipTrigger asChild><Button type="button" variant="ghost" size="icon-sm" disabled={disabled} onClick={onClick} aria-label={label}>{children}</Button></TooltipTrigger><TooltipContent>{label}</TooltipContent></Tooltip>;
 }
 
 export function EditorApp({ root, runtime, initial }: Props) {
@@ -99,46 +100,49 @@ export function EditorApp({ root, runtime, initial }: Props) {
 
   const addTopLevel = (type: string, variation?: Parameters<typeof addBlock>[2]) => addBlock(type, null, variation);
 
-  const blocksPanel = <PanelShell title="Home page">
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SectionTree blocks={content.blocks} definitions={definitions} selectedId={selectedId} onSelect={select} onRemove={removeBlock} onDuplicate={duplicateBlock} renderAdd={() => <Inserter definitions={definitions.filter(item => !item.name.toLowerCase().includes('footer') && !item.name.toLowerCase().includes('header'))} onAdd={addTopLevel} />} />
-    </DndContext>
-  </PanelShell>;
+  const blocksPanel = <Card className="h-full min-h-0 gap-0 overflow-hidden rounded-none border-0 lg:rounded-xl lg:border">
+    <CardHeader className="border-b py-4"><div className="flex items-center justify-between gap-3"><div><CardTitle className="text-sm">Home page</CardTitle><CardDescription>Page structure</CardDescription></div><Badge variant="secondary">{content.blocks.length}</Badge></div></CardHeader>
+    <ScrollArea className="min-h-0 flex-1"><DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}><SectionTree blocks={content.blocks} definitions={definitions} selectedId={selectedId} onSelect={select} onRemove={removeBlock} onDuplicate={duplicateBlock} renderAdd={() => <Inserter definitions={definitions.filter(item => !item.name.toLowerCase().includes('footer') && !item.name.toLowerCase().includes('header'))} onAdd={addTopLevel} />} /></DndContext></ScrollArea>
+  </Card>;
 
   const inspectorPanel = <InspectorPanel selected={selected} definition={definition} onChange={updateAttrs} requestMedia={runtime.mediaPicker ? requestMedia : undefined} />;
 
-  if (!ready) return <div className="pb-editor flex min-h-[420px] items-center justify-center" role="status"><div className="rounded-xl border bg-white px-5 py-4 text-sm shadow-lg"><span className="mr-3 inline-block size-4 animate-spin rounded-full border-2 border-[#ddd9ff] border-t-[#635bdb] align-middle" /> Loading page builder…</div></div>;
+  if (!ready) return <div className="pb-editor flex min-h-[420px] items-center justify-center p-6" role="status"><Card><CardContent className="flex items-center gap-3 pt-6"><span className="size-4 animate-spin rounded-full border-2 border-muted border-t-primary" />Loading page builder…</CardContent></Card></div>;
 
-  return <TooltipProvider><main className="pb-editor flex h-svh min-h-[640px] flex-col overflow-hidden">
-    <header className="pb-editor-header z-30 flex h-[64px] shrink-0 items-center gap-1 px-2 sm:px-3">
+  return <TooltipProvider><main className="pb-editor flex h-svh min-h-[640px] flex-col overflow-hidden bg-muted/30 text-foreground">
+    <header className="flex h-16 shrink-0 items-center gap-1 border-b bg-background px-2 sm:px-3">
       <ActionButton label="Back" onClick={() => history.back()}><ChevronLeft /></ActionButton>
-      <Separator orientation="vertical" className="mx-1 h-6 bg-white/15" />
-      <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="pb-toolbar-action lg:hidden" aria-label="Open page structure"><PanelLeft /></Button></SheetTrigger><SheetContent side="left" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Page structure</SheetTitle><SheetDescription>Sections and blocks</SheetDescription></SheetHeader>{blocksPanel}</SheetContent></Sheet>
-      <div className="hidden items-center gap-1 sm:flex"><Button type="button" variant="ghost" size="icon-sm" className="pb-toolbar-action pb-toolbar-action-active"><PanelLeft /></Button><ActionButton label="Theme settings" onClick={() => undefined}><Settings2 /></ActionButton></div>
-      <button type="button" className="pb-page-selector mx-auto flex min-w-0 items-center gap-2.5 px-3.5 py-2 text-sm font-semibold"><span className="grid size-7 place-items-center rounded-lg bg-white/12"><Laptop className="size-4" /></span><span className="max-w-[180px] truncate">Home page</span><ChevronDown className="size-3.5 opacity-70" /></button>
+      <Separator orientation="vertical" className="mx-1 h-6" />
+      <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Open page structure"><PanelLeft /></Button></SheetTrigger><SheetContent side="left" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Page structure</SheetTitle><SheetDescription>Sections and blocks</SheetDescription></SheetHeader>{blocksPanel}</SheetContent></Sheet>
+      <div className="hidden items-center gap-1 sm:flex"><Button type="button" variant="secondary" size="icon-sm" aria-label="Page structure"><PanelLeft /></Button><ActionButton label="Theme settings" onClick={() => undefined}><Settings2 /></ActionButton></div>
+      <Button type="button" variant="outline" className="mx-auto min-w-0"><Laptop /><span className="max-w-[180px] truncate">Home page</span><ChevronDown /></Button>
       <div className="ml-auto flex items-center gap-1">
         <div className="hidden items-center gap-0.5 sm:flex"><ActionButton label="Undo" disabled={!past.length} onClick={undo}><Undo2 /></ActionButton><ActionButton label="Redo" disabled={!future.length} onClick={redo}><Redo2 /></ActionButton></div>
-        <ToggleGroup type="single" value={viewport} onValueChange={value => value && setViewport(value as Viewport)} aria-label="Preview viewport" className="pb-viewport-switcher">
+        <ToggleGroup type="single" value={viewport} onValueChange={value => value && setViewport(value as Viewport)} aria-label="Preview viewport">
           <ToggleGroupItem value="desktop" aria-label="Desktop preview"><Monitor /></ToggleGroupItem><ToggleGroupItem value="mobile" aria-label="Mobile preview"><Smartphone /></ToggleGroupItem>
         </ToggleGroup>
         <ActionButton label="Copy block" disabled={!selected} onClick={copySelected}><Copy /></ActionButton>
         <ActionButton label="Paste block" disabled={!clipboard && !navigator.clipboard} onClick={paste}><ClipboardPaste /></ActionButton>
-        <Button type="button" variant="ghost" size="icon-sm" className="pb-toolbar-action" aria-label="More actions"><MoreHorizontal /></Button>
-        <Button type="button" size="sm" disabled={!dirty} onClick={save} className="pb-save-button ml-1 gap-1.5 px-4">{dirty ? <Save className="size-4" /> : <Check className="size-4" />}{dirty ? 'Save' : 'Saved'}</Button>
-        <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="pb-toolbar-action lg:hidden" aria-label="Open inspector"><PanelRight /></Button></SheetTrigger><SheetContent side="right" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Inspector</SheetTitle><SheetDescription>Section settings</SheetDescription></SheetHeader>{inspectorPanel}</SheetContent></Sheet>
+        <Button type="button" variant="ghost" size="icon-sm" aria-label="More actions"><MoreHorizontal /></Button>
+        <Button type="button" size="sm" disabled={!dirty} onClick={save} className="ml-1">{dirty ? <Save /> : <Check />}{dirty ? 'Save' : 'Saved'}</Button>
+        <Sheet><SheetTrigger asChild><Button type="button" variant="ghost" size="icon-sm" className="lg:hidden" aria-label="Open inspector"><PanelRight /></Button></SheetTrigger><SheetContent side="right" className="w-[88vw] p-0 sm:max-w-sm"><SheetHeader className="sr-only"><SheetTitle>Inspector</SheetTitle><SheetDescription>Section settings</SheetDescription></SheetHeader>{inspectorPanel}</SheetContent></Sheet>
       </div>
     </header>
-    {error && <div className="shrink-0 border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>}
-    <section className="pb-editor-grid grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[304px_minmax(0,1fr)_312px]">
-      <aside aria-label="Page structure" className="pb-editor-sidebar relative hidden min-h-0 lg:block">{blocksPanel}</aside>
-      <div className="pb-preview-workspace min-h-0 overflow-auto">
-        <div className="flex min-h-full items-start justify-center p-3 sm:p-5">
-          <div className="pb-preview-device" data-viewport={viewport}>
-            <iframe ref={iframe} src={runtime.previewUrl} title="Page builder preview" className="block h-[calc(100svh-88px)] min-h-[560px] w-full bg-white" />
+
+    {error && <div className="border-b border-destructive/20 bg-destructive/10 px-4 py-2 text-sm text-destructive" role="alert">{error}</div>}
+
+    <section className="grid min-h-0 flex-1 grid-cols-1 gap-3 p-0 lg:grid-cols-[304px_minmax(0,1fr)_312px] lg:p-3">
+      <aside aria-label="Page structure" className="hidden min-h-0 lg:block">{blocksPanel}</aside>
+      <Card className="min-h-0 gap-0 overflow-hidden rounded-none border-0 bg-muted/50 p-0 lg:rounded-xl lg:border">
+        <CardContent className="min-h-0 flex-1 overflow-auto p-3">
+          <div className="flex min-h-full items-start justify-center">
+            <Card className={viewport === 'mobile' ? 'w-full max-w-[390px] overflow-hidden p-0' : 'w-full max-w-[1440px] overflow-hidden p-0'}>
+              <iframe ref={iframe} src={runtime.previewUrl} title="Page builder preview" className="block h-[calc(100svh-104px)] min-h-[560px] w-full bg-background" />
+            </Card>
           </div>
-        </div>
-      </div>
-      <aside aria-label="Section inspector" className="pb-editor-sidebar hidden min-h-0 lg:block">{inspectorPanel}</aside>
+        </CardContent>
+      </Card>
+      <aside aria-label="Section inspector" className="hidden min-h-0 lg:block">{inspectorPanel}</aside>
     </section>
   </main></TooltipProvider>;
 }
