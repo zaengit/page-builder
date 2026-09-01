@@ -1,8 +1,12 @@
-import { Blocks, Plus, Search, X } from 'lucide-react';
+import { Blocks, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import { getCategoryTitle } from '../registry';
 import type { BlockDefinition, BlockVariation } from '../types';
 
@@ -42,40 +46,52 @@ export function Inserter({ definitions, onAdd, label = 'Add section' }: Props) {
     setQuery('');
   };
 
-  return <>
-    <Button type="button" variant="ghost" className="h-8 w-full justify-start gap-2 px-2 text-[13px] font-normal text-[#005bd3] hover:bg-[#f1f2f3] hover:text-[#004299]" onClick={() => setOpen(true)}>
-      <Plus className="size-4" /> {label}
-    </Button>
-    {open && <div className="pb-section-picker-backdrop" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false); }}>
-      <div className="pb-section-picker" role="dialog" aria-modal="true" aria-label="Add section">
-        <div className="flex items-center gap-2 border-b p-2.5">
-          <div className="relative flex-1"><Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" /><Input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search sections" className="h-9 pl-8" /></div>
-          <Button type="button" variant="ghost" size="icon-sm" onClick={() => setOpen(false)} aria-label="Close section picker"><X /></Button>
+  return <Dialog open={open} onOpenChange={setOpen}>
+    <DialogTrigger asChild>
+      <Button type="button" variant="ghost" className="w-full justify-start"><Plus />{label}</Button>
+    </DialogTrigger>
+    <DialogContent className="max-h-[80vh] overflow-hidden p-0 sm:max-w-4xl">
+      <DialogHeader className="border-b p-6 pb-4">
+        <DialogTitle>Add section</DialogTitle>
+        <DialogDescription>Choose a section to add to the page.</DialogDescription>
+        <div className="relative pt-2">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 translate-y-0" />
+          <Input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search sections" className="pl-9" />
         </div>
-        <div className="grid min-h-0 flex-1 grid-cols-[260px_minmax(0,1fr)] max-sm:grid-cols-1">
-          <div className="min-h-0 overflow-auto border-r max-sm:border-r-0 max-sm:border-b">
-            <div className="grid grid-cols-2 gap-1 border-b p-2"><button className="rounded-md bg-[#f1f2f3] px-3 py-1.5 text-sm font-medium">Sections</button><button className="rounded-md px-3 py-1.5 text-sm text-muted-foreground" disabled>Apps</button></div>
-            <div className="p-1.5">
-              {Object.entries(groups).map(([category, categoryDefinitions]) => <div key={category} className="mb-2">
-                <div className="px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{getCategoryTitle(category) ?? fallbackCategoryTitle(category)}</div>
-                {categoryDefinitions.map(definition => <div key={definition.name}>
-                  <button type="button" onMouseEnter={() => setActiveName(definition.name)} onFocus={() => setActiveName(definition.name)} onClick={() => add(definition)} className={cn('flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[13px] hover:bg-[#f1f2f3]', active?.name === definition.name && 'bg-[#eaf4ff] text-[#005bd3]')}>
-                    <Blocks className="size-4 shrink-0" /><span className="truncate">{definition.title}</span>
-                  </button>
-                  {definition.variations?.map(variation => <button key={variation.name} type="button" onClick={() => add(definition, variation)} className="w-full rounded-md py-1.5 pl-8 pr-2 text-left text-xs text-muted-foreground hover:bg-[#f1f2f3] hover:text-foreground">{variation.title}</button>)}
+      </DialogHeader>
+
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
+        <ScrollArea className="h-[52vh] border-r">
+          <div className="space-y-4 p-4">
+            {Object.entries(groups).map(([category, categoryDefinitions]) => <div key={category} className="space-y-2">
+              <Badge variant="secondary">{getCategoryTitle(category) ?? fallbackCategoryTitle(category)}</Badge>
+              <div className="space-y-1">
+                {categoryDefinitions.map(definition => <div key={definition.name} className="space-y-1">
+                  <Button type="button" variant={active?.name === definition.name ? 'secondary' : 'ghost'} className="w-full justify-start" onMouseEnter={() => setActiveName(definition.name)} onFocus={() => setActiveName(definition.name)} onClick={() => add(definition)}>
+                    <Blocks />
+                    <span className="truncate">{definition.title}</span>
+                  </Button>
+                  {definition.variations?.map(variation => <Button key={variation.name} type="button" variant="ghost" size="sm" className="w-full justify-start pl-10 text-muted-foreground" onClick={() => add(definition, variation)}>{variation.title}</Button>)}
                 </div>)}
-              </div>)}
-              {!filtered.length && <div className="p-6 text-center text-sm text-muted-foreground">No sections found.</div>}
-            </div>
+              </div>
+              <Separator />
+            </div>)}
+            {!filtered.length && <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">No sections found.</CardContent></Card>}
           </div>
-          <div className="hidden min-h-0 items-center justify-center overflow-auto bg-[#f6f6f7] p-6 sm:flex">
-            {active ? <div className="w-full max-w-sm overflow-hidden rounded-lg border bg-white shadow-sm">
-              <div className="flex aspect-[16/10] items-center justify-center bg-[#f1f2f3] p-8"><div className="w-full rounded-md border bg-white p-5 text-center shadow-sm"><Blocks className="mx-auto mb-3 size-7 text-muted-foreground" /><p className="text-sm font-semibold">{active.title}</p><p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{active.description ?? 'Add this section to the page and configure it from the inspector.'}</p></div></div>
-              <div className="border-t p-4"><p className="text-sm font-semibold">{active.title}</p><p className="mt-1 text-xs text-muted-foreground">{getCategoryTitle(active.category) ?? fallbackCategoryTitle(active.category)}</p><Button type="button" className="mt-4 w-full" size="sm" onClick={() => add(active)}><Plus /> Add section</Button></div>
-            </div> : null}
-          </div>
+        </ScrollArea>
+
+        <div className="hidden items-center justify-center bg-muted/40 p-6 md:flex">
+          {active ? <Card className="w-full max-w-md">
+            <CardHeader>
+              <div className="mb-2 flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground"><Blocks /></div>
+              <CardTitle>{active.title}</CardTitle>
+              <CardDescription>{active.description ?? 'Add this section to the page and configure it from the inspector.'}</CardDescription>
+            </CardHeader>
+            <CardContent><Badge variant="outline">{getCategoryTitle(active.category) ?? fallbackCategoryTitle(active.category)}</Badge></CardContent>
+            <CardFooter><Button type="button" className="w-full" onClick={() => add(active)}><Plus />Add section</Button></CardFooter>
+          </Card> : null}
         </div>
       </div>
-    </div>}
-  </>;
+    </DialogContent>
+  </Dialog>;
 }
