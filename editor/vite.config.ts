@@ -7,6 +7,11 @@ const root = import.meta.dirname;
 
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  resolve: {
+    alias: {
+      '@': resolve(root, './src'),
+    },
+  },
   build: {
     outDir: resolve(root, '../resources/dist'),
     emptyOutDir: true,
