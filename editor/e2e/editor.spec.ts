@@ -9,7 +9,7 @@ async function captureEditor(page: Page, name: string): Promise<void> {
 }
 
 async function addHeading(page: Page): Promise<void> {
-  await page.getByLabel('Add block').click();
+  await page.getByRole('combobox', { name: 'Add block' }).filter({ visible: true }).click();
   await page.getByRole('option', { name: 'Heading', exact: true }).click();
 }
 
@@ -60,8 +60,8 @@ test.describe('mobile workspace', () => {
     await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeHidden();
 
     await page.getByLabel('Open inspector panel').click();
-    await expect(page.getByLabel('Text')).toBeVisible();
-    await page.getByLabel('Text').fill('Mobile title');
+    await expect(page.getByLabel('Text').filter({ visible: true })).toBeVisible();
+    await page.getByLabel('Text').filter({ visible: true }).fill('Mobile title');
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.frameLocator('iframe[title="Page builder preview"]').locator('h2')).toHaveText('Mobile title');
     await captureEditor(page, 'page-builder-mobile');
