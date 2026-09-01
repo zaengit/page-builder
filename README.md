@@ -46,7 +46,7 @@ Create one with:
 php artisan make:block custom/testimonial
 ```
 
-Manifests drive both SSR and the editor inspector. Supported attribute types include string, textarea, URL, image, number, range, boolean, select and nested repeaters. Manifests can declare `category`, `variations`, `supports.children` and `supports.allowedChildren`.
+Manifests drive both SSR and the editor inspector. Supported server-side attribute types are `string`, `textarea`, `url`, `image`, `number`, `range`, `boolean`, `select`, and nested `repeater` fields. Manifests can also declare `category`, `variations`, `supports.children`, and `supports.allowedChildren`.
 
 ### Block schema versioning
 
@@ -73,7 +73,22 @@ For example, moving directly from manifest version `1` to `3` requires registrat
 
 ## Editor extension API
 
-Register custom inspector controls after `page-builder:ready`:
+Custom controls are presentation concerns, while `type` remains the server validation contract. Use the optional `control` key instead of inventing an unsupported attribute type:
+
+```json
+{
+  "attributes": {
+    "accent": {
+      "type": "string",
+      "control": "color",
+      "label": "Accent color",
+      "default": "#111111"
+    }
+  }
+}
+```
+
+Then register the React control after the editor API becomes ready:
 
 ```js
 window.addEventListener('page-builder:ready', event => {
@@ -82,11 +97,13 @@ window.addEventListener('page-builder:ready', event => {
 })
 ```
 
-The editor supports grouped block insertion, presets/variations, nested drag-and-drop, undo/redo, duplicate, copy/paste and multiple editor mounts on one page.
+The editor supports grouped block insertion, presets/variations, nested drag-and-drop, keyboard DnD sensors, undo/redo, duplicate, copy/paste, accessible inspector controls, and multiple editor mounts on one page.
 
 ### Media picker bridge
 
-For an `image` control the editor emits `page-builder:media-request` from the editor root and, when embedded, `PAGE_BUILDER_MEDIA_REQUEST` through `postMessage`. The host returns:
+Image controls—including image fields nested inside repeaters—emit `page-builder:media-request` from the editor root and, when embedded, `PAGE_BUILDER_MEDIA_REQUEST` through `postMessage`.
+
+The request contains the selected `blockId`, the current value, and an attribute `path`, for example `['slides', '0', 'image']`. The host returns the selected URL:
 
 ```js
 editorWindow.postMessage({
@@ -133,7 +150,7 @@ $html = app(\Zaengit\PageBuilder\Blocks\PageRenderer::class)->render($page->layo
 
 ## Security boundary
 
-The package provides recursive manifest validation, globally unique block IDs, type/bounds/options validation, maximum nesting/document size, Blade escaping, asset allowlisting, path traversal protection and same-origin preview messaging. Authentication, authorization, tenant boundaries and application CSP remain host responsibilities.
+The package provides recursive manifest validation, globally unique block IDs, type/bounds/options validation, maximum nesting/document size, Blade escaping, asset allowlisting, path traversal protection, and same-origin preview messaging. Authentication, authorization, tenant boundaries, storage policy, and application CSP remain host responsibilities.
 
 ## Block tooling
 
@@ -143,25 +160,45 @@ php artisan blocks:cache
 php artisan blocks:clear
 ```
 
-## Development
+## Development and verification
+
+Backend:
 
 ```bash
 composer install
 cp .env.example .env
 php artisan key:generate
+vendor/bin/phpstan analyse --memory-limit=1G
+vendor/bin/pint --test src routes config
 vendor/bin/phpunit
+```
 
+Editor dependencies are locked in `editor/package-lock.json`; use `npm ci` rather than `npm install` for deterministic development and CI installs:
+
+```bash
 cd editor
-npm install
+npm ci
+npm run test:coverage
 npm run build
+npx playwright install chromium
+npm run test:e2e
 ```
 
 `npm run build` writes deterministic `resources/dist/page-builder.js` and `resources/dist/page-builder.css` files used by Laravel in production.
 
 ## Release process
 
-Run the GitHub **Release** workflow from `main` with a SemVer such as `1.0.0`. The workflow builds the editor, commits distributable assets, and only then creates/pushes `v1.0.0`. This guarantees Composer tags contain the compiled editor and production consumers do not need Node.js.
+Run the GitHub **Release** workflow from `main` with a SemVer such as `1.0.0`. The workflow re-runs backend static analysis, formatting verification, PHPUnit, editor coverage tests, and a deterministic `npm ci` production build before committing distributable assets and creating the tag. Do not create tags manually if you rely on the packaged editor assets.
 
 ## CI production gate
 
-Every pull request validates Composer metadata, installs dependencies, runs PHPUnit, compiles the React editor, and verifies the expected distributable assets exist. Merge only when both `backend` and `editor` jobs are green.
+Every pull request is read-only from the CI token and must pass all of these gates before merge:
+
+- Composer metadata and dependency installation
+- Larastan/PHPStan static analysis
+- Laravel Pint formatting verification across `src`, `routes`, and `config`
+- PHPUnit backend integration tests
+- deterministic `npm ci` install from the committed lockfile
+- Vitest unit tests with coverage thresholds
+- TypeScript + Vite production build and distributable asset verification
+- Playwright Chromium browser E2E covering editing, preview synchronization, history shortcuts, and keyboard-accessible controls
