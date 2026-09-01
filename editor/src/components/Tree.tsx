@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, Copy, Eye, GripVertical, MoreHorizontal, Tra
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { BlockDefinition, PageBlock } from '../types';
 
@@ -33,9 +33,9 @@ function TreeItem({ block, definitions, selectedId, onSelect, onRemove, onDuplic
   const hasChildren = Boolean(definition?.supports?.children);
 
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? .5 : 1 }} className="space-y-1">
-    <div className={cn('group flex items-center rounded-md border bg-background', active && 'border-primary bg-primary/5')}>
+    <div className={cn('group flex items-center rounded-md hover:bg-accent hover:text-accent-foreground', active && 'bg-accent text-accent-foreground')}>
       {hasChildren ? <Button type="button" variant="ghost" size="icon-sm" onClick={() => setExpanded(value => !value)} aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}>{expanded ? <ChevronDown /> : <ChevronRight />}</Button> : <span className="w-8" />}
-      <Button type="button" variant="ghost" className="min-w-0 flex-1 justify-start truncate" aria-pressed={active} onClick={() => onSelect(block.id)}>{title}</Button>
+      <Button type="button" variant="ghost" className="min-w-0 flex-1 justify-start px-2 font-normal" aria-pressed={active} onClick={() => onSelect(block.id)}>{title}</Button>
       <Button type="button" variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 focus:opacity-100" {...attributes} {...listeners} aria-label={`Move ${title}`}><GripVertical /></Button>
       <Button type="button" variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDuplicate(block.id)} aria-label={`Duplicate ${title}`}><Copy /></Button>
       <Button type="button" variant="ghost" size="icon-sm" className="opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onRemove(block.id)} aria-label={`Remove ${title}`}><Trash2 /></Button>
@@ -62,16 +62,19 @@ export function SectionTree(props: TreeProps & { renderAdd: (region: 'header' | 
     footer: props.blocks.filter(block => regionFor(block) === 'footer'),
   };
 
-  return <div className="space-y-3 p-3">
-    {(['header', 'template', 'footer'] as const).map(region => <Card key={region} className="gap-3 py-3">
-      <CardHeader className="px-3">
-        <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-sm">{region === 'template' ? 'Template' : region[0].toUpperCase() + region.slice(1)}</CardTitle>
-          <div className="flex items-center gap-1"><Badge variant="secondary">{groups[region].length}</Badge><Button type="button" variant="ghost" size="icon-sm" aria-label={`Toggle ${region} visibility`}><Eye /></Button><Button type="button" variant="ghost" size="icon-sm" aria-label={`${region} actions`}><MoreHorizontal /></Button></div>
+  return <div className="space-y-1 py-2">
+    {(['header', 'template', 'footer'] as const).map((region, index) => <div key={region}>
+      {index > 0 && <Separator className="my-2" />}
+      <div className="px-3 py-2">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2"><span className="text-sm font-medium">{region === 'template' ? 'Template' : region[0].toUpperCase() + region.slice(1)}</span><Badge variant="secondary">{groups[region].length}</Badge></div>
+          <div className="flex items-center gap-1"><Button type="button" variant="ghost" size="icon-xs" aria-label={`Toggle ${region} visibility`}><Eye /></Button><Button type="button" variant="ghost" size="icon-xs" aria-label={`${region} actions`}><MoreHorizontal /></Button></div>
         </div>
-      </CardHeader>
-      <CardContent className="px-3">{groups[region].length ? <Tree {...props} blocks={groups[region]} /> : <div className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">No {region} sections</div>}</CardContent>
-      <CardFooter className="px-3">{props.renderAdd(region)}</CardFooter>
-    </Card>)}
+        <div className="space-y-2">
+          {groups[region].length ? <Tree {...props} blocks={groups[region]} /> : <div className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">No {region} sections</div>}
+          {props.renderAdd(region)}
+        </div>
+      </div>
+    </div>)}
   </div>;
 }
