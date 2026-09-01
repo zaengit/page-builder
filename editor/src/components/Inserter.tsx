@@ -48,47 +48,47 @@ export function Inserter({ definitions, onAdd, label = 'Add section' }: Props) {
 
   return <Dialog open={open} onOpenChange={setOpen}>
     <DialogTrigger asChild>
-      <Button type="button" variant="ghost" className="w-full justify-start"><Plus />{label}</Button>
+      <Button type="button" variant="ghost" size="xs" className="w-full justify-start px-1.5"><Plus />{label}</Button>
     </DialogTrigger>
-    <DialogContent className="max-h-[80vh] overflow-hidden p-0 sm:max-w-4xl">
-      <DialogHeader className="border-b p-6 pb-4">
-        <DialogTitle>Add section</DialogTitle>
-        <DialogDescription>Choose a section to add to the page.</DialogDescription>
-        <div className="relative pt-2">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 translate-y-0" />
-          <Input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search sections" className="pl-9" />
+    <DialogContent className="max-h-[76vh] overflow-hidden p-0 sm:max-w-3xl">
+      <DialogHeader className="border-b p-4 pb-3">
+        <DialogTitle className="text-base">Add section</DialogTitle>
+        <DialogDescription className="text-xs">Choose a section to add to the page.</DialogDescription>
+        <div className="relative pt-1">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 translate-y-0 text-muted-foreground" />
+          <Input autoFocus value={query} onChange={event => setQuery(event.target.value)} placeholder="Search sections" className="h-8 pl-8 text-sm" />
         </div>
       </DialogHeader>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[280px_minmax(0,1fr)]">
-        <ScrollArea className="h-[52vh] border-r">
-          <div className="space-y-4 p-4">
-            {Object.entries(groups).map(([category, categoryDefinitions]) => <div key={category} className="space-y-2">
-              <Badge variant="secondary">{getCategoryTitle(category) ?? fallbackCategoryTitle(category)}</Badge>
-              <div className="space-y-1">
-                {categoryDefinitions.map(definition => <div key={definition.name} className="space-y-1">
-                  <Button type="button" variant={active?.name === definition.name ? 'secondary' : 'ghost'} className="w-full justify-start" onMouseEnter={() => setActiveName(definition.name)} onFocus={() => setActiveName(definition.name)} onClick={() => add(definition)}>
+      <div className="grid min-h-0 flex-1 grid-cols-1 md:grid-cols-[240px_minmax(0,1fr)]">
+        <ScrollArea className="h-[46vh] border-r">
+          <div className="space-y-3 p-3">
+            {Object.entries(groups).map(([category, categoryDefinitions]) => <div key={category} className="space-y-1.5">
+              <Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{getCategoryTitle(category) ?? fallbackCategoryTitle(category)}</Badge>
+              <div className="space-y-0.5">
+                {categoryDefinitions.map(definition => <div key={definition.name} className="space-y-0.5">
+                  <Button type="button" size="sm" variant={active?.name === definition.name ? 'secondary' : 'ghost'} className="w-full justify-start" onMouseEnter={() => setActiveName(definition.name)} onFocus={() => setActiveName(definition.name)} onClick={() => add(definition)}>
                     <Blocks />
                     <span className="truncate">{definition.title}</span>
                   </Button>
-                  {definition.variations?.map(variation => <Button key={variation.name} type="button" variant="ghost" size="sm" className="w-full justify-start pl-10 text-muted-foreground" onClick={() => add(definition, variation)}>{variation.title}</Button>)}
+                  {definition.variations?.map(variation => <Button key={variation.name} type="button" variant="ghost" size="xs" className="w-full justify-start pl-8 text-muted-foreground" onClick={() => add(definition, variation)}>{variation.title}</Button>)}
                 </div>)}
               </div>
               <Separator />
             </div>)}
-            {!filtered.length && <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">No sections found.</CardContent></Card>}
+            {!filtered.length && <Card><CardContent className="p-4 text-center text-xs text-muted-foreground">No sections found.</CardContent></Card>}
           </div>
         </ScrollArea>
 
-        <div className="hidden items-center justify-center bg-muted/40 p-6 md:flex">
-          {active ? <Card className="w-full max-w-md">
-            <CardHeader>
-              <div className="mb-2 flex size-10 items-center justify-center rounded-md bg-primary text-primary-foreground"><Blocks /></div>
-              <CardTitle>{active.title}</CardTitle>
-              <CardDescription>{active.description ?? 'Add this section to the page and configure it from the inspector.'}</CardDescription>
+        <div className="hidden items-center justify-center bg-muted/40 p-4 md:flex">
+          {active ? <Card className="w-full max-w-sm gap-4 py-4">
+            <CardHeader className="px-4">
+              <div className="mb-1 flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Blocks /></div>
+              <CardTitle className="text-base">{active.title}</CardTitle>
+              <CardDescription className="text-xs">{active.description ?? 'Add this section to the page and configure it from the inspector.'}</CardDescription>
             </CardHeader>
-            <CardContent><Badge variant="outline">{getCategoryTitle(active.category) ?? fallbackCategoryTitle(active.category)}</Badge></CardContent>
-            <CardFooter><Button type="button" className="w-full" onClick={() => add(active)}><Plus />Add section</Button></CardFooter>
+            <CardContent className="px-4"><Badge variant="outline" className="text-[10px]">{getCategoryTitle(active.category) ?? fallbackCategoryTitle(active.category)}</Badge></CardContent>
+            <CardFooter className="px-4"><Button type="button" size="sm" className="w-full" onClick={() => add(active)}><Plus />Add section</Button></CardFooter>
           </Card> : null}
         </div>
       </div>
