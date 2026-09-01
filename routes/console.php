@@ -24,6 +24,7 @@ Artisan::command('blocks:list', function (): int {
     $definitions = app(BlockRegistry::class)->all();
     if ($definitions === []) {
         $this->warn('No blocks registered.');
+
         return Command::SUCCESS;
     }
 
@@ -39,8 +40,9 @@ Artisan::command('blocks:list', function (): int {
 })->purpose('List registered Page Builder blocks');
 
 Artisan::command('make:block {name}', function (string $name): int {
-    if (!BlockName::isValid($name)) {
+    if (! BlockName::isValid($name)) {
         $this->error('Block name must use namespace/block format, for example custom/button.');
+
         return Command::FAILURE;
     }
 
@@ -50,6 +52,7 @@ Artisan::command('make:block {name}', function (string $name): int {
 
     if (File::exists($directory)) {
         $this->error("Block directory already exists: {$directory}");
+
         return Command::FAILURE;
     }
 

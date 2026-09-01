@@ -16,12 +16,16 @@ final class BlockRenderer
     public function render(array $block, bool $preview = false, string $children = ''): string
     {
         $definition = $this->registry->get((string) ($block['type'] ?? ''));
-        if (!$definition) return $preview ? '<div class="pb-missing">Unknown block: '.e($block['type'] ?? '').'</div>' : '';
+        if (! $definition) {
+            return $preview ? '<div class="pb-missing">Unknown block: '.e($block['type'] ?? '').'</div>' : '';
+        }
 
         $this->assets->collect($definition);
         $attrs = $block['attrs'] ?? [];
         foreach (($definition['attributes'] ?? []) as $key => $schema) {
-            if (!array_key_exists($key, $attrs) && array_key_exists('default', $schema)) $attrs[$key] = $schema['default'];
+            if (! array_key_exists($key, $attrs) && array_key_exists('default', $schema)) {
+                $attrs[$key] = $schema['default'];
+            }
         }
 
         $context = new BlockRenderContext((string) ($block['id'] ?? ''), (string) ($block['type'] ?? ''), $attrs, null, $preview);
@@ -33,12 +37,12 @@ final class BlockRenderer
         }
 
         return View::file($definition['_template'], [
-            'blockId'=>$context->blockId,
-            'attrs'=>$context->attrs,
-            'data'=>$data,
-            'context'=>$context,
-            'children'=>$children,
-            'preview'=>$preview,
+            'blockId' => $context->blockId,
+            'attrs' => $context->attrs,
+            'data' => $data,
+            'context' => $context,
+            'children' => $children,
+            'preview' => $preview,
         ])->render();
     }
 }

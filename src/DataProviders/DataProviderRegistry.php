@@ -11,17 +11,23 @@ final class DataProviderRegistry
 
     public function register(string $name, string $provider): void
     {
-        if (!is_subclass_of($provider, BlockDataProvider::class)) {
+        if (! is_subclass_of($provider, BlockDataProvider::class)) {
             throw new InvalidArgumentException("Data provider [{$provider}] must implement BlockDataProvider.");
         }
         $this->providers[$name] = $provider;
     }
 
-    public function has(string $name): bool { return isset($this->providers[$name]); }
+    public function has(string $name): bool
+    {
+        return isset($this->providers[$name]);
+    }
 
     public function resolve(string $name): BlockDataProvider
     {
-        if (!$this->has($name)) throw new InvalidArgumentException("Unknown data provider [{$name}].");
+        if (! $this->has($name)) {
+            throw new InvalidArgumentException("Unknown data provider [{$name}].");
+        }
+
         return app($this->providers[$name]);
     }
 }

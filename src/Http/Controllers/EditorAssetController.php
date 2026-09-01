@@ -14,13 +14,19 @@ final class EditorAssetController
             (string) config('page-builder.editor_css', 'page-builder.css'),
         ]);
 
-        if (!in_array($asset, $allowed, true)) abort(404);
+        if (! in_array($asset, $allowed, true)) {
+            abort(404);
+        }
 
         $root = realpath((string) config('page-builder.editor_dist_path'));
-        if ($root === false) return $this->missingBuildResponse();
+        if ($root === false) {
+            return $this->missingBuildResponse();
+        }
 
         $path = realpath($root.DIRECTORY_SEPARATOR.$asset);
-        if ($path === false || !str_starts_with($path, $root.DIRECTORY_SEPARATOR)) return $this->missingBuildResponse();
+        if ($path === false || ! str_starts_with($path, $root.DIRECTORY_SEPARATOR)) {
+            return $this->missingBuildResponse();
+        }
 
         $mime = str_ends_with($asset, '.css') ? 'text/css; charset=UTF-8' : 'text/javascript; charset=UTF-8';
 

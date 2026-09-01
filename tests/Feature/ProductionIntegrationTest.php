@@ -89,6 +89,30 @@ class ProductionIntegrationTest extends TestCase
         }
     }
 
+    public function test_manifest_rejects_empty_custom_control_name(): void
+    {
+        $root = $this->makeBlockRoot([
+            'broken-control' => [
+                'name' => 'test/broken-control',
+                'title' => 'Broken control',
+                'category' => 'test',
+                'attributes' => [
+                    'color' => ['type' => 'string', 'control' => ''],
+                ],
+            ],
+        ]);
+
+        config()->set('page-builder.block_paths', [$root]);
+
+        try {
+            $this->expectException(RuntimeException::class);
+            $this->expectExceptionMessage('Invalid control for test/broken-control.color');
+            app(BlockManifestLoader::class)->loadAll();
+        } finally {
+            $this->removeDirectory($root);
+        }
+    }
+
     public function test_old_block_attrs_are_migrated_before_validation(): void
     {
         $root = $this->makeBlockRoot([

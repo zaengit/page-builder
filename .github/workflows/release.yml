@@ -40,16 +40,21 @@ jobs:
           composer install --no-interaction --prefer-dist --no-progress
           cp .env.example .env
           php artisan key:generate
+          vendor/bin/phpstan analyse --memory-limit=1G
+          vendor/bin/pint --test src routes config
           APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=':memory:' CACHE_STORE=array SESSION_DRIVER=array vendor/bin/phpunit
 
       - uses: actions/setup-node@v5
         with:
           node-version: '26.8.1'
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
 
       - name: Build distributable editor
         working-directory: editor
         run: |
-          npm install --no-audit --no-fund
+          npm ci --no-audit --no-fund
+          npm run test:coverage
           npm run build
           test -s ../resources/dist/page-builder.js
           test -s ../resources/dist/page-builder.css
