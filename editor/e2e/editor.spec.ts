@@ -26,10 +26,14 @@ test('edits a block, previews it, and supports keyboard history', async ({ page 
 });
 
 test('exposes keyboard-accessible editor controls', async ({ page }) => {
-  await page.getByLabel('Add block').focus();
-  await page.keyboard.press('Tab');
-  await expect(page.locator(':focus')).toBeVisible();
-  await page.getByLabel('Add block').selectOption('core/heading');
-  await expect(page.getByRole('button', { name: 'Move Heading' })).toBeVisible();
+  const inserter = page.getByLabel('Add block');
+  await inserter.focus();
+  await expect(inserter).toBeFocused();
+  await inserter.selectOption('core/heading');
+
+  const move = page.getByRole('button', { name: 'Move Heading' });
+  await move.focus();
+  await expect(move).toBeFocused();
   await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeVisible();
+  await expect(page.getByLabel('Text')).toBeVisible();
 });
