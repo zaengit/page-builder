@@ -53,8 +53,15 @@ jobs:
           node-version: '26.8.1'
           cache: npm
           cache-dependency-path: editor/package-lock.json
-      - name: Install editor dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install editor dependencies and refresh lockfile
+        run: npm install --no-audit --no-fund
+      - name: Upload refreshed lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadcn-package-lock
+          path: editor/package-lock.json
+          if-no-files-found: error
+          retention-days: 1
       - name: Unit tests with coverage
         run: npm run test:coverage
       - name: Build editor
