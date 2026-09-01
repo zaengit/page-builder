@@ -1,6 +1,12 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
+import { mkdir } from 'node:fs/promises';
 
 const definitions = [{ name: 'core/heading', title: 'Heading', category: 'text', version: 1, description: 'Heading block', attributes: { text: { type: 'string', label: 'Text', default: 'Hello' }, level: { type: 'select', label: 'Level', default: 2, options: [1, 2, 3] } } }];
+
+async function captureEditor(page: Page, name: string): Promise<void> {
+  await mkdir('artifacts/screenshots', { recursive: true });
+  await page.screenshot({ path: `artifacts/screenshots/${name}.png`, fullPage: true });
+}
 
 test.beforeEach(async ({ page }) => {
   await page.route('**/api/page-builder/blocks', route => route.fulfill({ json: definitions }));
@@ -19,6 +25,7 @@ test('edits a block, previews it, and supports keyboard history', async ({ page 
   await text.fill('Production title');
   const preview = page.frameLocator('iframe[title="Page builder preview"]');
   await expect(preview.locator('h2')).toHaveText('Production title');
+  await captureEditor(page, 'page-builder-edited');
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Z' : 'Control+Z');
   await expect(text).toHaveValue('Hello');
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Shift+Z' : 'Control+Y');
@@ -36,4 +43,5 @@ test('exposes keyboard-accessible editor controls', async ({ page }) => {
   await expect(move).toBeFocused();
   await expect(page.getByRole('complementary', { name: 'Block inspector' })).toBeVisible();
   await expect(page.getByLabel('Text')).toBeVisible();
+  await captureEditor(page, 'page-builder-keyboard');
 });
