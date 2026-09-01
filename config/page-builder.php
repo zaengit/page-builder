@@ -21,8 +21,4 @@ return [
     // Host applications may expose their own media picker. The editor emits
     // PAGE_BUILDER_MEDIA_REQUEST and accepts PAGE_BUILDER_MEDIA_SELECTED.
     'media_picker' => true,
-
-    // Rendering an unknown block returns an explicit fallback in preview mode;
-    // production rendering skips it by default instead of throwing a 500.
-    'render_unknown_blocks' => false,
 ];
