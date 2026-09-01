@@ -1,10 +1,22 @@
+import { ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { useId } from 'react';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
 import { getControl } from '../registry';
 import { defaults } from '../utils';
 import type { ControlProps } from '../types';
 
 function Help({ text }: { text?: string }) {
-  return text ? <small>{text}</small> : null;
+  return text ? <p className="text-muted-foreground mt-1.5 text-xs leading-relaxed">{text}</p> : null;
+}
+
+function Field({ label, htmlFor, help, children }: { label: string; htmlFor?: string; help?: string; children: React.ReactNode }) {
+  return <div className="grid gap-2"><Label htmlFor={htmlFor}>{label}</Label>{children}<Help text={help} /></div>;
 }
 
 export function BuiltInControl({ name, path = [name], schema, value, onChange, requestMedia }: ControlProps) {
@@ -12,34 +24,38 @@ export function BuiltInControl({ name, path = [name], schema, value, onChange, r
   const label = schema.label ?? name;
 
   if (schema.type === 'select') {
-    return <label htmlFor={id}>{label}<select id={id} value={String(value ?? '')} onChange={event => {
-      const option = schema.options?.find(item => String(item) === event.target.value);
-      onChange(option ?? event.target.value);
-    }}>{schema.options?.map(option => <option key={String(option)} value={String(option)}>{String(option)}</option>)}</select><Help text={schema.help} /></label>;
+    return <Field label={label} help={schema.help}><Select value={String(value ?? '')} onValueChange={next => {
+      const option = schema.options?.find(item => String(item) === next);
+      onChange(option ?? next);
+    }}><SelectTrigger aria-label={label}><SelectValue /></SelectTrigger><SelectContent>{schema.options?.map(option => <SelectItem key={String(option)} value={String(option)}>{String(option)}</SelectItem>)}</SelectContent></Select></Field>;
   }
 
   if (schema.type === 'boolean') {
-    return <label className="check" htmlFor={id}><input id={id} type="checkbox" checked={Boolean(value)} onChange={event => onChange(event.target.checked)} />{label}</label>;
+    return <div className="flex items-start gap-3 rounded-lg border bg-muted/30 p-3"><Checkbox id={id} checked={Boolean(value)} onCheckedChange={checked => onChange(checked === true)} /><div className="grid gap-1"><Label htmlFor={id}>{label}</Label><Help text={schema.help} /></div></div>;
   }
 
   if (schema.type === 'textarea') {
-    return <label htmlFor={id}>{label}<textarea id={id} value={String(value ?? '')} onChange={event => onChange(event.target.value)} /><Help text={schema.help} /></label>;
+    return <Field label={label} htmlFor={id} help={schema.help}><Textarea id={id} value={String(value ?? '')} onChange={event => onChange(event.target.value)} /></Field>;
   }
 
-  if (schema.type === 'number' || schema.type === 'range') {
-    return <label htmlFor={id}>{label}<input id={id} type={schema.type === 'range' ? 'range' : 'number'} min={schema.min} max={schema.max} step={schema.step} value={Number(value ?? 0)} onChange={event => onChange(Number(event.target.value))} />{schema.type === 'range' && <span>{String(value ?? 0)}</span>}<Help text={schema.help} /></label>;
+  if (schema.type === 'number') {
+    return <Field label={label} htmlFor={id} help={schema.help}><Input id={id} type="number" min={schema.min} max={schema.max} step={schema.step} value={Number(value ?? 0)} onChange={event => onChange(Number(event.target.value))} /></Field>;
+  }
+
+  if (schema.type === 'range') {
+    return <Field label={label} htmlFor={id} help={schema.help}><div className="flex items-center gap-3"><input id={id} className="accent-primary h-2 min-w-0 flex-1" type="range" min={schema.min} max={schema.max} step={schema.step} value={Number(value ?? 0)} onChange={event => onChange(Number(event.target.value))} /><span className="bg-muted min-w-10 rounded-md px-2 py-1 text-center text-xs font-medium tabular-nums">{String(value ?? 0)}</span></div></Field>;
   }
 
   if (schema.type === 'repeater') {
     const items = Array.isArray(value) ? value as Array<Record<string, unknown>> : [];
-    return <fieldset className="repeater"><legend>{label}</legend>{items.map((item, index) => <div className="repeater-item" key={index}><div className="repeater-head"><strong>Item {index + 1}</strong><button type="button" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))}>Remove</button></div>{Object.entries(schema.fields ?? {}).map(([field, fieldSchema]) => <Control key={field} name={field} path={[...path, String(index), field]} schema={fieldSchema} value={item[field]} onChange={next => onChange(items.map((current, itemIndex) => itemIndex === index ? { ...current, [field]: next } : current))} requestMedia={requestMedia} />)}</div>)}<button type="button" onClick={() => onChange([...items, defaults(schema.fields)])}>+ Add item</button></fieldset>;
+    return <div className="grid gap-3 rounded-xl border bg-muted/20 p-3"><div className="flex items-center justify-between"><div><p className="text-sm font-medium">{label}</p><Help text={schema.help} /></div><Button type="button" size="sm" variant="outline" onClick={() => onChange([...items, defaults(schema.fields)])}><Plus /> Add</Button></div>{items.length === 0 && <div className="rounded-lg border border-dashed p-5 text-center text-xs text-muted-foreground">No items yet</div>}{items.map((item, index) => <div className="grid gap-4 rounded-lg border bg-background p-3 shadow-xs" key={index}><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Item {index + 1}</span><Button type="button" size="icon-sm" variant="ghost" onClick={() => onChange(items.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove item ${index + 1}`}><Trash2 /></Button></div><Separator />{Object.entries(schema.fields ?? {}).map(([field, fieldSchema]) => <Control key={field} name={field} path={[...path, String(index), field]} schema={fieldSchema} value={item[field]} onChange={next => onChange(items.map((current, itemIndex) => itemIndex === index ? { ...current, [field]: next } : current))} requestMedia={requestMedia} />)}</div>)}</div>;
   }
 
   if (schema.type === 'image') {
-    return <label htmlFor={id}>{label}<div className="media-control"><input id={id} type="url" value={String(value ?? '')} onChange={event => onChange(event.target.value)} />{requestMedia && <button type="button" onClick={() => requestMedia(path)}>Browse</button>}</div><Help text={schema.help} /></label>;
+    return <Field label={label} htmlFor={id} help={schema.help}><div className="flex gap-2"><Input id={id} type="url" value={String(value ?? '')} onChange={event => onChange(event.target.value)} placeholder="https://…" />{requestMedia && <Button type="button" variant="outline" size="icon" onClick={() => requestMedia(path)} aria-label={`Browse ${label}`}><ImagePlus /></Button>}</div></Field>;
   }
 
-  return <label htmlFor={id}>{label}<input id={id} type={schema.type === 'url' ? 'url' : 'text'} value={String(value ?? '')} onChange={event => onChange(event.target.value)} /><Help text={schema.help} /></label>;
+  return <Field label={label} htmlFor={id} help={schema.help}><Input id={id} type={schema.type === 'url' ? 'url' : 'text'} value={String(value ?? '')} onChange={event => onChange(event.target.value)} /></Field>;
 }
 
 export function Control(props: ControlProps) {
