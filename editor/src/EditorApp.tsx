@@ -22,10 +22,10 @@ type Viewport = 'desktop' | 'mobile';
 
 function InspectorPanel({ selected, definition, onChange, requestMedia }: { selected: PageBlock | null; definition?: BlockDefinition; onChange: (id: string, patch: Record<string, unknown>) => void; requestMedia?: (path: string[]) => void }) {
   return <Card className="h-full min-h-0 gap-0 overflow-hidden rounded-none border-0 shadow-none lg:rounded-lg lg:border lg:shadow-sm">
-    <CardHeader className="border-b px-3 py-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0"><CardTitle className="truncate text-sm">{definition?.title ?? 'Section settings'}</CardTitle><CardDescription className="text-xs">Section inspector</CardDescription></div>
-        <Button type="button" variant="ghost" size="icon-xs" aria-label="Inspector actions"><MoreHorizontal /></Button>
+    <CardHeader className="border-b px-2 py-1.5">
+      <div className="flex items-center justify-between gap-1.5">
+        <div className="min-w-0 leading-tight"><CardTitle className="truncate text-xs">{definition?.title ?? 'Section settings'}</CardTitle><CardDescription className="text-[10px] leading-tight">Section inspector</CardDescription></div>
+        <Button type="button" variant="ghost" size="icon-xs" className="size-5" aria-label="Inspector actions"><MoreHorizontal /></Button>
       </div>
     </CardHeader>
     <ScrollArea className="min-h-0 flex-1">
@@ -103,7 +103,7 @@ export function EditorApp({ root, runtime, initial }: Props) {
   const addTopLevel = (type: string, variation?: Parameters<typeof addBlock>[2]) => addBlock(type, null, variation);
 
   const blocksPanel = <Card className="h-full min-h-0 gap-0 overflow-hidden rounded-none border-0 shadow-none lg:rounded-lg lg:border lg:shadow-sm">
-    <CardHeader className="border-b px-3 py-2.5"><div className="flex items-start justify-between gap-2"><div><CardTitle className="text-sm">Home page</CardTitle><CardDescription className="text-xs">Page structure</CardDescription></div><Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{content.blocks.length}</Badge></div></CardHeader>
+    <CardHeader className="border-b px-2 py-1.5"><div className="flex items-center justify-between gap-1.5"><div className="min-w-0 leading-tight"><CardTitle className="truncate text-xs">Home page</CardTitle><CardDescription className="text-[10px] leading-tight">Page structure</CardDescription></div><Badge variant="secondary" className="h-4 min-w-4 px-1 text-[9px] leading-none">{content.blocks.length}</Badge></div></CardHeader>
     <ScrollArea className="min-h-0 flex-1"><DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}><SectionTree blocks={content.blocks} definitions={definitions} selectedId={selectedId} onSelect={select} onRemove={removeBlock} onDuplicate={duplicateBlock} renderAdd={() => <Inserter definitions={definitions.filter(item => !item.name.toLowerCase().includes('footer') && !item.name.toLowerCase().includes('header'))} onAdd={addTopLevel} />} /></DndContext></ScrollArea>
   </Card>;
 
