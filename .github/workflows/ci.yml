@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   backend:
@@ -47,6 +47,8 @@ jobs:
         working-directory: editor
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
@@ -55,13 +57,17 @@ jobs:
           cache-dependency-path: editor/package-lock.json
       - name: Install editor dependencies and refresh lockfile
         run: npm install --no-audit --no-fund
-      - name: Upload refreshed lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: shadcn-package-lock
-          path: editor/package-lock.json
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit refreshed lockfile
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --quiet package-lock.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          git commit -m "chore: lock shadcn editor dependencies"
+          git push origin HEAD:${{ github.head_ref }}
       - name: Unit tests with coverage
         run: npm run test:coverage
       - name: Build editor
