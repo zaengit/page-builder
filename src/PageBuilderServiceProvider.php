@@ -14,8 +14,8 @@ final class PageBuilderServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/page-builder.php', 'page-builder');
         $this->app->scoped(AssetCollector::class);
-        $this->app->singleton(DataProviderRegistry::class, fn () => new DataProviderRegistry());
-        $this->app->singleton(BlockMigrationRegistry::class, fn () => new BlockMigrationRegistry());
+        $this->app->singleton(DataProviderRegistry::class, fn () => new DataProviderRegistry);
+        $this->app->singleton(BlockMigrationRegistry::class, fn () => new BlockMigrationRegistry);
     }
 
     public function boot(): void

@@ -28,8 +28,8 @@ Route::middleware(is_array($assetMiddleware) ? $assetMiddleware : [$assetMiddlew
 
     Route::get('/block-assets/{namespace}/{block}/{asset}', [BlockAssetController::class, 'show'])
         ->where([
-            'namespace'=>'[a-z0-9-]+',
-            'block'=>'[a-z0-9-]+',
-            'asset'=>'[A-Za-z0-9._-]+',
+            'namespace' => '[a-z0-9-]+',
+            'block' => '[a-z0-9-]+',
+            'asset' => '[A-Za-z0-9._-]+',
         ]);
 });
