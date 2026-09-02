@@ -3,17 +3,27 @@
     'name' => null,
     'height' => '720px',
     'mediaPicker' => null,
+    'patterns' => [],
+    'templates' => [],
+    'dataSources' => [],
+    'autosaveMs' => null,
 ])
 
 @php
     $id = 'page-builder-'.str()->uuid();
     $devServer = rtrim((string) config('page-builder.editor_dev_server', ''), '/');
+    $editorResources = app(\Zaengit\PageBuilder\Editor\EditorResourceRegistry::class);
+    $dataProviders = app(\Zaengit\PageBuilder\DataProviders\DataProviderRegistry::class);
     $runtime = [
         'blocksUrl' => route('page-builder.blocks'),
         'renderBlockUrl' => route('page-builder.render-block'),
         'renderPageUrl' => route('page-builder.render-page'),
         'previewUrl' => route('page-builder.preview'),
         'mediaPicker' => $mediaPicker ?? (bool) config('page-builder.media_picker', true),
+        'patterns' => array_values(array_merge($editorResources->patterns(), is_array($patterns) ? $patterns : [])),
+        'templates' => array_values(array_merge($editorResources->templates(), is_array($templates) ? $templates : [])),
+        'dataSources' => array_values(array_merge($dataProviders->definitions(), is_array($dataSources) ? $dataSources : [])),
+        'autosaveMs' => max(0, (int) ($autosaveMs ?? config('page-builder.autosave_ms', 0))),
     ];
     $runtimeJson = e(json_encode($runtime, JSON_THROW_ON_ERROR));
     $contentJson = e(json_encode($content, JSON_THROW_ON_ERROR));

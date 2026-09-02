@@ -18,6 +18,9 @@ return [
     'editor_js' => 'page-builder.js',
     'editor_css' => 'page-builder.css',
 
+    // Automatic save requests are disabled by default. The host still owns persistence.
+    'autosave_ms' => max(0, (int) env('PAGE_BUILDER_AUTOSAVE_MS', 0)),
+
     // Host applications may expose their own media picker. The editor emits
     // PAGE_BUILDER_MEDIA_REQUEST and accepts PAGE_BUILDER_MEDIA_SELECTED.
     'media_picker' => true,
