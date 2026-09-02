@@ -1,6 +1,6 @@
 # Zaengit Page Builder
 
-Production-oriented Gutenberg/Shopify-style **page builder package for Laravel** with a React editor and Laravel Blade SSR. It is intentionally not a CMS: the host application owns users, authorization, models, persistence, publishing, tenancy and rate limiting.
+Production-oriented Gutenberg/Shopify-style **page builder package for Laravel** with a React editor and Laravel Blade SSR. It is intentionally not a CMS: the host application owns users, authorization, models, persistence, publishing, tenancy, media storage, revisions and rate limiting.
 
 ## Install
 
@@ -24,11 +24,48 @@ Page JSON
   -> PageContentValidator
   -> PageRenderer
   -> BlockRenderer
+  -> dynamic data bindings
   -> Blade SSR
+  -> responsive block styles
   -> lazy/deduplicated block CSS + JS
 ```
 
 Core package code lives under `src/`; reusable block manifests under `blocks/`; the React editor under `editor/`; compiled release assets under `resources/dist/`.
+
+The Laravel application shell in this repository (`artisan`, `bootstrap/`, `public/`, and framework config files) is a development/CI harness. The public package contract remains the service provider, `src/`, package routes/views/config, block manifests and compiled editor assets; the package does not become a CMS or own the host application's domain models.
+
+## Page JSON
+
+A page can carry global settings and each block can carry presentation, binding and locking metadata without changing the block's server-side attribute contract:
+
+```json
+{
+  "schemaVersion": 1,
+  "settings": {
+    "contentWidth": "1200px",
+    "background": "#ffffff",
+    "tokens": { "brand": "#2563eb" }
+  },
+  "blocks": [
+    {
+      "id": "hero-title",
+      "type": "core/heading",
+      "version": 1,
+      "attrs": { "text": "Hello", "level": 1, "alignment": "left" },
+      "styles": {
+        "fontSize": { "desktop": "56px", "tablet": "42px", "mobile": "34px" },
+        "padding": { "desktop": "48px", "mobile": "24px" }
+      },
+      "bindings": {
+        "text": { "source": "product", "path": "title", "fallback": "Hello" }
+      },
+      "lock": { "move": false, "remove": false, "edit": false }
+    }
+  ]
+}
+```
+
+Responsive values use `desktop`, `tablet` and `mobile`. The renderer only serializes allowlisted style properties; block attributes remain validated by their manifests.
 
 ## Custom blocks
 
@@ -46,7 +83,58 @@ Create one with:
 php artisan make:block custom/testimonial
 ```
 
-Manifests drive both SSR and the editor inspector. Supported server-side attribute types are `string`, `textarea`, `url`, `image`, `number`, `range`, `boolean`, `select`, and nested `repeater` fields. Manifests can also declare `category`, `variations`, `supports.children`, and `supports.allowedChildren`.
+Manifests drive both SSR and the editor inspector. Supported server-side attribute types are `string`, `textarea`, `url`, `image`, `number`, `range`, `boolean`, `select`, `color`, `date`, `code`, and nested `repeater` fields.
+
+Attributes may additionally declare:
+
+```json
+{
+  "padding": {
+    "type": "string",
+    "label": "Padding",
+    "responsive": true,
+    "default": { "desktop": "32px", "mobile": "16px" }
+  },
+  "autoplaySpeed": {
+    "type": "number",
+    "visibleWhen": { "attribute": "autoplay", "truthy": true },
+    "default": 4000
+  }
+}
+```
+
+Manifests can declare `category`, `variations`, `supports.children`, `supports.allowedChildren`, named `supports.slots`, `supports.inline`, `supports.styles`, `supports.lock`, and `supports.reusable`.
+
+### Named slots
+
+Container-style blocks may constrain children to named regions:
+
+```json
+{
+  "supports": {
+    "children": true,
+    "slots": [
+      { "name": "header", "allowedChildren": ["core/heading"] },
+      { "name": "body" }
+    ]
+  }
+}
+```
+
+A child Page JSON node stores its target as `"slot": "header"`. The server validator rejects unknown slots and disallowed child types.
+
+### Inline SSR editing
+
+The preview remains server rendered. A Blade template can expose a text attribute for direct editing in the canvas:
+
+```blade
+<h2
+    data-block-id="{{ $blockId }}"
+    @if($preview) data-pb-inline="text" contenteditable="true" @endif
+>{{ $attrs['text'] ?? '' }}</h2>
+```
+
+The preview sends the edit back to React through a same-origin `postMessage`, so WYSIWYG editing uses the same Blade output as the frontend instead of maintaining a second React renderer.
 
 ### Block schema versioning
 
@@ -71,7 +159,17 @@ The callback migrates **attributes only**. Validation runs after all sequential 
 
 For example, moving directly from manifest version `1` to `3` requires registrations for both `1 -> 2` and `2 -> 3`.
 
-## Editor extension API
+## Editor capabilities
+
+The editor provides SSR iframe preview, direct inline text editing, desktop/tablet/mobile preview widths, responsive block design values, page settings, nested drag-and-drop, keyboard DnD sensors, named-slot-aware insertion contracts, undo/redo, duplicate, copy/paste, block locking, conditional controls, dynamic bindings, patterns, templates, JSON import/export, a compact canvas toolbar and accessible inspector controls.
+
+Undo/redo history is intentionally editor-local. Persistent revisions remain a host concern and can be created whenever the host receives save lifecycle events.
+
+### Patterns and templates
+
+Patterns are reusable block trees. Templates are full Page JSON documents. A host can provide both in editor runtime configuration, or extensions can register patterns dynamically. Inserting a pattern renews block IDs to keep the document globally unique.
+
+### Editor extension API
 
 Custom controls are presentation concerns, while `type` remains the server validation contract. Use the optional `control` key instead of inventing an unsupported attribute type:
 
@@ -88,18 +186,69 @@ Custom controls are presentation concerns, while `type` remains the server valid
 }
 ```
 
-Then register the React control after the editor API becomes ready:
+Register editor extensions after the editor API becomes ready:
 
 ```js
 window.addEventListener('page-builder:ready', event => {
-  event.detail.registerControl('color', ColorControl)
-  event.detail.registerCategory('commerce', 'Commerce')
+  const api = event.detail
+
+  api.registerControl('color', ColorControl)
+  api.registerCategory('commerce', 'Commerce')
+  api.registerBlockEditor('commerce/product-grid', ProductGridEditor)
+  api.registerTransform('core/heading', {
+    name: 'heading-to-hero-title',
+    title: 'Convert to hero title',
+    to: 'marketing/hero-title'
+  })
+  api.registerToolbarAction({
+    id: 'custom-action',
+    title: 'Custom action',
+    run: block => console.log(block)
+  })
+  api.registerInspectorPanel({
+    id: 'seo',
+    title: 'SEO',
+    render: SeoInspectorPanel
+  })
+  api.registerPattern({
+    id: 'hero-centered',
+    title: 'Centered hero',
+    blocks: []
+  })
 })
 ```
 
-The editor supports grouped block insertion, presets/variations, nested drag-and-drop, keyboard DnD sensors, undo/redo, duplicate, copy/paste, accessible inspector controls, and multiple editor mounts on one page.
+This separates SSR output from editor-specific React UX: complex carousel, tabs, commerce or data blocks can have a dedicated React inspector/editor while the public page still renders from Blade.
 
-### Media picker bridge
+## Dynamic data binding
+
+Register host-owned data providers through `DataProviderRegistry`. The editor can expose provider names as data sources; a block binding selects the provider and optional dot-path. `DynamicBindingResolver` resolves the value immediately before Blade SSR and supports a fallback value when the provider does not return data.
+
+The package never assumes products, posts or users exist. Those data contracts belong to the host application.
+
+## Save, autosave and revisions
+
+The package does not persist pages itself. The editor emits lifecycle events so the host can choose normal save, autosave and revision behavior:
+
+- `page-builder:change` — Page JSON changed.
+- `page-builder:dirty` — editor has unsaved changes.
+- `page-builder:save-request` — host should persist the current Page JSON. `detail.autosave` distinguishes autosave from an explicit save.
+- `page-builder:save` — explicit save action was requested.
+
+Embedded editors mirror the same lifecycle through `PAGE_BUILDER_CHANGE`, `PAGE_BUILDER_SAVE_REQUEST` and `PAGE_BUILDER_SAVE` same-origin messages.
+
+A host can implement revisions without coupling them to this package:
+
+```js
+editor.addEventListener('page-builder:save-request', event => {
+  savePage(event.detail.content)
+  createRevision(event.detail.content)
+})
+```
+
+Set `autosaveMs` in the editor runtime when automatic save requests are desired. A value of `0` leaves autosave disabled.
+
+## Media picker bridge
 
 Image controls—including image fields nested inside repeaters—emit `page-builder:media-request` from the editor root and, when embedded, `PAGE_BUILDER_MEDIA_REQUEST` through `postMessage`.
 
@@ -150,7 +299,7 @@ $html = app(\Zaengit\PageBuilder\Blocks\PageRenderer::class)->render($page->layo
 
 ## Security boundary
 
-The package provides recursive manifest validation, globally unique block IDs, type/bounds/options validation, maximum nesting/document size, Blade escaping, asset allowlisting, path traversal protection, and same-origin preview messaging. Authentication, authorization, tenant boundaries, storage policy, and application CSP remain host responsibilities.
+The package provides recursive manifest validation, globally unique block IDs, schema migration checks, type/bounds/options validation, responsive-value validation, named-slot validation, style allowlisting, maximum nesting/document size, Blade escaping, asset allowlisting, path traversal protection, same-origin preview messaging, and guarded dynamic-provider resolution. Authentication, authorization, tenant boundaries, storage policy, revision retention, data-provider authorization and application CSP remain host responsibilities.
 
 ## Block tooling
 
@@ -201,4 +350,4 @@ Every pull request is read-only from the CI token and must pass all of these gat
 - deterministic `npm ci` install from the committed lockfile
 - Vitest unit tests with coverage thresholds
 - TypeScript + Vite production build and distributable asset verification
-- Playwright Chromium browser E2E covering editing, preview synchronization, history shortcuts, and keyboard-accessible controls
+- Playwright Chromium browser E2E covering editing, preview synchronization, history shortcuts and keyboard-accessible controls
