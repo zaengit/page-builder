@@ -7,23 +7,43 @@ use Zaengit\PageBuilder\Blocks\BlockRenderContext;
 
 final class DynamicBindingResolver
 {
-    public function __construct(private readonly DataProviderRegistry $providers) {}
+    public function __construct(
+        private readonly DataProviderRegistry $providers,
+    ) {}
 
     public function resolve(array $attrs, array $bindings, BlockRenderContext $context): array
     {
         foreach ($bindings as $attribute => $binding) {
-            if (! is_string($attribute) || ! is_array($binding)) continue;
+            if (! is_string($attribute) || ! is_array($binding)) {
+                continue;
+            }
+
             $source = $binding['source'] ?? null;
-            if (! is_string($source) || $source === '' || ! $this->providers->has($source)) continue;
+
+            if (! is_string($source) || $source === '' || ! $this->providers->has($source)) {
+                continue;
+            }
+
             try {
                 $data = $this->providers->resolve($source)->resolve($attrs, $context);
-                $value = ($binding['path'] ?? '') !== '' ? data_get($data, (string) $binding['path']) : $data;
-                if ($value === null && array_key_exists('fallback', $binding)) $value = $binding['fallback'];
-                if ($value !== null) $attrs[$attribute] = $value;
+                $value = ($binding['path'] ?? '') !== ''
+                    ? data_get($data, (string) $binding['path'])
+                    : $data;
+
+                if ($value === null && array_key_exists('fallback', $binding)) {
+                    $value = $binding['fallback'];
+                }
+
+                if ($value !== null) {
+                    $attrs[$attribute] = $value;
+                }
             } catch (Throwable) {
-                if (array_key_exists('fallback', $binding)) $attrs[$attribute] = $binding['fallback'];
+                if (array_key_exists('fallback', $binding)) {
+                    $attrs[$attribute] = $binding['fallback'];
+                }
             }
         }
+
         return $attrs;
     }
 }
