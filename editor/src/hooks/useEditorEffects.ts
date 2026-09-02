@@ -2,7 +2,7 @@ import { useEffect, type MutableRefObject } from 'react';
 import type { PageBlock, PageContent, EditorRuntime } from '../types';
 
 type MediaRequest = { id: string; path: string[] } | null;
-type MessageActions = { replaceContent: (content: PageContent) => void; select: (id: string | null) => void; updateAttrPath: (id: string, path: string[], value: unknown) => void; };
+type MessageActions = { replaceContent: (content: PageContent) => void; select: (id: string | null) => void; updateAttrPath: (id: string, path: string[], value: unknown) => void; duplicateBlock: (id: string) => void; removeBlock: (id: string) => void; };
 
 export function useEditorMessages(mediaRequest: MutableRefObject<MediaRequest>, actions: MessageActions) {
   useEffect(() => {
@@ -10,11 +10,15 @@ export function useEditorMessages(mediaRequest: MutableRefObject<MediaRequest>, 
       if (event.origin !== location.origin) return;
       if (event.data?.type === 'SELECT_BLOCK') actions.select(event.data.blockId);
       if (event.data?.type === 'PB_INLINE_EDIT' && event.data.blockId && event.data.attribute) actions.updateAttrPath(event.data.blockId, [event.data.attribute], event.data.value);
+      if (event.data?.type === 'PB_TOOLBAR_ACTION' && event.data.blockId) {
+        if (event.data.action === 'duplicate') actions.duplicateBlock(event.data.blockId);
+        if (event.data.action === 'remove') actions.removeBlock(event.data.blockId);
+      }
       if (event.data?.type === 'SET_PAGE_BUILDER_CONTENT' && event.data.content) actions.replaceContent(event.data.content as PageContent);
       if (event.data?.type === 'PAGE_BUILDER_MEDIA_SELECTED' && mediaRequest.current && event.data.url) { actions.updateAttrPath(mediaRequest.current.id, mediaRequest.current.path, event.data.url); mediaRequest.current = null; }
     };
     addEventListener('message', listener); return () => removeEventListener('message', listener);
-  }, [actions.replaceContent, actions.select, actions.updateAttrPath, mediaRequest]);
+  }, [actions.duplicateBlock, actions.removeBlock, actions.replaceContent, actions.select, actions.updateAttrPath, mediaRequest]);
 }
 
 export function useEditorShortcuts(selectedId: string | null, undo: () => void, redo: () => void, duplicateBlock: (id: string) => void) {
