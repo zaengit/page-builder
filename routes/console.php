@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Artisan;
-use InvalidArgumentException;
 use Symfony\Component\Console\Command\Command;
 use Zaengit\PageBuilder\Blocks\BlockManifestLoader;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
@@ -53,7 +52,7 @@ Artisan::command('make:block {name} {--preset=basic : Scaffold preset: basic, in
 
     try {
         $directory = app(BlockScaffolder::class)->scaffold($name, $preset);
-    } catch (InvalidArgumentException $exception) {
+    } catch (\InvalidArgumentException $exception) {
         $this->error($exception->getMessage());
 
         return Command::FAILURE;
