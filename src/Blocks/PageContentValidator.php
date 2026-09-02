@@ -42,11 +42,13 @@ final class PageContentValidator
         if ($children !== [] && ! ($definition['supports']['children'] ?? false)) $this->fail("{$path}.children", 'This block type does not support children.');
         $allowedChildren = $definition['supports']['allowedChildren'] ?? null;
         if ($children !== [] && is_array($allowedChildren) && $allowedChildren !== []) foreach ($children as $index => $child) { $childType = is_array($child) ? ($child['type'] ?? null) : null; if (! is_string($childType) || ! in_array($childType, $allowedChildren, true)) $this->fail("{$path}.children.{$index}.type", 'This child block type is not allowed inside the parent block.'); }
-        $slots = collect($definition['supports']['slots'] ?? [])->keyBy('name');
+        $slotDefinitions = is_array($definition['supports']['slots'] ?? null) ? $definition['supports']['slots'] : [];
+        $slots = [];
+        foreach ($slotDefinitions as $slotDefinition) if (is_array($slotDefinition) && is_string($slotDefinition['name'] ?? null)) $slots[$slotDefinition['name']] = $slotDefinition;
         $validatedChildren = [];
         foreach ($children as $index => $child) {
             if (is_array($child) && isset($child['slot'])) {
-                $slot = $slots->get($child['slot']); if (! $slot) $this->fail("{$path}.children.{$index}.slot", 'Unknown parent slot.');
+                $slot = is_string($child['slot']) ? ($slots[$child['slot']] ?? null) : null; if (! $slot) $this->fail("{$path}.children.{$index}.slot", 'Unknown parent slot.');
                 if (($slot['allowedChildren'] ?? []) !== [] && ! in_array($child['type'] ?? null, $slot['allowedChildren'], true)) $this->fail("{$path}.children.{$index}.type", 'This block type is not allowed in the selected slot.');
             }
             $validatedChildren[] = $this->validateBlock($child, "{$path}.children.{$index}", $depth + 1, $seenIds, $count);
