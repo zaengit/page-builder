@@ -1,10 +1,17 @@
 <?php
 
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\File;
 use Symfony\Component\Console\Command\Command;
-use Zaengit\PageBuilder\Blocks\BlockName;
+use Zaengit\PageBuilder\Blocks\BlockManifestLoader;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
+use Zaengit\PageBuilder\Blocks\BlockScaffolder;
+
+Artisan::command('blocks:validate', function (): int {
+    $definitions = app(BlockManifestLoader::class)->loadAll();
+    $this->info('Validated '.count($definitions).' block manifests.');
+
+    return Command::SUCCESS;
+})->purpose('Validate all Page Builder block manifests without changing the cache');
 
 Artisan::command('blocks:cache', function (): int {
     $definitions = app(BlockRegistry::class)->warm();
@@ -32,46 +39,28 @@ Artisan::command('blocks:list', function (): int {
         $definition['name'] ?? '',
         $definition['title'] ?? '',
         $definition['category'] ?? '',
+        $definition['version'] ?? 1,
     ], array_values($definitions));
 
-    $this->table(['Name', 'Title', 'Category'], $rows);
+    $this->table(['Name', 'Title', 'Category', 'Version'], $rows);
 
     return Command::SUCCESS;
 })->purpose('List registered Page Builder blocks');
 
-Artisan::command('make:block {name}', function (string $name): int {
-    if (! BlockName::isValid($name)) {
-        $this->error('Block name must use namespace/block format, for example custom/button.');
+Artisan::command('make:block {name} {--preset=basic : Scaffold preset: basic, interactive, or container}', function (string $name): int {
+    $preset = (string) $this->option('preset');
+
+    try {
+        $directory = app(BlockScaffolder::class)->scaffold($name, $preset);
+    } catch (InvalidArgumentException $exception) {
+        $this->error($exception->getMessage());
 
         return Command::FAILURE;
     }
-
-    [, $slug] = explode('/', $name, 2);
-    $root = rtrim((string) config('page-builder.custom_blocks_path', base_path('blocks')), DIRECTORY_SEPARATOR);
-    $directory = $root.DIRECTORY_SEPARATOR.$slug;
-
-    if (File::exists($directory)) {
-        $this->error("Block directory already exists: {$directory}");
-
-        return Command::FAILURE;
-    }
-
-    File::makeDirectory($directory, 0755, true);
-    File::put($directory.'/block.json', json_encode([
-        'name' => $name,
-        'version' => 1,
-        'title' => str($slug)->replace('-', ' ')->title()->toString(),
-        'category' => 'custom',
-        'icon' => 'block',
-        'attributes' => [
-            'text' => ['type' => 'string', 'label' => 'Text', 'default' => 'New block'],
-        ],
-    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES).PHP_EOL);
-    File::put($directory.'/template.blade.php', '<section data-block-id="{{ $blockId }}">{{ $attrs[\'text\'] ?? \'\' }}</section>'.PHP_EOL);
 
     app(BlockRegistry::class)->clear();
-    $this->info("Created {$name} in {$directory}.");
-    $this->line('Run php artisan blocks:cache after customizing the manifest.');
+    $this->info("Created {$name} ({$preset}) in {$directory}.");
+    $this->line('Run php artisan blocks:validate after customizing the manifest.');
 
     return Command::SUCCESS;
-})->purpose('Create a new Page Builder block scaffold');
+})->purpose('Create a Page Builder block scaffold from a preset');
