@@ -52,7 +52,7 @@ Artisan::command('make:block {name} {--preset=basic : Scaffold preset: basic, in
 
     try {
         $directory = app(BlockScaffolder::class)->scaffold($name, $preset);
-    } catch (\InvalidArgumentException $exception) {
+    } catch (InvalidArgumentException $exception) {
         $this->error($exception->getMessage());
 
         return Command::FAILURE;
