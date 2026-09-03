@@ -41,14 +41,17 @@ export function usePreview(content: PageContent, ready: boolean, runtime: Editor
     if (!ready) return;
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch(runtime.renderPageUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, credentials: 'same-origin', body: JSON.stringify(content) });
+        const payload = runtime.previewContext && Object.keys(runtime.previewContext).length > 0
+          ? { ...content, context: runtime.previewContext }
+          : content;
+        const response = await fetch(runtime.renderPageUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) });
         const result = await response.json();
         if (!response.ok) throw new Error(Object.values(result.errors ?? {}).flat().join(' ') || result.message || 'Preview failed');
         setError(''); iframe.current?.contentWindow?.postMessage({ type: 'REPLACE_PAGE', html: result.html, assets: result.assets, settings: content.settings }, location.origin);
       } catch (error) { setError(error instanceof Error ? error.message : 'Preview failed'); }
     }, 120);
     return () => clearTimeout(timer);
-  }, [content, iframe, ready, runtime.renderPageUrl, setError]);
+  }, [content, iframe, ready, runtime.previewContext, runtime.renderPageUrl, setError]);
 }
 
 export function useChangeEmitter(root: HTMLElement, content: PageContent, ready: boolean) {
