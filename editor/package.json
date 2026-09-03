@@ -1,15 +1,26 @@
 {
   "name": "page-builder-editor",
-  "private": true,
+  "private": false,
   "version": "0.1.0",
+  "description": "Engine-neutral React visual editor for the Zaengit universal page builder specification",
   "type": "module",
+  "files": ["dist", "src", "README.md"],
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./style.css": "./dist/page-builder.css"
+  },
   "engines": { "node": ">=26.8.1" },
+  "pageBuilder": { "specificationVersion": 1, "rendererProtocolVersion": 1 },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "pack:check": "npm pack --dry-run"
   },
   "dependencies": {
     "@dnd-kit/core": "6.3.1",
