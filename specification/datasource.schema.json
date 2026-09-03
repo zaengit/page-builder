@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://page-builder.dev/specification/datasource.schema.json",
+  "title": "Page Builder Datasource",
+  "type": "object",
+  "required": ["provider", "resource"],
+  "properties": {
+    "provider": { "type": "string", "minLength": 1 },
+    "resource": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$" },
+    "mode": { "enum": ["single", "collection"] },
+    "recordId": {},
+    "contextKey": { "type": "string" },
+    "query": {
+      "type": "object",
+      "properties": {
+        "where": {
+          "type": "array",
+          "maxItems": 50,
+          "items": {
+            "type": "object",
+            "required": ["column", "operator"],
+            "properties": {
+              "column": { "type": "string" },
+              "operator": { "enum": ["=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in", "null", "not null"] },
+              "value": {}
+            },
+            "additionalProperties": false
+          }
+        },
+        "orderBy": {
+          "type": "array",
+          "maxItems": 10,
+          "items": {
+            "type": "object",
+            "required": ["column"],
+            "properties": {
+              "column": { "type": "string" },
+              "direction": { "enum": ["asc", "desc"] }
+            },
+            "additionalProperties": false
+          }
+        },
+        "with": { "type": "array", "maxItems": 20, "items": { "type": "string" } },
+        "limit": { "type": "integer", "minimum": 1 },
+        "perPage": { "type": "integer", "minimum": 0 },
+        "page": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
