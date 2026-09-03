@@ -55,13 +55,19 @@ func main() {
 
 	timeout := 5 * time.Second
 	if raw := os.Getenv("PAGE_BUILDER_RENDER_TIMEOUT_MS"); raw != "" {
-		if ms, err := strconv.Atoi(raw); err == nil && ms > 0 { timeout = time.Duration(ms) * time.Millisecond }
+		if ms, err := strconv.Atoi(raw); err == nil && ms > 0 {
+			timeout = time.Duration(ms) * time.Millisecond
+		}
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	result, err := pagebuilder.New().Render(ctx, pagebuilder.RenderRequest{Page: request.Page, Registry: registry, Context: request.Context})
 	if err != nil {
-		if ctx.Err() == context.DeadlineExceeded { emit("render_timeout", "$", "renderer deadline exceeded") } else { emit("render_error", "$", err.Error()) }
+		if ctx.Err() == context.DeadlineExceeded {
+			emit("render_timeout", "$", "renderer deadline exceeded")
+		} else {
+			emit("render_error", "$", err.Error())
+		}
 		return
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
@@ -72,7 +78,7 @@ func main() {
 func emit(code, path, message string) {
 	p, m := path, message
 	_ = json.NewEncoder(os.Stdout).Encode(pagebuilder.RenderResult{
-		Assets: pagebuilder.Assets{CSS: []string{}, JS: []string{}},
+		Assets:      pagebuilder.Assets{CSS: []string{}, JS: []string{}},
 		Diagnostics: []pagebuilder.Diagnostic{{Code: code, Severity: "error", Path: &p, Message: &m}},
 	})
 }
