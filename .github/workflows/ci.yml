@@ -72,6 +72,25 @@ jobs:
       - name: Test Rust renderer
         working-directory: renderers/rust
         run: cargo test --all-targets
+      - name: Build deployable renderer artifacts
+        run: bash scripts/build-universal-renderers.sh
+      - name: Smoke test renderer artifacts
+        run: |
+          test -x dist/renderers/page-builder-render-go
+          test -x dist/renderers/page-builder-render-rust
+          test -x dist/renderers/page-builder-render-node
+          test -x dist/renderers/page-builder-render-python
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-go | grep -q '"html"'
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-rust | grep -q '"html"'
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-node | grep -q '"html"'
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-python | grep -q '"html"'
+      - name: Upload renderer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-renderers-linux
+          path: dist/renderers/*
+          if-no-files-found: error
+          retention-days: 7
 
   editor:
     runs-on: ubuntu-latest
