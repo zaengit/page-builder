@@ -98,15 +98,50 @@ Database requests are declarative and follow `datasource.schema.json`:
 
 ## Layout and responsive serialization
 
-The canonical responsive keys are `desktop`, `tablet`, and `mobile`. Desktop is the base rule. Tablet and mobile are override rules. All official engines must preserve the same semantic order and must not introduce persisted engine-specific breakpoint names.
+The canonical responsive keys are `desktop`, `tablet`, and `mobile`. Desktop is the base rule. Tablet and mobile are override rules. If a responsive property omits a tablet or mobile value, the engine inherits that property's desktop value. All official engines must preserve the same semantic order and must not introduce persisted engine-specific breakpoint names.
+
+The v1 output breakpoints are `tablet = max-width:1024px` and `mobile = max-width:640px`. Desktop rules are emitted inline/base-first, then tablet rules, then mobile rules.
 
 `layout.mode` supports `block`, `flex`, and `grid`. Flex and grid properties only affect layout when their matching mode is active at that breakpoint. `layoutItem` belongs to a child block and describes how that child participates in its parent layout.
 
+Flex mode serializes `display`, `flex-direction`, `flex-wrap`, `justify-content`, `align-items`, `align-content`, `gap`, `row-gap`, and `column-gap`. A flex child serializes `flex-grow`, `flex-shrink`, `flex-basis`, `align-self`, and `order`.
+
+Grid mode serializes `display`, `grid-template-columns`, optional `grid-template-rows`, `grid-auto-flow`, `gap`, `row-gap`, and `column-gap`. A grid child serializes `grid-column` and `grid-row` from `columnStart`, `columnSpan`, `rowStart`, and `rowSpan`. Span values are clamped to at least `1`; explicit starts are also clamped to at least `1`.
+
 Styles and layout output must be deterministic for identical Page JSON. Engines may use different internal serializers, but shared conformance fixtures define the observable HTML/CSS contract.
+
+## Block style contract
+
+The portable v1 style allowlist is fixed to the following persisted keys and CSS properties:
+
+| Persisted key | CSS property |
+| --- | --- |
+| `background` | `background` |
+| `color` | `color` |
+| `padding` | `padding` |
+| `margin` | `margin` |
+| `gap` | `gap` |
+| `width` | `width` |
+| `textAlign` | `text-align` |
+| `fontSize` | `font-size` |
+| `borderRadius` | `border-radius` |
+| `boxShadow` | `box-shadow` |
+
+Each style value may be a scalar or a responsive object. A scalar is a desktop/base declaration. For responsive objects, only explicitly supplied style values are emitted at tablet/mobile; unlike layout properties, style values do not implicitly create responsive overrides when omitted.
+
+`styles.hidden.desktop = true` emits `display:none` in the base rule. Tablet/mobile hidden values emit `display:none` only at their respective breakpoint.
+
+Before a persisted style value is inserted into a declaration, v1 removes `<`, `>`, `{`, `}`, and `;` after trimming surrounding whitespace. This sanitization rule is intentionally narrow and deterministic; implementations must not accept raw declaration separators from persisted style values.
 
 ## Design tokens
 
 `settings.tokens`, `settings.colorSchemes`, `settings.typography`, and block `colorSchemeId` are universal persisted data. Engines must consume those values without requiring host-framework metadata. Missing referenced tokens or schemes must degrade deterministically and may emit diagnostics; they must not cause framework-specific exceptions.
+
+Page tokens are exposed as `--pb-<token-name>` custom properties on `.pb-page`. Color schemes are exposed as `.pb-color-scheme--<id>` and `--pb-color-<name>` variables. A block with `colorSchemeId` receives the corresponding scheme class and `data-pb-color-scheme` attribute.
+
+Typography defines three universal family slots (`primary`, `secondary`, `monospace`) and named styles. Typography output is scoped under `.pb-page`. Supported text-style properties are `family`, `size`, `weight`, `lineHeight`, `letterSpacing`, and `textTransform`.
+
+`settings.customCss` is page-scoped raw CSS input and must be guarded against closing the generated style element or injecting script openings. At minimum, engines remove case-insensitive `</style` and `<script` sequences before emitting it. Shared conformance fixtures define the observable sanitized output.
 
 ## Assets
 
