@@ -5,10 +5,11 @@
   "icon": "image",
   "description": "Responsive image with alt text and optional caption.",
   "attributes": {
-    "src": {"type": "image", "label": "Image", "default": ""},
+    "src": {"type": "image", "label": "Image", "default": "", "group": "Content"},
     "alt": {"type": "string", "label": "Alt text", "default": ""},
     "caption": {"type": "string", "label": "Caption", "default": ""},
-    "width": {"type": "select", "label": "Width", "default": "100%", "options": ["25%", "50%", "75%", "100%"]},
-    "alignment": {"type": "select", "label": "Alignment", "default": "center", "options": ["left", "center", "right"]}
+    "width": {"type": "select", "label": "Width", "default": "100%", "options": ["25%", "50%", "75%", "100%"], "group": "Layout"},
+    "alignment": {"type": "select", "label": "Alignment", "default": "center", "options": ["left", "center", "right"]},
+    "spacing": {"type": "string", "control": "spacing", "label": "Outer spacing", "default": "0 0 0 0", "group": "Design"}
   }
 }
