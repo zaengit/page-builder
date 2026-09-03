@@ -12,11 +12,21 @@ import (
 )
 
 type protocolRequest struct {
-	Version   int                       `json:"version"`
-	Page      map[string]any            `json:"page"`
-	Context   map[string]any            `json:"context"`
-	BlockRoot string                    `json:"blockRoot"`
-	Registry  map[string]map[string]any `json:"registry"`
+	Version              int                       `json:"version"`
+	Page                 map[string]any            `json:"page"`
+	Context              map[string]any            `json:"context"`
+	BlockRoot            string                    `json:"blockRoot"`
+	Registry             map[string]map[string]any `json:"registry"`
+	RequiredCapabilities []string                  `json:"requiredCapabilities"`
+}
+
+var capabilities = map[string]bool{
+	"portable-blocks":    true,
+	"template-v1":        true,
+	"responsive-layout":  true,
+	"design-tokens":      true,
+	"structured-errors":  true,
+	"datasource-adapter": true,
 }
 
 func main() {
@@ -34,6 +44,12 @@ func main() {
 	if request.Version != pagebuilder.ProtocolVersion {
 		emit("unsupported_protocol_version", "$.version", fmt.Sprintf("unsupported protocol version %d", request.Version))
 		return
+	}
+	for _, capability := range request.RequiredCapabilities {
+		if !capabilities[capability] {
+			emit("unsupported_capability", "$.requiredCapabilities", capability)
+			return
+		}
 	}
 	if request.Page == nil {
 		emit("protocol_invalid_request", "$.page", "page is required")
