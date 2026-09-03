@@ -1,6 +1,6 @@
 import type { AttrSchema, EditorRuntime, PageContent } from './types';
 
-export const EMPTY_CONTENT: PageContent = { blocks: [] };
+export const EMPTY_CONTENT: PageContent = { version: 1, blocks: [] };
 
 export const DEFAULT_RUNTIME: EditorRuntime = {
   blocksUrl: '/api/page-builder/blocks',
