@@ -5,6 +5,14 @@ use Symfony\Component\Console\Command\Command;
 use Zaengit\PageBuilder\Blocks\BlockManifestLoader;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
 use Zaengit\PageBuilder\Blocks\BlockScaffolder;
+use Zaengit\PageBuilder\Editor\EditorAssetManager;
+
+Artisan::command('page-builder:publish-assets', function (): int {
+    $destination = app(EditorAssetManager::class)->publish();
+    $this->info("Published Page Builder editor assets to {$destination}.");
+
+    return Command::SUCCESS;
+})->purpose('Publish Page Builder editor assets for static production delivery');
 
 Artisan::command('blocks:validate', function (): int {
     $definitions = app(BlockManifestLoader::class)->loadAll();
