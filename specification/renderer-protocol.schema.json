@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zaengit.dev/page-builder/specification/renderer-protocol.schema.json",
+  "title": "Page Builder Renderer Process Protocol v1",
+  "type": "object",
+  "required": ["version", "page"],
+  "properties": {
+    "version": { "const": 1 },
+    "page": { "$ref": "./page.schema.json" },
+    "context": { "type": "object", "default": {} },
+    "blockRoot": { "type": "string" },
+    "registry": { "type": "object" }
+  },
+  "oneOf": [
+    { "required": ["blockRoot"] },
+    { "required": ["registry"] }
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "result": {
+      "type": "object",
+      "required": ["html", "assets", "diagnostics"],
+      "properties": {
+        "html": { "type": "string" },
+        "assets": {
+          "type": "object",
+          "required": ["css", "js"],
+          "properties": {
+            "css": { "type": "array", "items": { "type": "string" } },
+            "js": { "type": "array", "items": { "type": "string" } }
+          },
+          "additionalProperties": false
+        },
+        "diagnostics": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  }
+}
