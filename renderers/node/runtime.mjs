@@ -9,6 +9,7 @@ const BLOCK_NAME = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
 const TEMPLATE_FILE = /^[A-Za-z0-9._-]+\.html$/;
 
 function resolve(context, path) {
+  if (!path) return context;
   return path.split('.').reduce((value, key) => value != null && typeof value === 'object' ? value[key] : undefined, context);
 }
 function truthy(value) {
@@ -70,6 +71,17 @@ function defaults(definition) {
   return result;
 }
 
+function resolveContextBindings(attrs, bindings, context) {
+  const result = { ...attrs };
+  for (const [attribute, binding] of Object.entries(bindings ?? {})) {
+    if (!binding || typeof binding !== 'object' || binding.source !== 'context') continue;
+    let value = resolve(context, String(binding.path ?? ''));
+    if (value == null && Object.hasOwn(binding, 'fallback')) value = binding.fallback;
+    if (value != null) result[attribute] = value;
+  }
+  return result;
+}
+
 export class UniversalRenderer {
   render({ page, registry, context = {} }) {
     const assets = { css: [], js: [] };
@@ -86,7 +98,11 @@ export class UniversalRenderer {
       const definition = registry[block.type];
       if (!definition) { diagnostics.push(`unknown_block:${block.type ?? ''}`); return ''; }
       collect(definition);
-      const attrs = { ...defaults(definition), ...(block.attrs ?? {}) };
+      const attrs = resolveContextBindings(
+        { ...defaults(definition), ...(block.attrs ?? {}) },
+        block.bindings,
+        context,
+      );
       const children = (block.children ?? []).map(renderBlock).join('');
       const html = renderTemplate(definition.template ?? '', {
         attrs, context, children, blockId: block.id ?? '', slot: block.slot ?? null, preview: false,
