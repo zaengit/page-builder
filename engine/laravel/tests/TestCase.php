@@ -33,9 +33,22 @@ abstract class TestCase extends BaseTestCase
         ]);
     }
 
-    protected function setUp(): void
+    protected function workspacePath(string $path = ''): string
     {
-        parent::setUp();
-        $this->app->useAppPath(base_path('src'));
+        $root = dirname(__DIR__, 3);
+
+        return $path === '' ? $root : $root.'/'.ltrim($path, '/');
+    }
+
+    protected function blocksPath(string $path = ''): string
+    {
+        return $this->workspacePath('blocks'.($path === '' ? '' : '/'.ltrim($path, '/')));
+    }
+
+    protected function enginePath(string $path = ''): string
+    {
+        $root = dirname(__DIR__);
+
+        return $path === '' ? $root : $root.'/'.ltrim($path, '/');
     }
 }
