@@ -1,5 +1,6 @@
 {
   "name": "core/image",
+  "version": 1,
   "title": "Image",
   "category": "media",
   "icon": "image",
