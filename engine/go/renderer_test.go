@@ -9,8 +9,20 @@ import (
 	"testing"
 )
 
+func sharedConformanceRoot(t *testing.T) string {
+	t.Helper()
+	root := os.Getenv("PAGE_BUILDER_CONFORMANCE_ROOT")
+	if root == "" {
+		root = "../../specification/conformance"
+	}
+	if info, err := os.Stat(root); err != nil || !info.IsDir() {
+		t.Skip("shared conformance corpus is not bundled with the extracted Go module")
+	}
+	return root
+}
+
 func TestSharedRuntimeConformance(t *testing.T) {
-	paths, err := filepath.Glob("../../specification/conformance/*.json")
+	paths, err := filepath.Glob(filepath.Join(sharedConformanceRoot(t), "*.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +72,7 @@ func TestSharedRuntimeConformance(t *testing.T) {
 }
 
 func TestSharedTemplateLanguageConformance(t *testing.T) {
-	bytes, err := os.ReadFile("../../specification/conformance/template-language.json")
+	bytes, err := os.ReadFile(filepath.Join(sharedConformanceRoot(t), "template-language.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
