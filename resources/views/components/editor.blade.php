@@ -14,6 +14,12 @@
     $editorResources = app(\Zaengit\PageBuilder\Editor\EditorResourceRegistry::class);
     $editorAssets = app(\Zaengit\PageBuilder\Editor\EditorAssetManager::class);
     $dataProviders = app(\Zaengit\PageBuilder\DataProviders\DataProviderRegistry::class);
+    $databaseModels = collect((array) config('page-builder.data.models', []))->map(function ($class, $title) {
+        return [
+            'title' => is_string($title) ? $title : class_basename($class),
+            'class' => $class,
+        ];
+    })->values()->all();
     $runtime = [
         'blocksUrl' => route('page-builder.blocks'),
         'renderBlockUrl' => route('page-builder.render-block'),
@@ -26,6 +32,7 @@
         'patterns' => array_values(array_merge($editorResources->patterns(), is_array($patterns) ? $patterns : [])),
         'templates' => array_values(array_merge($editorResources->templates(), is_array($templates) ? $templates : [])),
         'dataSources' => array_values(array_merge($dataProviders->definitions(), is_array($dataSources) ? $dataSources : [])),
+        'databaseModels' => $databaseModels,
         'autosaveMs' => max(0, (int) ($autosaveMs ?? config('page-builder.autosave_ms', 0))),
     ];
     $runtimeJson = e(json_encode($runtime, JSON_THROW_ON_ERROR));
