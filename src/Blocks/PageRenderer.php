@@ -68,11 +68,13 @@ final class PageRenderer
             ? str_replace(['</style', '<script'], '', $settings['customCss'])
             : '';
         $schemeCss = $this->renderColorSchemeCss();
+        $typographyCss = $this->renderTypographyCss($settings['typography'] ?? null);
 
         return '<div class="'.e($class).'" style="'.implode(';', $style).';'.$tokens.'">'
             .$body
             .'</div>'
             .($schemeCss !== '' ? '<style data-pb-color-schemes>'.$schemeCss.'</style>' : '')
+            .($typographyCss !== '' ? '<style data-pb-typography>'.$typographyCss.'</style>' : '')
             .($customCss !== '' ? '<style data-pb-page-css>'.$customCss.'</style>' : '');
     }
 
@@ -164,6 +166,73 @@ final class PageRenderer
 
             $selector = '.pb-color-scheme--'.$this->safeIdentifier((string) $id);
             $css .= $selector.'{'.$declarations.'background-color:var(--pb-color-background);color:var(--pb-color-foreground);}';
+        }
+
+        return $css;
+    }
+
+    private function renderTypographyCss(mixed $typography): string
+    {
+        if (! is_array($typography)) {
+            return '';
+        }
+
+        $families = is_array($typography['families'] ?? null) ? $typography['families'] : [];
+        $styles = is_array($typography['styles'] ?? null) ? $typography['styles'] : [];
+        $familyDefaults = [
+            'primary' => 'ui-sans-serif,system-ui,sans-serif',
+            'secondary' => 'Georgia,Cambria,serif',
+            'monospace' => 'ui-monospace,SFMono-Regular,Menlo,monospace',
+        ];
+        $styleSelectors = [
+            'h1' => 'h1,.pb-text-h1',
+            'h2' => 'h2,.pb-text-h2',
+            'h3' => 'h3,.pb-text-h3',
+            'h4' => 'h4,.pb-text-h4',
+            'h5' => 'h5,.pb-text-h5',
+            'h6' => 'h6,.pb-text-h6',
+            'body' => 'p,.pb-text-body',
+            'bodySmall' => '.pb-text-body-small',
+            'caption' => '.pb-text-caption',
+            'label' => 'label,.pb-text-label',
+            'button' => 'button,.pb-text-button',
+        ];
+
+        $root = '';
+        foreach ($familyDefaults as $name => $fallback) {
+            $value = is_string($families[$name] ?? null) && trim($families[$name]) !== ''
+                ? $families[$name]
+                : $fallback;
+            $root .= '--pb-font-'.$name.':'.$this->safeCssValue($value).';';
+        }
+
+        $css = '.pb-page{'.$root.'font-family:var(--pb-font-primary);}';
+
+        foreach ($styleSelectors as $name => $selector) {
+            $style = is_array($styles[$name] ?? null) ? $styles[$name] : [];
+            if ($style === []) {
+                continue;
+            }
+
+            $family = in_array($style['family'] ?? null, ['primary', 'secondary', 'monospace'], true)
+                ? $style['family']
+                : 'primary';
+            $declarations = 'font-family:var(--pb-font-'.$family.');';
+
+            foreach ([
+                'size' => 'font-size',
+                'weight' => 'font-weight',
+                'lineHeight' => 'line-height',
+                'letterSpacing' => 'letter-spacing',
+                'textTransform' => 'text-transform',
+            ] as $key => $property) {
+                if (! is_string($style[$key] ?? null) || $style[$key] === '') {
+                    continue;
+                }
+                $declarations .= $property.':'.$this->safeCssValue($style[$key]).';';
+            }
+
+            $css .= '.pb-page :is('.$selector.'){'.$declarations.'}';
         }
 
         return $css;
