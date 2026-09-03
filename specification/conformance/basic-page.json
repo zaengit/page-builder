@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "settings": {},
+  "blocks": [
+    {
+      "id": "heading-1",
+      "type": "heading",
+      "attrs": {
+        "text": "Hello <World>"
+      },
+      "children": []
+    }
+  ],
+  "context": {
+    "product": {
+      "name": "Phone",
+      "available": true
+    },
+    "products": [
+      { "name": "One" },
+      { "name": "Two" }
+    ]
+  },
+  "templateCases": [
+    {
+      "template": "<h1>{{ product.name ?? \"Untitled\" }}</h1>",
+      "expected": "<h1>Phone</h1>"
+    },
+    {
+      "template": "{% if product.available %}<b>yes</b>{% endif %}",
+      "expected": "<b>yes</b>"
+    },
+    {
+      "template": "{% for item in products %}<i>{{ item.name }}</i>{% endfor %}",
+      "expected": "<i>One</i><i>Two</i>"
+    },
+    {
+      "template": "<div>{{ unsafe }}</div>",
+      "context": { "unsafe": "<script>alert(1)</script>" },
+      "expected": "<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>"
+    },
+    {
+      "template": "<main>{{{ children }}}</main>",
+      "context": { "children": "<section>child</section>" },
+      "expected": "<main><section>child</section></main>"
+    }
+  ]
+}
