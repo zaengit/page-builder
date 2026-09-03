@@ -21,14 +21,20 @@ class EditorAssetDistributionTest extends TestCase
 
     public function test_public_mode_uses_static_urls_with_content_hashes(): void
     {
+        $dist = $this->createDistFixture();
+        config()->set('page-builder.editor_dist_path', $dist);
         config()->set('page-builder.editor_asset_mode', 'public');
         config()->set('page-builder.editor_public_path', 'vendor/page-builder');
         config()->set('page-builder.editor_public_url', 'https://cdn.example.com/page-builder');
 
-        $manager = app(EditorAssetManager::class);
+        try {
+            $manager = app(EditorAssetManager::class);
 
-        $this->assertMatchesRegularExpression('#^https://cdn\.example\.com/page-builder/page-builder\.js\?v=[a-f0-9]{12}$#', $manager->jsUrl());
-        $this->assertMatchesRegularExpression('#^https://cdn\.example\.com/page-builder/page-builder\.css\?v=[a-f0-9]{12}$#', (string) $manager->cssUrl());
+            $this->assertMatchesRegularExpression('#^https://cdn\.example\.com/page-builder/page-builder\.js\?v=[a-f0-9]{12}$#', $manager->jsUrl());
+            $this->assertMatchesRegularExpression('#^https://cdn\.example\.com/page-builder/page-builder\.css\?v=[a-f0-9]{12}$#', (string) $manager->cssUrl());
+        } finally {
+            File::deleteDirectory($dist);
+        }
     }
 
     public function test_dev_server_takes_precedence_over_asset_modes(): void
@@ -44,9 +50,11 @@ class EditorAssetDistributionTest extends TestCase
 
     public function test_publish_command_copies_built_assets_to_configured_public_path(): void
     {
+        $dist = $this->createDistFixture();
         $relativePath = 'page-builder-test-assets';
         $destination = public_path($relativePath);
         File::deleteDirectory($destination);
+        config()->set('page-builder.editor_dist_path', $dist);
         config()->set('page-builder.editor_public_path', $relativePath);
 
         try {
@@ -55,6 +63,17 @@ class EditorAssetDistributionTest extends TestCase
             $this->assertFileExists($destination.'/page-builder.css');
         } finally {
             File::deleteDirectory($destination);
+            File::deleteDirectory($dist);
         }
+    }
+
+    private function createDistFixture(): string
+    {
+        $directory = storage_path('framework/testing/page-builder-dist-'.uniqid());
+        File::ensureDirectoryExists($directory);
+        File::put($directory.'/page-builder.js', 'console.log("page-builder");');
+        File::put($directory.'/page-builder.css', '[data-page-builder-root]{display:block}');
+
+        return $directory;
     }
 }
