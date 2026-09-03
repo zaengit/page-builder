@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: resolve(root, '../resources/dist'),
+    outDir: resolve(root, './dist'),
     emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
