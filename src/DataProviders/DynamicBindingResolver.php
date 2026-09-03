@@ -19,13 +19,16 @@ final class DynamicBindingResolver
             }
 
             $source = $binding['source'] ?? null;
-
             if (! is_string($source) || $source === '' || ! $this->providers->has($source)) {
                 continue;
             }
 
             try {
-                $data = $this->providers->resolve($source)->resolve($attrs, $context);
+                $provider = $this->providers->resolve($source);
+                $data = method_exists($provider, 'resolveBinding')
+                    ? $provider->resolveBinding($binding, $attrs, $context)
+                    : $provider->resolve($attrs, $context);
+
                 $value = ($binding['path'] ?? '') !== ''
                     ? data_get($data, (string) $binding['path'])
                     : $data;
@@ -37,7 +40,10 @@ final class DynamicBindingResolver
                 if ($value !== null) {
                     $attrs[$attribute] = $value;
                 }
-            } catch (Throwable) {
+            } catch (Throwable $exception) {
+                if ($context->preview && config('app.debug')) {
+                    report($exception);
+                }
                 if (array_key_exists('fallback', $binding)) {
                     $attrs[$attribute] = $binding['fallback'];
                 }
