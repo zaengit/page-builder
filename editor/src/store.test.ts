@@ -22,12 +22,12 @@ async function readyStore() {
 
 describe('builder store', () => {
   it('bootstraps initial content, replaces content, selects blocks, and rejects failed APIs', async () => {
-    const initial = { blocks: [{ id: 'seed', type: 'test/text', version: 3, attrs: { text: 'Seed', slides: [] } }] };
+    const initial = { version: 1 as const, blocks: [{ id: 'seed', type: 'test/text', version: 3, attrs: { text: 'Seed', slides: [] } }] };
     const store = createBuilderStore();
     await store.getState().bootstrap(runtime, initial);
     expect(store.getState().selectedId).toBe('seed');
     expect(store.getState().dirty).toBe(false);
-    store.getState().replaceContent({ blocks: [{ id: 'next', type: 'test/other', version: 1, attrs: {} }] });
+    store.getState().replaceContent({ version: 1, blocks: [{ id: 'next', type: 'test/other', version: 1, attrs: {} }] });
     expect(store.getState().selectedId).toBe('next');
     store.getState().select(null);
     expect(store.getState().selectedId).toBeNull();
