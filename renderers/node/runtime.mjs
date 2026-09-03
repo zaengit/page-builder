@@ -12,9 +12,7 @@ function resolve(context, path) {
   if (!path) return context;
   return path.split('.').reduce((value, key) => value != null && typeof value === 'object' ? value[key] : undefined, context);
 }
-function truthy(value) {
-  return Array.isArray(value) ? value.length > 0 : Boolean(value);
-}
+function truthy(value) { return Array.isArray(value) ? value.length > 0 : Boolean(value); }
 function escapeHtml(value) {
   return String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
@@ -46,12 +44,8 @@ export async function loadRegistry(root) {
     if (!entry.isDirectory()) continue;
     const directory = join(root, entry.name);
     let manifest;
-    try {
-      manifest = JSON.parse(await readFile(join(directory, 'block.json'), 'utf8'));
-    } catch (error) {
-      if (error?.code === 'ENOENT') continue;
-      throw error;
-    }
+    try { manifest = JSON.parse(await readFile(join(directory, 'block.json'), 'utf8')); }
+    catch (error) { if (error?.code === 'ENOENT') continue; throw error; }
     manifest.version ??= 1;
     if (!BLOCK_NAME.test(manifest.name ?? '')) throw new Error(`Invalid block name in ${directory}`);
     if (registry[manifest.name]) throw new Error(`Duplicate block ${manifest.name}`);
@@ -70,7 +64,6 @@ function defaults(definition) {
   }
   return result;
 }
-
 function resolveContextBindings(attrs, bindings, context) {
   const result = { ...attrs };
   for (const [attribute, binding] of Object.entries(bindings ?? {})) {
@@ -81,6 +74,20 @@ function resolveContextBindings(attrs, bindings, context) {
   }
   return result;
 }
+function wrapBlock(block, html) {
+  const id = escapeHtml(block.id ?? '');
+  const compiled = block._render;
+  if (!compiled || typeof compiled !== 'object') return `<div data-pb-id="${id}">${html}</div>`;
+  const slot = compiled.slot != null ? ` data-pb-slot="${escapeHtml(compiled.slot)}"` : '';
+  const scheme = compiled.colorSchemeId
+    ? ` class="pb-color-scheme--${escapeHtml(compiled.colorSchemeId)}" data-pb-color-scheme="${escapeHtml(compiled.colorSchemeId)}"`
+    : '';
+  const style = escapeHtml(compiled.style ?? '');
+  const responsive = compiled.css
+    ? `<style data-pb-responsive="${id}">${String(compiled.css).replaceAll('</style', '')}</style>`
+    : '';
+  return `<div data-pb-style-id="${id}" data-pb-id="${id}"${scheme}${slot} style="${style}">${html}</div>${responsive}`;
+}
 
 export class UniversalRenderer {
   render({ page, registry, context = {} }) {
@@ -88,26 +95,20 @@ export class UniversalRenderer {
     const diagnostics = [];
     const seen = { css: new Set(), js: new Set() };
     const collect = definition => {
-      for (const kind of ['css', 'js']) {
-        for (const asset of definition.assets?.[kind] ?? []) {
-          if (!seen[kind].has(asset)) { seen[kind].add(asset); assets[kind].push(asset); }
-        }
+      for (const kind of ['css', 'js']) for (const asset of definition.assets?.[kind] ?? []) {
+        if (!seen[kind].has(asset)) { seen[kind].add(asset); assets[kind].push(asset); }
       }
     };
     const renderBlock = block => {
       const definition = registry[block.type];
       if (!definition) { diagnostics.push(`unknown_block:${block.type ?? ''}`); return ''; }
       collect(definition);
-      const attrs = resolveContextBindings(
-        { ...defaults(definition), ...(block.attrs ?? {}) },
-        block.bindings,
-        context,
-      );
+      const attrs = resolveContextBindings({ ...defaults(definition), ...(block.attrs ?? {}) }, block.bindings, context);
       const children = (block.children ?? []).map(renderBlock).join('');
       const html = renderTemplate(definition.template ?? '', {
         attrs, context, children, blockId: block.id ?? '', slot: block.slot ?? null, preview: false,
       });
-      return `<div data-pb-id="${escapeHtml(block.id ?? '')}">${html}</div>`;
+      return wrapBlock(block, html);
     };
     const body = (page.blocks ?? []).map(renderBlock).join('');
     return { html: `<div class="pb-page">${body}</div>`, assets, diagnostics };
