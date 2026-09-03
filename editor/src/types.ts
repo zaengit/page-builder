@@ -26,12 +26,12 @@ export type BlockTransform = { name: string; title: string; to: string; mapAttrs
 export type BlockLock = { move?: boolean; remove?: boolean; edit?: boolean };
 export type DynamicFilter = { column: string; operator: string; value?: unknown };
 export type DynamicOrder = { column: string; direction: 'asc' | 'desc' };
-export type DynamicQuery = { where?: DynamicFilter[]; orderBy?: DynamicOrder[]; with?: string[]; limit?: number; perPage?: number; page?: number };
+export type DynamicQuery = { where?: DynamicFilter[]; orderBy?: DynamicOrder[]; with?: string[]; limit?: number; offset?: number; perPage?: number; page?: number };
 export type DynamicBinding = {
   source: string;
   path?: string;
   fallback?: unknown;
-  model?: string;
+  resource?: string;
   mode?: 'single' | 'collection';
   recordId?: string | number;
   contextKey?: string;
@@ -157,11 +157,11 @@ export type PageSettings = {
   defaultColorSchemeId?: string;
 };
 
-export type PageContent = { blocks: PageBlock[]; settings?: PageSettings; schemaVersion?: number };
+export type PageContent = { version: 1; blocks: PageBlock[]; settings?: PageSettings };
 export type Pattern = { id: string; title: string; category?: string; blocks: PageBlock[] };
 export type PageTemplate = { id: string; title: string; description?: string; content: PageContent };
 export type DataSource = { name: string; title: string; paths?: string[] };
-export type DatabaseModel = { title: string; class: string };
+export type DataResource = { name: string; title: string };
 export type EditorRuntime = {
   blocksUrl: string;
   renderBlockUrl: string;
@@ -174,7 +174,7 @@ export type EditorRuntime = {
   patterns?: Pattern[];
   templates?: PageTemplate[];
   dataSources?: DataSource[];
-  databaseModels?: DatabaseModel[];
+  dataResources?: DataResource[];
   previewContext?: Record<string, unknown>;
   autosaveMs?: number;
 };
