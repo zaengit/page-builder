@@ -12,8 +12,7 @@ final readonly class RenderResult
         public string $html,
         public array $assets = ['css' => [], 'js' => []],
         public array $diagnostics = [],
-    ) {
-    }
+    ) {}
 
     /** @return array{html:string,assets:array{css:list<string>,js:list<string>},diagnostics:list<string>} */
     public function toArray(): array
