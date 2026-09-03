@@ -16,13 +16,41 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: '3.14'
-      - name: Validate JSON syntax
+      - name: Install specification validator
+        run: python -m pip install --disable-pip-version-check jsonschema==4.25.1
+      - name: Validate JSON syntax and JSON Schema
         run: |
           python - <<'PY'
-          import json, pathlib
-          for path in list(pathlib.Path('specification').glob('*.json')) + list(pathlib.Path('specification/conformance').glob('*.json')):
-              with path.open() as f: json.load(f)
-              print('valid', path)
+          import json
+          import pathlib
+          from jsonschema import Draft202012Validator
+
+          root = pathlib.Path('.')
+          schema_paths = [
+              root / 'specification/page.schema.json',
+              root / 'specification/block.schema.json',
+              root / 'specification/datasource.schema.json',
+              root / 'specification/renderer-protocol.schema.json',
+          ]
+          schemas = {}
+          for path in schema_paths:
+              data = json.loads(path.read_text())
+              Draft202012Validator.check_schema(data)
+              schemas[path.name] = data
+              print('valid schema', path)
+
+          block_validator = Draft202012Validator(schemas['block.schema.json'])
+          for path in sorted((root / 'blocks').glob('*/block.json')):
+              block_validator.validate(json.loads(path.read_text()))
+              print('valid block', path)
+
+          fixture_path = root / 'specification/conformance/canonical-runtime.json'
+          fixture = json.loads(fixture_path.read_text())
+          page_validator = Draft202012Validator(schemas['page.schema.json'])
+          page_validator.validate(fixture['page'])
+          result_validator = Draft202012Validator(schemas['renderer-protocol.schema.json']['$defs']['result'])
+          result_validator.validate(fixture['expected'])
+          print('valid conformance', fixture_path)
           PY
       - name: Verify portable machine-readable artifacts are engine neutral
         run: |
