@@ -52,13 +52,7 @@ final class LaravelDatasourceResolver implements DatasourceResolver
         }
 
         if (($binding['mode'] ?? 'single') === 'collection') {
-            $max = max(1, (int) config('page-builder.data.max_results', 100));
-            $limit = max(1, min((int) ($spec['limit'] ?? 12), $max));
-
-            return [
-                'items' => $query->limit($limit)->get()->map->toArray()->all(),
-                'pagination' => null,
-            ];
+            return $this->resolveCollection($query, $spec);
         }
 
         if (($binding['recordId'] ?? null) !== null && $binding['recordId'] !== '') {
@@ -66,6 +60,50 @@ final class LaravelDatasourceResolver implements DatasourceResolver
         }
 
         return $query->first()?->toArray();
+    }
+
+    /** @param Builder<Model> $query @return array{items:list<array<string,mixed>>,pagination:array{currentPage:int,perPage:int,lastPage:int,total:int,hasMorePages:bool}|null} */
+    private function resolveCollection(Builder $query, array $spec): array
+    {
+        $max = max(1, (int) config('page-builder.data.max_results', 100));
+
+        if (array_key_exists('perPage', $spec)) {
+            $perPage = max(1, min((int) $spec['perPage'], $max));
+            $page = max(1, (int) ($spec['page'] ?? 1));
+            $total = (clone $query)->count();
+            $lastPage = max(1, (int) ceil($total / $perPage));
+            $items = $query
+                ->forPage($page, $perPage)
+                ->get()
+                ->map->toArray()
+                ->values()
+                ->all();
+
+            return [
+                'items' => $items,
+                'pagination' => [
+                    'currentPage' => $page,
+                    'perPage' => $perPage,
+                    'lastPage' => $lastPage,
+                    'total' => $total,
+                    'hasMorePages' => $page < $lastPage,
+                ],
+            ];
+        }
+
+        $limit = max(1, min((int) ($spec['limit'] ?? 12), $max));
+        $offset = max(0, (int) ($spec['offset'] ?? 0));
+
+        return [
+            'items' => $query
+                ->offset($offset)
+                ->limit($limit)
+                ->get()
+                ->map->toArray()
+                ->values()
+                ->all(),
+            'pagination' => null,
+        ];
     }
 
     /** @param Builder<Model> $query */
