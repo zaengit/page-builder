@@ -54,6 +54,9 @@ func LoadRegistry(root string) (map[string]map[string]any, error) {
 		if err != nil {
 			return nil, fmt.Errorf("missing portable template for %s: %w", name, err)
 		}
+		if err := ValidateTemplate(string(template)); err != nil {
+			return nil, fmt.Errorf("invalid portable template for %s: %w", name, err)
+		}
 		absoluteDirectory, err := filepath.Abs(directory)
 		if err != nil {
 			return nil, err
