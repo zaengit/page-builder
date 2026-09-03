@@ -15,7 +15,14 @@ final class ProcessRenderingEngineTest extends TestCase
             5000,
         );
 
-        $result = $engine->render(['title' => 'Hello <Universal>']);
+        $result = $engine->render([
+            'version' => 1,
+            'blocks' => [[
+                'id' => 'fixture-heading',
+                'type' => 'core/heading',
+                'attrs' => ['text' => 'Hello <Universal>'],
+            ]],
+        ]);
 
         $this->assertSame('<main data-engine="fixture">Hello &lt;Universal&gt;</main>', $result->html);
         $this->assertSame(['css' => ['fixture.css'], 'js' => ['fixture.js']], $result->assets);
