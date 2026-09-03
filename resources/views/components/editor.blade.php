@@ -6,6 +6,7 @@
     'patterns' => [],
     'templates' => [],
     'dataSources' => [],
+    'context' => [],
     'autosaveMs' => null,
 ])
 
@@ -33,6 +34,7 @@
         'templates' => array_values(array_merge($editorResources->templates(), is_array($templates) ? $templates : [])),
         'dataSources' => array_values(array_merge($dataProviders->definitions(), is_array($dataSources) ? $dataSources : [])),
         'databaseModels' => $databaseModels,
+        'previewContext' => is_array($context) ? $context : [],
         'autosaveMs' => max(0, (int) ($autosaveMs ?? config('page-builder.autosave_ms', 0))),
     ];
     $runtimeJson = e(json_encode($runtime, JSON_THROW_ON_ERROR));
