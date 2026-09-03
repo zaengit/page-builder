@@ -35,7 +35,9 @@ pub trait Renderer {
 pub struct UniversalRenderer;
 
 impl UniversalRenderer {
-    pub fn new() -> Self { Self }
+    pub fn new() -> Self {
+        Self
+    }
 
     fn render_block(
         &self,
@@ -51,18 +53,7 @@ impl UniversalRenderer {
             return String::new();
         };
 
-        if let Some(assets) = definition.get("assets").and_then(Value::as_object) {
-            for (kind, target, seen) in [
-                ("css", &mut result.assets.css, css_seen),
-                ("js", &mut result.assets.js, js_seen),
-            ] {
-                if let Some(items) = assets.get(kind).and_then(Value::as_array) {
-                    for item in items.iter().filter_map(Value::as_str) {
-                        if seen.insert(item.to_string()) { target.push(item.to_string()); }
-                    }
-                }
-            }
-        }
+        collect_assets(definition, result, css_seen, js_seen);
 
         let mut attrs = JsonMap::new();
         if let Some(attributes) = definition.get("attributes").and_then(Value::as_object) {
@@ -73,85 +64,233 @@ impl UniversalRenderer {
             }
         }
         if let Some(block_attrs) = block.get("attrs").and_then(Value::as_object) {
-            for (key, value) in block_attrs { attrs.insert(key.clone(), value.clone()); }
+            for (key, value) in block_attrs {
+                attrs.insert(key.clone(), value.clone());
+            }
         }
 
-        let children = block.get("children").and_then(Value::as_array).map(|items| {
-            items.iter().filter_map(Value::as_object).map(|child| self.render_block(child, request, result, css_seen, js_seen)).collect::<String>()
-        }).unwrap_or_default();
+        let children = block
+            .get("children")
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .filter_map(Value::as_object)
+                    .map(|child| {
+                        self.render_block(child, request, result, css_seen, js_seen)
+                    })
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
 
         let mut context = JsonMap::new();
         context.insert("attrs".into(), Value::Object(attrs));
         context.insert("context".into(), Value::Object(request.context.clone()));
         context.insert("children".into(), Value::String(children));
-        context.insert("blockId".into(), block.get("id").cloned().unwrap_or(Value::String(String::new())));
-        context.insert("slot".into(), block.get("slot").cloned().unwrap_or(Value::Null));
+        context.insert(
+            "blockId".into(),
+            block
+                .get("id")
+                .cloned()
+                .unwrap_or(Value::String(String::new())),
+        );
+        context.insert(
+            "slot".into(),
+            block.get("slot").cloned().unwrap_or(Value::Null),
+        );
         context.insert("preview".into(), Value::Bool(false));
 
-        let template = definition.get("template").and_then(Value::as_str).unwrap_or("");
+        let template = definition
+            .get("template")
+            .and_then(Value::as_str)
+            .unwrap_or("");
         let rendered = render_template(template, &context);
         let id = escape_html(block.get("id").and_then(Value::as_str).unwrap_or(""));
+
         format!("<div data-pb-id=\"{id}\">{rendered}</div>")
     }
 }
 
-impl Default for UniversalRenderer { fn default() -> Self { Self::new() } }
+impl Default for UniversalRenderer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl Renderer for UniversalRenderer {
     fn render(&self, request: RenderRequest) -> Result<RenderResult, String> {
         let mut result = RenderResult::default();
         let mut css_seen = BTreeSet::new();
         let mut js_seen = BTreeSet::new();
-        let body = request.page.get("blocks").and_then(Value::as_array).map(|blocks| {
-            blocks.iter().filter_map(Value::as_object).map(|block| self.render_block(block, &request, &mut result, &mut css_seen, &mut js_seen)).collect::<String>()
-        }).unwrap_or_default();
+
+        let body = request
+            .page
+            .get("blocks")
+            .and_then(Value::as_array)
+            .map(|blocks| {
+                blocks
+                    .iter()
+                    .filter_map(Value::as_object)
+                    .map(|block| {
+                        self.render_block(
+                            block,
+                            &request,
+                            &mut result,
+                            &mut css_seen,
+                            &mut js_seen,
+                        )
+                    })
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
+
         result.html = format!("<div class=\"pb-page\">{body}</div>");
+
         Ok(result)
     }
 }
 
+fn collect_assets(
+    definition: &JsonMap,
+    result: &mut RenderResult,
+    css_seen: &mut BTreeSet<String>,
+    js_seen: &mut BTreeSet<String>,
+) {
+    let Some(assets) = definition.get("assets").and_then(Value::as_object) else {
+        return;
+    };
+
+    if let Some(items) = assets.get("css").and_then(Value::as_array) {
+        for item in items.iter().filter_map(Value::as_str) {
+            if css_seen.insert(item.to_string()) {
+                result.assets.css.push(item.to_string());
+            }
+        }
+    }
+
+    if let Some(items) = assets.get("js").and_then(Value::as_array) {
+        for item in items.iter().filter_map(Value::as_str) {
+            if js_seen.insert(item.to_string()) {
+                result.assets.js.push(item.to_string());
+            }
+        }
+    }
+}
+
 pub fn render_template(template: &str, context: &JsonMap) -> String {
-    let loop_re = Regex::new(r"(?s)\{%\s*for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([A-Za-z0-9_.]+)\s*%\}(.*?)\{%\s*endfor\s*%\}").unwrap();
-    let condition_re = Regex::new(r"(?s)\{%\s*if\s+([A-Za-z0-9_.]+)\s*%\}(.*?)\{%\s*endif\s*%\}").unwrap();
+    let loop_re = Regex::new(
+        r"(?s)\{%\s*for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([A-Za-z0-9_.]+)\s*%\}(.*?)\{%\s*endfor\s*%\}",
+    )
+    .unwrap();
+    let condition_re = Regex::new(
+        r"(?s)\{%\s*if\s+([A-Za-z0-9_.]+)\s*%\}(.*?)\{%\s*endif\s*%\}",
+    )
+    .unwrap();
     let raw_re = Regex::new(r"\{\{\{\s*([A-Za-z0-9_.]+)\s*\}\}\}").unwrap();
-    let interpolation_re = Regex::new(r#"\{\{\s*([A-Za-z0-9_.]+)(?:\s*\?\?\s*["']([^"']*)["'])?\s*\}\}"#).unwrap();
+    let interpolation_re = Regex::new(
+        r#"\{\{\s*([A-Za-z0-9_.]+)(?:\s*\?\?\s*["']([^"']*)["'])?\s*\}\}"#,
+    )
+    .unwrap();
+
     let mut output = template.to_string();
 
     while loop_re.is_match(&output) {
-        output = loop_re.replace_all(&output, |caps: &Captures| {
-            let items = resolve(context, &caps[2]).and_then(Value::as_array);
-            let Some(items) = items else { return String::new(); };
-            items.iter().enumerate().map(|(index, item)| {
-                let mut local = context.clone();
-                local.insert(caps[1].to_string(), item.clone());
-                local.insert("loop".into(), serde_json::json!({"index": index, "number": index + 1, "first": index == 0, "last": index + 1 == items.len(), "count": items.len()}));
-                render_template(&caps[3], &local)
-            }).collect::<String>()
-        }).to_string();
+        output = loop_re
+            .replace_all(&output, |caps: &Captures| {
+                let items = resolve(context, &caps[2]).and_then(Value::as_array);
+                let Some(items) = items else {
+                    return String::new();
+                };
+
+                items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| {
+                        let mut local = context.clone();
+                        local.insert(caps[1].to_string(), item.clone());
+                        local.insert(
+                            "loop".into(),
+                            serde_json::json!({
+                                "index": index,
+                                "number": index + 1,
+                                "first": index == 0,
+                                "last": index + 1 == items.len(),
+                                "count": items.len()
+                            }),
+                        );
+                        render_template(&caps[3], &local)
+                    })
+                    .collect::<String>()
+            })
+            .to_string();
     }
+
     while condition_re.is_match(&output) {
-        output = condition_re.replace_all(&output, |caps: &Captures| {
-            if truthy(resolve(context, &caps[1])) { render_template(&caps[2], context) } else { String::new() }
-        }).to_string();
+        output = condition_re
+            .replace_all(&output, |caps: &Captures| {
+                if truthy(resolve(context, &caps[1])) {
+                    render_template(&caps[2], context)
+                } else {
+                    String::new()
+                }
+            })
+            .to_string();
     }
-    output = raw_re.replace_all(&output, |caps: &Captures| scalar(resolve(context, &caps[1])).unwrap_or_default()).to_string();
-    interpolation_re.replace_all(&output, |caps: &Captures| {
-        let value = scalar(resolve(context, &caps[1])).or_else(|| caps.get(2).map(|m| m.as_str().to_string())).unwrap_or_default();
-        escape_html(&value)
-    }).to_string()
+
+    output = raw_re
+        .replace_all(&output, |caps: &Captures| {
+            scalar(resolve(context, &caps[1])).unwrap_or_default()
+        })
+        .to_string();
+
+    interpolation_re
+        .replace_all(&output, |caps: &Captures| {
+            let value = scalar(resolve(context, &caps[1]))
+                .or_else(|| caps.get(2).map(|matched| matched.as_str().to_string()))
+                .unwrap_or_default();
+            escape_html(&value)
+        })
+        .to_string()
 }
 
 fn resolve<'a>(context: &'a JsonMap, path: &str) -> Option<&'a Value> {
     let mut parts = path.split('.');
     let first = parts.next()?;
     let mut value = context.get(first)?;
-    for part in parts { value = value.as_object()?.get(part)?; }
+
+    for part in parts {
+        value = value.as_object()?.get(part)?;
+    }
+
     Some(value)
 }
+
 fn scalar(value: Option<&Value>) -> Option<String> {
-    match value? { Value::Null => None, Value::String(v) => Some(v.clone()), Value::Bool(v) => Some(if *v { "1" } else { "" }.into()), Value::Number(v) => Some(v.to_string()), _ => None }
+    match value? {
+        Value::Null => None,
+        Value::String(value) => Some(value.clone()),
+        Value::Bool(value) => Some(if *value { "1" } else { "" }.into()),
+        Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
 }
+
 fn truthy(value: Option<&Value>) -> bool {
-    match value { None | Some(Value::Null) => false, Some(Value::Bool(v)) => *v, Some(Value::String(v)) => !v.is_empty(), Some(Value::Array(v)) => !v.is_empty(), Some(Value::Number(v)) => v.as_f64().unwrap_or(0.0) != 0.0, Some(Value::Object(v)) => !v.is_empty() }
+    match value {
+        None | Some(Value::Null) => false,
+        Some(Value::Bool(value)) => *value,
+        Some(Value::String(value)) => !value.is_empty(),
+        Some(Value::Array(value)) => !value.is_empty(),
+        Some(Value::Number(value)) => value.as_f64().unwrap_or(0.0) != 0.0,
+        Some(Value::Object(value)) => !value.is_empty(),
+    }
 }
-fn escape_html(value: &str) -> String { value.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;").replace('\'', "&#039;") }
+
+fn escape_html(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#039;")
+}
