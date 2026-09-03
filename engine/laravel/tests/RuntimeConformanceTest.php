@@ -8,10 +8,23 @@ use Zaengit\PageBuilder\Engine\Laravel\Runtime\TemplateRenderer;
 
 final class RuntimeConformanceTest extends TestCase
 {
+    private function conformanceRoot(): string
+    {
+        $configured = getenv('PAGE_BUILDER_CONFORMANCE_ROOT');
+        $root = is_string($configured) && $configured !== ''
+            ? $configured
+            : dirname(__DIR__, 3).'/specification/conformance';
+
+        if (! is_dir($root)) {
+            $this->markTestSkipped('Shared conformance corpus is not bundled with the extracted Laravel package.');
+        }
+
+        return $root;
+    }
+
     public function test_laravel_runtime_matches_all_shared_renderer_fixtures(): void
     {
-        $root = dirname(__DIR__, 3);
-        $paths = glob($root.'/specification/conformance/*.json') ?: [];
+        $paths = glob($this->conformanceRoot().'/*.json') ?: [];
         sort($paths);
         $executed = 0;
 
@@ -37,9 +50,8 @@ final class RuntimeConformanceTest extends TestCase
 
     public function test_laravel_template_runtime_matches_all_shared_language_cases(): void
     {
-        $root = dirname(__DIR__, 3);
         $fixture = json_decode(
-            (string) file_get_contents($root.'/specification/conformance/template-language.json'),
+            (string) file_get_contents($this->conformanceRoot().'/template-language.json'),
             true,
             flags: JSON_THROW_ON_ERROR,
         );
