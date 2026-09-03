@@ -44,13 +44,16 @@ jobs:
               block_validator.validate(json.loads(path.read_text()))
               print('valid block', path)
 
-          fixture_path = root / 'specification/conformance/canonical-runtime.json'
-          fixture = json.loads(fixture_path.read_text())
           page_validator = Draft202012Validator(schemas['page.schema.json'])
-          page_validator.validate(fixture['page'])
           result_validator = Draft202012Validator(schemas['renderer-protocol.schema.json']['$defs']['result'])
-          result_validator.validate(fixture['expected'])
-          print('valid conformance', fixture_path)
+          fixture_paths = sorted((root / 'specification/conformance').glob('*.json'))
+          if not fixture_paths:
+              raise SystemExit('no conformance fixtures found')
+          for fixture_path in fixture_paths:
+              fixture = json.loads(fixture_path.read_text())
+              page_validator.validate(fixture['page'])
+              result_validator.validate(fixture['expected'])
+              print('valid conformance', fixture_path)
           PY
       - name: Verify portable machine-readable artifacts are engine neutral
         run: |
