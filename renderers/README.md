@@ -1,18 +1,19 @@
 # Renderer adapters
 
-The files in this directory define the host-language boundary for the universal renderer specification in `../specification`.
+This directory contains external host-language adapters for the universal renderer specification in `../specification`.
 
-A renderer implementation must consume the same page document and block manifests. It may use any framework/database internally, but host-specific code must stay behind the adapter.
+## Current official engines
 
-Expected implementations:
+- **Laravel** — implemented by the package runtime under `src/`.
+- **Go** — standalone external renderer under `renderers/go/`.
 
-- `php-laravel`: built into `src/Blocks`, using the portable template renderer first and Blade only as a legacy fallback.
-- `go`: implement the v1 rendering spec and translate database provider queries to the chosen Go SQL layer.
-- `rust`: implement the v1 rendering spec and translate database provider queries to SQLx/Diesel/etc.
-- `node`: implement the v1 rendering spec and translate database provider queries to Prisma/Drizzle/etc.
-- `python`: implement the v1 rendering spec and translate database provider queries to SQLAlchemy/etc.
+Only Laravel and Go are part of the current support, CI, build, and release matrix.
 
-Every implementation exposes the same conceptual operation:
+Existing experimental source for other languages, when present in the repository history or development branches, is not an active engine and is not shipped as an official renderer artifact.
+
+## Contract
+
+Every renderer must consume the same canonical page document, portable block manifests, portable templates, and protocol. A host may use any framework/database internally, but host-specific behavior must remain behind its adapter.
 
 ```text
 render(page, registry, context) -> {
@@ -22,4 +23,16 @@ render(page, registry, context) -> {
 }
 ```
 
-No implementation is allowed to persist framework-specific expressions in page JSON.
+No renderer may persist framework-specific expressions, model classes, or language-specific types in canonical page JSON.
+
+## Adding a future engine
+
+A future Rust, Node.js, Bun, Python, or other adapter must:
+
+1. implement `specification/renderer-protocol.schema.json`;
+2. consume `specification/page.schema.json` and `specification/block.schema.json` unchanged;
+3. discover portable blocks dynamically from the block root;
+4. pass the shared conformance fixtures;
+5. receive CI/build/release integration before being called officially supported.
+
+See `../docs/universal-editor-engine-distribution-plan.md` for the complete distribution rules.
