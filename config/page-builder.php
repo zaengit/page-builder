@@ -11,6 +11,16 @@ return [
     'middleware' => [],
     'asset_middleware' => [],
 
+    // Hard resource boundaries for untrusted editor/preview payloads.
+    'limits' => [
+        'max_depth' => max(1, (int) env('PAGE_BUILDER_MAX_DEPTH', 20)),
+        'max_blocks' => max(1, (int) env('PAGE_BUILDER_MAX_BLOCKS', 1000)),
+        'max_string_length' => max(1, (int) env('PAGE_BUILDER_MAX_STRING_LENGTH', 100000)),
+        'max_repeater_items' => max(1, (int) env('PAGE_BUILDER_MAX_REPEATER_ITEMS', 500)),
+        'max_custom_css_length' => max(1, (int) env('PAGE_BUILDER_MAX_CUSTOM_CSS_LENGTH', 200000)),
+        'max_tokens' => max(1, (int) env('PAGE_BUILDER_MAX_TOKENS', 500)),
+    ],
+
     // Set this only while developing the React editor, e.g. http://127.0.0.1:5173.
     'editor_dev_server' => env('PAGE_BUILDER_EDITOR_DEV_SERVER'),
     'editor_dist_path' => dirname(__DIR__).'/resources/dist',

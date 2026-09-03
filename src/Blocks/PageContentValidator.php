@@ -7,10 +7,6 @@ use RuntimeException;
 
 final class PageContentValidator
 {
-    private const MAX_DEPTH = 20;
-
-    private const MAX_BLOCKS = 1000;
-
     private const STYLE_KEYS = [
         'className',
         'background',
@@ -66,11 +62,11 @@ final class PageContentValidator
             $this->fail($path, 'Each block must be an object.');
         }
 
-        if ($depth > self::MAX_DEPTH) {
+        if ($depth > $this->limit('max_depth', 20)) {
             $this->fail($path, 'Maximum block nesting depth exceeded.');
         }
 
-        if (++$count > self::MAX_BLOCKS) {
+        if (++$count > $this->limit('max_blocks', 1000)) {
             $this->fail('blocks', 'Maximum number of blocks exceeded.');
         }
 
@@ -238,6 +234,10 @@ final class PageContentValidator
             $this->fail($path, "Invalid value for attribute type [{$type}].");
         }
 
+        if (is_string($value) && mb_strlen($value) > $this->limit('max_string_length', 100000)) {
+            $this->fail($path, 'String attribute exceeds the configured maximum length.');
+        }
+
         if (($type === 'number' || $type === 'range') && is_numeric($value)) {
             if (isset($schema['min']) && $value < $schema['min']) {
                 $this->fail($path, "Value must be at least {$schema['min']}.");
@@ -253,6 +253,10 @@ final class PageContentValidator
     {
         if (! is_array($value) || ! array_is_list($value)) {
             return false;
+        }
+
+        if (count($value) > $this->limit('max_repeater_items', 500)) {
+            $this->fail($path, 'Repeater exceeds the configured maximum number of items.');
         }
 
         $fields = $schema['fields'] ?? [];
@@ -280,10 +284,12 @@ final class PageContentValidator
             $this->fail($path, 'Styles must be an object.');
         }
 
-        foreach (array_keys($styles) as $key) {
+        foreach ($styles as $key => $value) {
             if (! in_array($key, self::STYLE_KEYS, true)) {
                 $this->fail($path.'.'.$key, 'Unknown style property.');
             }
+
+            $this->assertBoundedValue($value, $path.'.'.$key);
         }
 
         return $styles;
@@ -300,8 +306,20 @@ final class PageContentValidator
                 $this->fail($path.'.'.$attr, 'Invalid dynamic binding.');
             }
 
+            if (mb_strlen($binding['source']) > 100) {
+                $this->fail($path.'.'.$attr.'.source', 'Binding source is too long.');
+            }
+
             if (isset($binding['path']) && ! is_string($binding['path'])) {
                 $this->fail($path.'.'.$attr.'.path', 'Binding path must be a string.');
+            }
+
+            if (isset($binding['path']) && mb_strlen($binding['path']) > 500) {
+                $this->fail($path.'.'.$attr.'.path', 'Binding path is too long.');
+            }
+
+            if (array_key_exists('fallback', $binding)) {
+                $this->assertBoundedValue($binding['fallback'], $path.'.'.$attr.'.fallback');
             }
         }
 
@@ -352,7 +370,63 @@ final class PageContentValidator
             }
         }
 
+        if (isset($settings['customCss'])) {
+            if (! is_string($settings['customCss'])) {
+                $this->fail('settings.customCss', 'Custom CSS must be a string.');
+            }
+
+            if (mb_strlen($settings['customCss']) > $this->limit('max_custom_css_length', 200000)) {
+                $this->fail('settings.customCss', 'Custom CSS exceeds the configured maximum length.');
+            }
+        }
+
+        if (isset($settings['tokens'])) {
+            if (! is_array($settings['tokens'])) {
+                $this->fail('settings.tokens', 'Tokens must be an object.');
+            }
+
+            if (count($settings['tokens']) > $this->limit('max_tokens', 500)) {
+                $this->fail('settings.tokens', 'Token count exceeds the configured maximum.');
+            }
+
+            foreach ($settings['tokens'] as $key => $value) {
+                if (! is_string($key) || mb_strlen($key) > 100 || ! is_scalar($value)) {
+                    $this->fail('settings.tokens', 'Tokens must use short string keys and scalar values.');
+                }
+
+                $this->assertBoundedValue($value, 'settings.tokens.'.$key);
+            }
+        }
+
+        foreach (['contentWidth', 'background', 'customClass'] as $key) {
+            if (isset($settings[$key])) {
+                $this->assertBoundedValue($settings[$key], 'settings.'.$key);
+            }
+        }
+
+        if (isset($settings['typography'])) {
+            $this->assertBoundedValue($settings['typography'], 'settings.typography');
+        }
+
         return $settings;
+    }
+
+    private function assertBoundedValue(mixed $value, string $path): void
+    {
+        if (is_string($value) && mb_strlen($value) > $this->limit('max_string_length', 100000)) {
+            $this->fail($path, 'Value exceeds the configured maximum string length.');
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $key => $item) {
+                $this->assertBoundedValue($item, $path.'.'.$key);
+            }
+        }
+    }
+
+    private function limit(string $key, int $default): int
+    {
+        return max(1, (int) config('page-builder.limits.'.$key, $default));
     }
 
     private function fail(string $path, string $message): never
