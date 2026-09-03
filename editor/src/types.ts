@@ -42,6 +42,26 @@ export type BlockStyle = {
   custom?: Record<string, string | number | ResponsiveValue<string | number>>;
 };
 
+export type ColorSchemeColors = {
+  background: string;
+  foreground: string;
+  primary: string;
+  primaryForeground: string;
+  secondary: string;
+  secondaryForeground: string;
+  accent: string;
+  accentForeground: string;
+  muted: string;
+  mutedForeground: string;
+  border: string;
+};
+
+export type ColorScheme = {
+  id: string;
+  name: string;
+  colors: ColorSchemeColors;
+};
+
 export type BlockDefinition = {
   name: string;
   title: string;
@@ -69,6 +89,7 @@ export type PageBlock = {
   attrs: Record<string, unknown>;
   children?: PageBlock[];
   slot?: string;
+  colorSchemeId?: string;
   styles?: BlockStyle;
   bindings?: Record<string, DynamicBinding>;
   lock?: BlockLock;
@@ -81,6 +102,8 @@ export type PageSettings = {
   customCss?: string;
   tokens?: Record<string, string>;
   typography?: { fontFamily?: string; fontSize?: string; lineHeight?: string; color?: string };
+  colorSchemes?: ColorScheme[];
+  defaultColorSchemeId?: string;
 };
 
 export type PageContent = { blocks: PageBlock[]; settings?: PageSettings; schemaVersion?: number };
