@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import type { Breakpoint, LayoutItem, PageBlock, ResponsiveValue, SectionLayout } from './types';
 
 export function responsive<T>(value: ResponsiveValue<T> | undefined, breakpoint: Breakpoint, fallback: T): T {
@@ -9,7 +10,7 @@ export function patchResponsive<T>(current: ResponsiveValue<T> | undefined, brea
   return { ...(current ?? {}), [breakpoint]: value };
 }
 
-export function sectionLayoutStyle(layout: SectionLayout | undefined, breakpoint: Breakpoint): React.CSSProperties {
+export function sectionLayoutStyle(layout: SectionLayout | undefined, breakpoint: Breakpoint): CSSProperties {
   const mode = responsive(layout?.mode, breakpoint, 'block');
   if (mode === 'block') return { display: 'block' };
   if (mode === 'flex') {
@@ -38,7 +39,7 @@ export function sectionLayoutStyle(layout: SectionLayout | undefined, breakpoint
   };
 }
 
-export function layoutItemStyle(item: LayoutItem | undefined, parentMode: 'block' | 'flex' | 'grid', breakpoint: Breakpoint): React.CSSProperties {
+export function layoutItemStyle(item: LayoutItem | undefined, parentMode: 'block' | 'flex' | 'grid', breakpoint: Breakpoint): CSSProperties {
   if (!item) return {};
   if (parentMode === 'flex') {
     return {
