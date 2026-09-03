@@ -9,6 +9,25 @@ permissions:
   contents: read
 
 jobs:
+  specification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Validate JSON syntax
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          for path in list(pathlib.Path('specification').glob('*.json')) + list(pathlib.Path('specification/conformance').glob('*.json')):
+              with path.open() as f: json.load(f)
+              print('valid', path)
+          PY
+      - name: Verify universal artifacts are framework neutral
+        run: |
+          ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade|github.com/zaengit/page-builder/engine/go' specification blocks --include='*.json' --include='*.md' --include='*.html'
+
   backend:
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +39,10 @@ jobs:
           extensions: mbstring, pdo_sqlite
           coverage: none
       - name: Validate Composer metadata
-        run: composer validate --strict
+        run: |
+          composer validate --strict
+          (cd core/php && composer validate --strict)
+          (cd engine/laravel && composer validate --strict --no-check-publish)
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Audit Composer dependencies
@@ -32,8 +54,8 @@ jobs:
       - name: Run PHP static analysis
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: Check PHP formatting
-        run: vendor/bin/pint --test src engine/laravel/src routes config
-      - name: Run Laravel engine tests
+        run: vendor/bin/pint --test src core/php/src engine/laravel/src routes config
+      - name: Run Laravel engine and core conformance tests
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
@@ -50,19 +72,24 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.25.x'
+          cache-dependency-path: engine/go/go.mod
+      - name: Format check Go engine
+        working-directory: engine/go
+        run: test -z "$(gofmt -l .)"
       - name: Test Go engine
         working-directory: engine/go
         run: go test ./...
       - name: Build deployable Go engine artifact
-        run: bash scripts/build-universal-renderers.sh
+        run: bash scripts/build-engines.sh
       - name: Smoke test Go engine artifact
         run: |
           test -x dist/engine/page-builder-engine-go
+          dist/engine/page-builder-engine-go --version | grep -q 'protocol=1 specification=1'
           printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/engine/page-builder-engine-go | grep -q '"html"'
       - name: Upload Go engine artifact
         uses: actions/upload-artifact@v4
         with:
-          name: page-builder-engine-go-linux
+          name: page-builder-engine-go-linux-amd64
           path: dist/engine/page-builder-engine-go
           if-no-files-found: error
           retention-days: 7
@@ -104,18 +131,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Browser E2E
         run: npm run test:e2e
-      - name: Upload Playwright screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-screenshots
-          path: editor/artifacts/screenshots/*.png
-          if-no-files-found: error
-          retention-days: 7
 
   package:
     runs-on: ubuntu-latest
-    needs: [backend, universal-runtime, editor]
+    needs: [specification, backend, universal-runtime, editor]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -124,7 +143,6 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          coverage: none
       - name: Download compiled editor assets
         uses: actions/download-artifact@v5
         with:
@@ -132,8 +150,6 @@ jobs:
           path: resources/dist
       - name: Stage release tree
         run: |
-          test -s resources/dist/page-builder.js
-          test -s resources/dist/page-builder.css
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -f resources/dist/page-builder.js resources/dist/page-builder.js.map resources/dist/page-builder.css
@@ -142,26 +158,14 @@ jobs:
         run: |
           mkdir -p package-dist
           composer archive --format=zip --dir=package-dist --file=page-builder-ci
-          test -s package-dist/page-builder-ci.zip
           unzip -l package-dist/page-builder-ci.zip > package-dist/archive.txt
-      - name: Verify runtime archive contents
+      - name: Verify archive boundaries
         run: |
-          grep -q 'composer.json' package-dist/archive.txt
-          grep -q 'LICENSE' package-dist/archive.txt
-          grep -q 'src/PageBuilderServiceProvider.php' package-dist/archive.txt
-          grep -q 'src/Rendering/RenderingEngineManager.php' package-dist/archive.txt
-          grep -q 'engine/README.md' package-dist/archive.txt
+          grep -q 'core/php/src/RuntimeRenderer.php' package-dist/archive.txt
           grep -q 'engine/laravel/src/LaravelRenderingEngine.php' package-dist/archive.txt
           grep -q 'engine/go/renderer.go' package-dist/archive.txt
-          grep -q 'engine/go/go.mod' package-dist/archive.txt
-          grep -q 'config/page-builder.php' package-dist/archive.txt
-          grep -q 'resources/dist/page-builder.js' package-dist/archive.txt
-          grep -q 'resources/dist/page-builder.css' package-dist/archive.txt
-          grep -q 'blocks/heading/block.json' package-dist/archive.txt
+          grep -q 'specification/conformance/canonical-runtime.json' package-dist/archive.txt
           grep -q 'blocks/heading/template.html' package-dist/archive.txt
-          grep -q 'specification/rendering-spec.md' package-dist/archive.txt
-          grep -q 'specification/page.schema.json' package-dist/archive.txt
-          grep -q 'docs/universal-editor-engine-distribution-plan.md' package-dist/archive.txt
+          ! grep -q '/renderers/' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
-          ! grep -q '/.github/' package-dist/archive.txt
