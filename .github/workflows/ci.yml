@@ -32,7 +32,7 @@ jobs:
       - name: Run PHP static analysis
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: Check PHP formatting
-        run: vendor/bin/pint --test src routes config
+        run: vendor/bin/pint --test src engine/laravel/src routes config
       - name: Run Laravel engine tests
         env:
           APP_ENV: testing
@@ -50,20 +50,20 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.25.x'
-      - name: Test Go renderer
-        working-directory: renderers/go
+      - name: Test Go engine
+        working-directory: engine/go
         run: go test ./...
-      - name: Build deployable Go renderer artifact
+      - name: Build deployable Go engine artifact
         run: bash scripts/build-universal-renderers.sh
-      - name: Smoke test Go renderer artifact
+      - name: Smoke test Go engine artifact
         run: |
-          test -x dist/renderers/page-builder-render-go
-          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-go | grep -q '"html"'
-      - name: Upload Go renderer artifact
+          test -x dist/engine/page-builder-engine-go
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/engine/page-builder-engine-go | grep -q '"html"'
+      - name: Upload Go engine artifact
         uses: actions/upload-artifact@v4
         with:
-          name: page-builder-render-go-linux
-          path: dist/renderers/page-builder-render-go
+          name: page-builder-engine-go-linux
+          path: dist/engine/page-builder-engine-go
           if-no-files-found: error
           retention-days: 7
 
@@ -150,7 +150,10 @@ jobs:
           grep -q 'LICENSE' package-dist/archive.txt
           grep -q 'src/PageBuilderServiceProvider.php' package-dist/archive.txt
           grep -q 'src/Rendering/RenderingEngineManager.php' package-dist/archive.txt
-          grep -q 'src/Rendering/ProcessRenderingEngine.php' package-dist/archive.txt
+          grep -q 'engine/README.md' package-dist/archive.txt
+          grep -q 'engine/laravel/src/LaravelRenderingEngine.php' package-dist/archive.txt
+          grep -q 'engine/go/renderer.go' package-dist/archive.txt
+          grep -q 'engine/go/go.mod' package-dist/archive.txt
           grep -q 'config/page-builder.php' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.js' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.css' package-dist/archive.txt
@@ -158,12 +161,7 @@ jobs:
           grep -q 'blocks/heading/template.html' package-dist/archive.txt
           grep -q 'specification/rendering-spec.md' package-dist/archive.txt
           grep -q 'specification/page.schema.json' package-dist/archive.txt
-          grep -q 'specification/block.schema.json' package-dist/archive.txt
-          grep -q 'specification/renderer-protocol.schema.json' package-dist/archive.txt
-          grep -q 'docs/universal-renderers.md' package-dist/archive.txt
           grep -q 'docs/universal-editor-engine-distribution-plan.md' package-dist/archive.txt
-          grep -q 'renderers/go/renderer.go' package-dist/archive.txt
-          grep -q 'scripts/build-universal-renderers.sh' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
           ! grep -q '/.github/' package-dist/archive.txt
