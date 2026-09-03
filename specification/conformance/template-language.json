@@ -95,7 +95,7 @@
       "name": "unsafe interpolation escapes html",
       "template": "<div>{{ unsafe }}</div>",
       "context": {"unsafe": "<script>alert('x') & test</script>"},
-      "expected": "<div>&lt;script&gt;alert(&#039;x&#039;) &amp; test&lt;/script&gt;</div>"
+      "expected": "<div>&lt;script&gt;alert(&#39;x&#39;) &amp; test&lt;/script&gt;</div>"
     },
     {
       "name": "raw children slot",
