@@ -130,7 +130,7 @@ final class DatabaseDataProvider implements DataProvider
             $paginator = $query->paginate($perPage, ['*'], 'page', max(1, (int) ($spec['page'] ?? request()->integer('page', 1))));
 
             return [
-                'items' => array_map(fn (Model $item): array => $item->toArray(), $paginator->items()),
+                'items' => array_map(static fn (Model $item): array => $item->toArray(), $paginator->items()),
                 'pagination' => [
                     'currentPage' => $paginator->currentPage(),
                     'perPage' => $paginator->perPage(),
@@ -141,7 +141,8 @@ final class DatabaseDataProvider implements DataProvider
             ];
         }
 
-        $items = $query->limit($limit)->get()->map(fn (Model $item): array => $item->toArray())->values()->all();
+        /** @var list<array<string, mixed>> $items */
+        $items = $query->limit($limit)->get()->toArray();
 
         return [
             'items' => $items,
