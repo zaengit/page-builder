@@ -1,7 +1,12 @@
+import { readFile, readdir } from 'node:fs/promises';
+import { join } from 'node:path';
+
 const RAW = /\{\{\{\s*([A-Za-z0-9_.]+)\s*\}\}\}/g;
 const INTERPOLATION = /\{\{\s*([A-Za-z0-9_.]+)(?:\s*\?\?\s*["']([^"']*)["'])?\s*\}\}/g;
 const CONDITION = /\{%\s*if\s+([A-Za-z0-9_.]+)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
 const LOOP = /\{%\s*for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([A-Za-z0-9_.]+)\s*%\}([\s\S]*?)\{%\s*endfor\s*%\}/g;
+const BLOCK_NAME = /^[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9-]*$/;
+const TEMPLATE_FILE = /^[A-Za-z0-9._-]+\.html$/;
 
 function resolve(context, path) {
   return path.split('.').reduce((value, key) => value != null && typeof value === 'object' ? value[key] : undefined, context);
@@ -32,6 +37,29 @@ export function renderTemplate(template, context) {
   }
   output = output.replace(RAW, (_, path) => resolve(context, path) ?? '');
   return output.replace(INTERPOLATION, (_, path, fallback) => escapeHtml(resolve(context, path) ?? fallback ?? ''));
+}
+
+export async function loadRegistry(root) {
+  const registry = {};
+  for (const entry of await readdir(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const directory = join(root, entry.name);
+    let manifest;
+    try {
+      manifest = JSON.parse(await readFile(join(directory, 'block.json'), 'utf8'));
+    } catch (error) {
+      if (error?.code === 'ENOENT') continue;
+      throw error;
+    }
+    manifest.version ??= 1;
+    if (!BLOCK_NAME.test(manifest.name ?? '')) throw new Error(`Invalid block name in ${directory}`);
+    if (registry[manifest.name]) throw new Error(`Duplicate block ${manifest.name}`);
+    const templateFile = manifest.template ?? 'template.html';
+    if (!TEMPLATE_FILE.test(templateFile)) throw new Error(`Invalid portable template for ${manifest.name}`);
+    const template = await readFile(join(directory, templateFile), 'utf8');
+    registry[manifest.name] = { ...manifest, template, _directory: directory };
+  }
+  return registry;
 }
 
 function defaults(definition) {
