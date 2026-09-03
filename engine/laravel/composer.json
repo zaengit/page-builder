@@ -17,10 +17,10 @@
     "illuminate/view": "^13.29"
   },
   "require-dev": {
-    "larastan/larastan": "^3.10",
     "laravel/framework": "^13.29",
     "laravel/pint": "^1.30.5",
     "mockery/mockery": "^1.6",
+    "phpstan/phpstan": "^2.2",
     "phpunit/phpunit": "^13.3.2"
   },
   "autoload": {
@@ -30,9 +30,9 @@
     }
   },
   "autoload-dev": {
-    "psr-4": {
-      "Tests\\": "tests/"
-    }
+    "classmap": [
+      "tests/"
+    ]
   },
   "extra": {
     "laravel": {
