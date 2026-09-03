@@ -42,6 +42,37 @@ jobs:
           SESSION_DRIVER: array
         run: vendor/bin/phpunit
 
+  universal-runtimes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+      - name: Test Go renderer
+        working-directory: renderers/go
+        run: go test ./...
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '26.8.1'
+      - name: Test Node renderer
+        working-directory: renderers/node
+        run: npm test
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Test Python renderer
+        working-directory: renderers/python
+        run: python -m unittest -v test_renderer.py
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test Rust renderer
+        working-directory: renderers/rust
+        run: cargo test --all-targets
+
   editor:
     runs-on: ubuntu-latest
     defaults:
@@ -90,7 +121,7 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
-    needs: [backend, editor]
+    needs: [backend, universal-runtimes, editor]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -128,6 +159,7 @@ jobs:
           grep -q 'resources/dist/page-builder.js' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.css' package-dist/archive.txt
           grep -q 'blocks/heading/block.json' package-dist/archive.txt
+          grep -q 'specification/rendering-spec.md' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
           ! grep -q '/.github/' package-dist/archive.txt
