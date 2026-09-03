@@ -1,5 +1,6 @@
 {
   "name": "core/container",
+  "version": 1,
   "title": "Container",
   "category": "layout",
   "icon": "container",
