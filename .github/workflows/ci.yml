@@ -23,7 +23,7 @@ jobs:
           python - <<'PY'
           import json
           import pathlib
-          from jsonschema import Draft202012Validator, RefResolver
+          from jsonschema import Draft202012Validator
 
           root = pathlib.Path('.')
           spec = root / 'specification'
@@ -67,7 +67,12 @@ jobs:
           for path in fixtures:
               fixture = json.loads(path.read_text())
               if 'page' in fixture and 'expected' in fixture:
-                  page_validator.validate(fixture['page'])
+                  page_is_valid = page_validator.is_valid(fixture['page'])
+                  expected_validity = fixture.get('pageSchemaValid', True)
+                  if page_is_valid != expected_validity:
+                      raise SystemExit(f'unexpected page schema validity in {path}: {page_is_valid}')
+                  if expected_validity:
+                      page_validator.validate(fixture['page'])
                   result_validator.validate(fixture['expected'])
               elif 'templateCases' in fixture:
                   if fixture.get('version') != version['templateLanguage'] or not fixture['templateCases']:
