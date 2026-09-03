@@ -2,7 +2,6 @@
 
 namespace Zaengit\PageBuilder\Engine\Laravel;
 
-use RuntimeException;
 use Throwable;
 
 final class ProcessRenderingEngine implements RenderingEngine
@@ -17,8 +16,21 @@ final class ProcessRenderingEngine implements RenderingEngine
     public function render(array $page): RenderResult
     {
         if ($this->command === []) {
-            throw new RuntimeException('Renderer process command is not configured.');
+            return $this->error('renderer_process_error', '$', 'Renderer process command is not configured.');
         }
+        if (($page['version'] ?? null) !== EngineVersion::PAGE || ! is_array($page['blocks'] ?? null)) {
+            return $this->error('protocol_invalid_request', '$.page', 'Page must conform to canonical version 1.');
+        }
+        if (trim($this->blockRoot) === '') {
+            return $this->error('protocol_invalid_request', '$.blockRoot', 'blockRoot is required.');
+        }
+
+        $request = [
+            'version' => EngineVersion::RENDERER_PROTOCOL,
+            'page' => $page,
+            'context' => $this->runtimeContext(),
+            'blockRoot' => $this->blockRoot,
+        ];
 
         $pipes = [];
         $process = proc_open(
@@ -26,21 +38,20 @@ final class ProcessRenderingEngine implements RenderingEngine
             [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             null,
-            null,
+            ['PAGE_BUILDER_RENDER_TIMEOUT_MS' => (string) $this->timeoutMs],
             ['bypass_shell' => true],
         );
 
         if (! is_resource($process)) {
-            throw new RuntimeException('Unable to start renderer process.');
+            return $this->error('renderer_process_error', '$', 'Unable to start renderer process.');
         }
 
         try {
-            fwrite($pipes[0], json_encode([
-                'version' => 1,
-                'page' => $page,
-                'context' => $this->runtimeContext(),
-                'blockRoot' => $this->blockRoot,
-            ], JSON_THROW_ON_ERROR));
+            try {
+                fwrite($pipes[0], json_encode($request, JSON_THROW_ON_ERROR));
+            } catch (Throwable $exception) {
+                return $this->error('protocol_invalid_request', '$', $exception->getMessage());
+            }
             fclose($pipes[0]);
             stream_set_blocking($pipes[1], false);
             stream_set_blocking($pipes[2], false);
@@ -61,7 +72,8 @@ final class ProcessRenderingEngine implements RenderingEngine
 
                 if (((hrtime(true) - $started) / 1_000_000) > $this->timeoutMs) {
                     proc_terminate($process, 9);
-                    throw new RuntimeException('renderer_timeout');
+
+                    return $this->error('render_timeout', '$', 'Renderer process exceeded the configured timeout.');
                 }
 
                 usleep(1000);
@@ -75,44 +87,43 @@ final class ProcessRenderingEngine implements RenderingEngine
             $process = null;
 
             if ($exitCode !== 0) {
-                throw new RuntimeException('renderer_process_failed:'.trim($stderr));
+                return $this->error('renderer_process_error', '$', trim($stderr) ?: 'Renderer process exited unsuccessfully.');
             }
 
             try {
                 $decoded = json_decode($stdout, true, flags: JSON_THROW_ON_ERROR);
-            } catch (Throwable $exception) {
-                throw new RuntimeException('renderer_invalid_json', previous: $exception);
+            } catch (Throwable) {
+                return $this->error('renderer_process_error', '$', 'Renderer process returned invalid JSON.');
             }
 
-            if (! is_array($decoded) || ! is_string($decoded['html'] ?? null)) {
-                throw new RuntimeException('renderer_invalid_result');
+            if (! is_array($decoded) || ! is_string($decoded['html'] ?? null) || ! is_array($decoded['assets'] ?? null) || ! is_array($decoded['diagnostics'] ?? null)) {
+                return $this->error('renderer_process_error', '$', 'Renderer result does not match protocol v1.');
             }
 
-            $assets = is_array($decoded['assets'] ?? null) ? $decoded['assets'] : [];
-            $css = array_values(array_filter((array) ($assets['css'] ?? []), 'is_string'));
-            $js = array_values(array_filter((array) ($assets['js'] ?? []), 'is_string'));
+            $assets = $decoded['assets'];
+            if (! is_array($assets['css'] ?? null) || ! is_array($assets['js'] ?? null)) {
+                return $this->error('renderer_process_error', '$.assets', 'Renderer assets do not match protocol v1.');
+            }
+            $css = array_values(array_unique(array_filter($assets['css'], 'is_string')));
+            $js = array_values(array_unique(array_filter($assets['js'], 'is_string')));
             $diagnostics = [];
 
-            foreach ((array) ($decoded['diagnostics'] ?? []) as $diagnostic) {
-                if (is_string($diagnostic)) {
-                    $diagnostics[] = [
-                        'code' => $diagnostic,
-                        'severity' => 'warning',
-                        'path' => null,
-                        'message' => null,
-                    ];
-
-                    continue;
+            foreach ($decoded['diagnostics'] as $index => $diagnostic) {
+                if (! is_array($diagnostic)
+                    || ! is_string($diagnostic['code'] ?? null)
+                    || ! in_array($diagnostic['severity'] ?? null, ['info', 'warning', 'error'], true)
+                    || ! array_key_exists('path', $diagnostic)
+                    || ! array_key_exists('message', $diagnostic)
+                    || (! is_null($diagnostic['path']) && ! is_string($diagnostic['path']))
+                    || (! is_null($diagnostic['message']) && ! is_string($diagnostic['message']))) {
+                    return $this->error('renderer_process_error', '$.diagnostics['.$index.']', 'Invalid renderer diagnostic.');
                 }
-
-                if (is_array($diagnostic) && is_string($diagnostic['code'] ?? null) && is_string($diagnostic['severity'] ?? null)) {
-                    $diagnostics[] = [
-                        'code' => $diagnostic['code'],
-                        'severity' => $diagnostic['severity'],
-                        'path' => is_string($diagnostic['path'] ?? null) ? $diagnostic['path'] : null,
-                        'message' => is_string($diagnostic['message'] ?? null) ? $diagnostic['message'] : null,
-                    ];
-                }
+                $diagnostics[] = [
+                    'code' => $diagnostic['code'],
+                    'severity' => $diagnostic['severity'],
+                    'path' => $diagnostic['path'],
+                    'message' => $diagnostic['message'],
+                ];
             }
 
             return new RenderResult($decoded['html'], ['css' => $css, 'js' => $js], $diagnostics);
@@ -128,6 +139,16 @@ final class ProcessRenderingEngine implements RenderingEngine
                 proc_close($process);
             }
         }
+    }
+
+    private function error(string $code, ?string $path, ?string $message): RenderResult
+    {
+        return new RenderResult('', ['css' => [], 'js' => []], [[
+            'code' => $code,
+            'severity' => 'error',
+            'path' => $path,
+            'message' => $message,
+        ]]);
     }
 
     /** @return array<string, mixed> */
