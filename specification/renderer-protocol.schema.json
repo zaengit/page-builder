@@ -23,17 +23,6 @@
       },
       "additionalProperties": false
     },
-    "registryEntry": {
-      "allOf": [
-        { "$ref": "./block.schema.json" },
-        {
-          "type": "object",
-          "properties": {
-            "template": { "type": "string" }
-          }
-        }
-      ]
-    },
     "request": {
       "type": "object",
       "required": ["version", "page"],
@@ -58,10 +47,28 @@
       "required": ["html", "assets", "diagnostics"],
       "properties": {
         "html": { "type": "string" },
-        "assets": { "$ref": "#/$defs/assets" },
+        "assets": {
+          "type": "object",
+          "required": ["css", "js"],
+          "properties": {
+            "css": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+            "js": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+          },
+          "additionalProperties": false
+        },
         "diagnostics": {
           "type": "array",
-          "items": { "$ref": "#/$defs/diagnostic" }
+          "items": {
+            "type": "object",
+            "required": ["code", "severity", "path", "message"],
+            "properties": {
+              "code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+              "severity": { "enum": ["info", "warning", "error"] },
+              "path": { "type": ["string", "null"] },
+              "message": { "type": ["string", "null"] }
+            },
+            "additionalProperties": false
+          }
         },
         "version": { "const": 1 },
         "capabilities": {
