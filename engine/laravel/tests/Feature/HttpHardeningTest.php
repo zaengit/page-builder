@@ -9,7 +9,7 @@ final class HttpHardeningTest extends TestCase
     public function test_block_asset_urls_are_content_versioned(): void
     {
         foreach (['style.css', 'frontend.js'] as $asset) {
-            $path = base_path('blocks/carousel/'.$asset);
+            $path = $this->blocksPath('carousel/'.$asset);
             $hash = hash_file('sha256', $path);
             $this->assertIsString($hash);
             $version = substr($hash, 0, 12);
@@ -22,7 +22,7 @@ final class HttpHardeningTest extends TestCase
 
     public function test_versioned_block_assets_are_immutable_and_support_etag_revalidation(): void
     {
-        $path = base_path('blocks/carousel/style.css');
+        $path = $this->blocksPath('carousel/style.css');
         $hash = hash_file('sha256', $path);
         $this->assertIsString($hash);
         $version = substr($hash, 0, 12);
