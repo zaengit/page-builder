@@ -2,7 +2,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import type { PageSettings, TextStyle, TypographySettings, TypographyStyleName } from '../types';
+import { builderStoreBridge } from '../store';
+import type { BlockDefinition, PageBlock, PageSettings, TextStyle, TypographySettings, TypographyStyleName } from '../types';
 
 const SYSTEM_FONTS = [
   { value: 'Inter, ui-sans-serif, system-ui, sans-serif', label: 'Inter / System' },
@@ -127,4 +128,12 @@ export function TypographyPanel({ settings, onChange }: { settings?: PageSetting
       </div>
     </div>
   );
+}
+
+export function GlobalTypographyInspector(_props: { block: PageBlock; definition: BlockDefinition }) {
+  const useBuilder = builderStoreBridge.current;
+  if (!useBuilder) return null;
+  const settings = useBuilder(state => state.content.settings);
+  const updateSettings = useBuilder(state => state.updateSettings);
+  return <TypographyPanel settings={settings} onChange={updateSettings} />;
 }
