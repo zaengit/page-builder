@@ -4,21 +4,19 @@ namespace Zaengit\PageBuilder;
 
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
-use Zaengit\PageBuilder\Blocks\AssetCollector;
 use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
 use Zaengit\PageBuilder\DataProviders\ContextDataProvider;
 use Zaengit\PageBuilder\DataProviders\DatabaseDataProvider;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 use Zaengit\PageBuilder\Editor\EditorResourceRegistry;
-use Zaengit\PageBuilder\Rendering\RenderingEngine;
-use Zaengit\PageBuilder\Rendering\RenderingEngineManager;
+use Zaengit\PageBuilder\Engine\Laravel\RenderingEngine;
+use Zaengit\PageBuilder\Engine\Laravel\RenderingEngineManager;
 
 final class PageBuilderServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
         $this->mergeConfigFrom(__DIR__.'/../config/page-builder.php', 'page-builder');
-        $this->app->scoped(AssetCollector::class);
         $this->app->singleton(DataProviderRegistry::class, fn () => new DataProviderRegistry);
         $this->app->singleton(EditorResourceRegistry::class, fn () => new EditorResourceRegistry);
         $this->app->singleton(BlockMigrationRegistry::class, fn () => new BlockMigrationRegistry);
