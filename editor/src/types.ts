@@ -24,7 +24,19 @@ export type BlockVariation = { name: string; title: string; description?: string
 export type BlockSlot = { name: string; title?: string; allowedChildren?: string[] };
 export type BlockTransform = { name: string; title: string; to: string; mapAttrs?: (attrs: Record<string, unknown>) => Record<string, unknown> };
 export type BlockLock = { move?: boolean; remove?: boolean; edit?: boolean };
-export type DynamicBinding = { source: string; path?: string; fallback?: unknown };
+export type DynamicFilter = { column: string; operator: string; value?: unknown };
+export type DynamicOrder = { column: string; direction: 'asc' | 'desc' };
+export type DynamicQuery = { where?: DynamicFilter[]; orderBy?: DynamicOrder[]; with?: string[]; limit?: number; perPage?: number; page?: number };
+export type DynamicBinding = {
+  source: string;
+  path?: string;
+  fallback?: unknown;
+  model?: string;
+  mode?: 'single' | 'collection';
+  recordId?: string | number;
+  contextKey?: string;
+  query?: DynamicQuery;
+};
 
 export type LayoutMode = 'block' | 'flex' | 'grid';
 export type FlexDirection = 'row' | 'column' | 'row-reverse' | 'column-reverse';
@@ -149,6 +161,7 @@ export type PageContent = { blocks: PageBlock[]; settings?: PageSettings; schema
 export type Pattern = { id: string; title: string; category?: string; blocks: PageBlock[] };
 export type PageTemplate = { id: string; title: string; description?: string; content: PageContent };
 export type DataSource = { name: string; title: string; paths?: string[] };
+export type DatabaseModel = { title: string; class: string };
 export type EditorRuntime = {
   blocksUrl: string;
   renderBlockUrl: string;
@@ -161,6 +174,7 @@ export type EditorRuntime = {
   patterns?: Pattern[];
   templates?: PageTemplate[];
   dataSources?: DataSource[];
+  databaseModels?: DatabaseModel[];
   autosaveMs?: number;
 };
 export type ControlProps = { name: string; path?: string[]; schema: AttrSchema; value: unknown; attrs?: Record<string, unknown>; breakpoint?: Breakpoint; onChange: (value: unknown) => void; requestMedia?: (path: string[]) => void };
