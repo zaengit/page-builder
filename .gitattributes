@@ -6,6 +6,9 @@
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore
 /public export-ignore
+/renderers/node export-ignore
+/renderers/python export-ignore
+/renderers/rust export-ignore
 /storage export-ignore
 /tests export-ignore
 
