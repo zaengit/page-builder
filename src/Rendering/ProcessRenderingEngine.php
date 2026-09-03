@@ -3,6 +3,7 @@
 namespace Zaengit\PageBuilder\Rendering;
 
 use RuntimeException;
+use Throwable;
 
 final class ProcessRenderingEngine implements RenderingEngine
 {
@@ -11,7 +12,6 @@ final class ProcessRenderingEngine implements RenderingEngine
         private readonly array $command,
         private readonly string $blockRoot,
         private readonly int $timeoutMs = 5000,
-        private readonly ?ProcessPagePreparer $preparer = null,
     ) {}
 
     public function render(array $page): RenderResult
@@ -20,8 +20,6 @@ final class ProcessRenderingEngine implements RenderingEngine
             throw new RuntimeException('Renderer process command is not configured.');
         }
 
-        $runtimeContext = $this->runtimeContext();
-        $preparedPage = $this->preparer?->prepare($page, $runtimeContext) ?? $page;
         $pipes = [];
         $process = proc_open(
             $this->command,
@@ -31,7 +29,6 @@ final class ProcessRenderingEngine implements RenderingEngine
             null,
             ['bypass_shell' => true],
         );
-
         if (! is_resource($process)) {
             throw new RuntimeException('Unable to start renderer process.');
         }
@@ -39,12 +36,11 @@ final class ProcessRenderingEngine implements RenderingEngine
         try {
             fwrite($pipes[0], json_encode([
                 'version' => 1,
-                'page' => $preparedPage,
-                'context' => $runtimeContext,
+                'page' => $page,
+                'context' => $this->runtimeContext(),
                 'blockRoot' => $this->blockRoot,
             ], JSON_THROW_ON_ERROR));
             fclose($pipes[0]);
-
             stream_set_blocking($pipes[1], false);
             stream_set_blocking($pipes[2], false);
             $stdout = '';
@@ -56,17 +52,14 @@ final class ProcessRenderingEngine implements RenderingEngine
                 $stdout .= stream_get_contents($pipes[1]) ?: '';
                 $stderr .= stream_get_contents($pipes[2]) ?: '';
                 $status = proc_get_status($process);
-
                 if (! $status['running']) {
                     $exitCode = $status['exitcode'];
                     break;
                 }
-
                 if (((hrtime(true) - $started) / 1_000_000) > $this->timeoutMs) {
                     proc_terminate($process, 9);
-                    throw new RuntimeException('Renderer process timed out.');
+                    throw new RuntimeException('renderer_timeout');
                 }
-
                 usleep(1000);
             }
 
@@ -78,18 +71,36 @@ final class ProcessRenderingEngine implements RenderingEngine
             $process = null;
 
             if ($exitCode !== 0) {
-                throw new RuntimeException('Renderer process failed: '.trim($stderr));
+                throw new RuntimeException('renderer_process_failed:'.trim($stderr));
             }
 
-            $decoded = json_decode($stdout, true, flags: JSON_THROW_ON_ERROR);
+            try {
+                $decoded = json_decode($stdout, true, flags: JSON_THROW_ON_ERROR);
+            } catch (Throwable $exception) {
+                throw new RuntimeException('renderer_invalid_json', previous: $exception);
+            }
             if (! is_array($decoded) || ! is_string($decoded['html'] ?? null)) {
-                throw new RuntimeException('Renderer process returned an invalid result.');
+                throw new RuntimeException('renderer_invalid_result');
             }
 
             $assets = is_array($decoded['assets'] ?? null) ? $decoded['assets'] : [];
             $css = array_values(array_filter((array) ($assets['css'] ?? []), 'is_string'));
             $js = array_values(array_filter((array) ($assets['js'] ?? []), 'is_string'));
-            $diagnostics = array_values(array_filter((array) ($decoded['diagnostics'] ?? []), 'is_string'));
+            $diagnostics = [];
+            foreach ((array) ($decoded['diagnostics'] ?? []) as $diagnostic) {
+                if (is_string($diagnostic)) {
+                    $diagnostics[] = ['code' => $diagnostic, 'severity' => 'warning', 'path' => null, 'message' => null];
+                    continue;
+                }
+                if (is_array($diagnostic) && is_string($diagnostic['code'] ?? null) && is_string($diagnostic['severity'] ?? null)) {
+                    $diagnostics[] = [
+                        'code' => $diagnostic['code'],
+                        'severity' => $diagnostic['severity'],
+                        'path' => is_string($diagnostic['path'] ?? null) ? $diagnostic['path'] : null,
+                        'message' => is_string($diagnostic['message'] ?? null) ? $diagnostic['message'] : null,
+                    ];
+                }
+            }
 
             return new RenderResult($decoded['html'], ['css' => $css, 'js' => $js], $diagnostics);
         } finally {
@@ -111,7 +122,6 @@ final class ProcessRenderingEngine implements RenderingEngine
         if (! app()->bound('request')) {
             return [];
         }
-
         $request = request();
         $explicit = $request->attributes->get('page_builder_context', []);
         $route = $request->route();

@@ -7,10 +7,7 @@ use Zaengit\PageBuilder\Engine\Laravel\LaravelRenderingEngine;
 
 final class RenderingEngineManager
 {
-    public function __construct(
-        private readonly LaravelRenderingEngine $laravel,
-        private readonly ProcessPagePreparer $preparer,
-    ) {}
+    public function __construct(private readonly LaravelRenderingEngine $laravel) {}
 
     /** @param array<string, mixed> $page */
     public function render(array $page, ?string $engine = null): RenderResult
@@ -21,17 +18,15 @@ final class RenderingEngineManager
     public function engine(?string $name = null): RenderingEngine
     {
         $name ??= (string) config('page-builder.rendering.default', 'laravel');
-
         if ($name === 'php') {
             $name = 'laravel';
         }
-
-        $definition = config('page-builder.rendering.engines.'.$name);
 
         if ($name === 'laravel') {
             return $this->laravel;
         }
 
+        $definition = config('page-builder.rendering.engines.'.$name);
         if (! is_array($definition)) {
             throw new InvalidArgumentException("Unknown page-builder rendering engine: {$name}");
         }
@@ -52,12 +47,7 @@ final class RenderingEngineManager
         $blockRoot = (string) ($definition['block_root'] ?? config('page-builder.rendering.block_root', base_path('blocks')));
         $timeoutMs = max(100, (int) ($definition['timeout_ms'] ?? config('page-builder.rendering.timeout_ms', 5000)));
 
-        return new ProcessRenderingEngine(
-            array_values($command),
-            $blockRoot,
-            $timeoutMs,
-            $this->preparer,
-        );
+        return new ProcessRenderingEngine(array_values($command), $blockRoot, $timeoutMs);
     }
 
     /** @return list<string> */
