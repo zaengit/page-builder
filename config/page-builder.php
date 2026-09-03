@@ -37,12 +37,17 @@ return [
         'max_items' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_ITEMS', 250)),
     ],
 
-    // Database/Eloquent bindings are allowlisted. Publish this config in the host app
-    // and expose only models that should be queryable by page-builder content.
+    // Persisted page JSON references stable, language-agnostic resource names such as
+    // "products" or "posts". This Laravel adapter maps those names to Eloquent models.
     'data' => [
+        'resources' => [
+            // 'products' => App\Models\Product::class,
+            // 'posts' => App\Models\Post::class,
+        ],
+
+        // Deprecated compatibility alias for pages created before universal resources.
         'models' => [
             // 'Product' => App\Models\Product::class,
-            // 'Post' => App\Models\Post::class,
         ],
         'max_results' => max(1, (int) env('PAGE_BUILDER_DATA_MAX_RESULTS', 100)),
     ],
