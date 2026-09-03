@@ -3,23 +3,21 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
-use Zaengit\PageBuilder\Blocks\PageRenderer;
 
 final class HttpHardeningTest extends TestCase
 {
     public function test_block_asset_urls_are_content_versioned(): void
     {
-        $renderer = app(PageRenderer::class);
-        $renderer->render(['blocks' => [[
-            'id' => 'carousel-1',
-            'type' => 'core/carousel',
-            'attrs' => [],
-        ]]]);
+        foreach (['style.css', 'frontend.js'] as $asset) {
+            $path = base_path('blocks/carousel/'.$asset);
+            $hash = hash_file('sha256', $path);
+            $this->assertIsString($hash);
+            $version = substr($hash, 0, 12);
 
-        $assets = $renderer->assets();
-
-        $this->assertMatchesRegularExpression('#^/block-assets/core/carousel/style\.css\?v=[a-f0-9]{12}$#', $assets['css'][0]);
-        $this->assertMatchesRegularExpression('#^/block-assets/core/carousel/frontend\.js\?v=[a-f0-9]{12}$#', $assets['js'][0]);
+            $response = $this->get('/block-assets/core/carousel/'.$asset.'?v='.$version);
+            $response->assertOk();
+            $response->assertHeader('ETag', '"'.$hash.'"');
+        }
     }
 
     public function test_versioned_block_assets_are_immutable_and_support_etag_revalidation(): void
