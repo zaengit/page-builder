@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "registry": {
+    "test/parent": {
+      "name": "test/parent",
+      "version": 1,
+      "template": "<section>{{{ children }}}</section>",
+      "attributes": {},
+      "assets": {"css": ["shared.css"], "js": []}
+    },
+    "test/child": {
+      "name": "test/child",
+      "version": 1,
+      "template": "<p>{{ attrs.text }}</p>",
+      "attributes": {
+        "text": {"type": "string", "default": ""}
+      },
+      "assets": {"css": ["shared.css", "child.css"], "js": ["child.js"]}
+    }
+  },
+  "page": {
+    "version": 1,
+    "blocks": [
+      {
+        "id": "parent-1",
+        "type": "test/parent",
+        "attrs": {},
+        "children": [
+          {
+            "id": "child-1",
+            "type": "test/child",
+            "attrs": {"text": "One"},
+            "slot": "left",
+            "children": []
+          },
+          {
+            "id": "child-2",
+            "type": "test/child",
+            "attrs": {"text": "Two"},
+            "slot": "right",
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "context": {},
+  "expected": {
+    "html": "<div class=\"pb-page\" style=\"\"><div data-pb-style-id=\"parent-1\" data-pb-id=\"parent-1\" style=\"\"><section><div data-pb-style-id=\"child-1\" data-pb-id=\"child-1\" data-pb-slot=\"left\" style=\"\"><p>One</p></div><div data-pb-style-id=\"child-2\" data-pb-id=\"child-2\" data-pb-slot=\"right\" style=\"\"><p>Two</p></div></section></div></div>",
+    "assets": {"css": ["shared.css", "child.css"], "js": ["child.js"]},
+    "diagnostics": []
+  }
+}
