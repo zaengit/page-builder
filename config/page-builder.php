@@ -11,7 +11,6 @@ return [
     'middleware' => [],
     'asset_middleware' => [],
 
-    // Hard resource boundaries for untrusted editor/preview payloads.
     'limits' => [
         'max_depth' => max(1, (int) env('PAGE_BUILDER_MAX_DEPTH', 20)),
         'max_blocks' => max(1, (int) env('PAGE_BUILDER_MAX_BLOCKS', 1000)),
@@ -21,28 +20,30 @@ return [
         'max_tokens' => max(1, (int) env('PAGE_BUILDER_MAX_TOKENS', 500)),
     ],
 
-    // Set this only while developing the React editor, e.g. http://127.0.0.1:5173.
     'editor_dev_server' => env('PAGE_BUILDER_EDITOR_DEV_SERVER'),
     'editor_dist_path' => dirname(__DIR__).'/resources/dist',
     'editor_js' => 'page-builder.js',
     'editor_css' => 'page-builder.css',
-
-    // "route" streams built assets through Laravel. "public" serves files published
-    // to public/vendor/page-builder (or editor_public_path) and adds a content hash.
     'editor_asset_mode' => env('PAGE_BUILDER_EDITOR_ASSET_MODE', 'route'),
     'editor_public_path' => env('PAGE_BUILDER_EDITOR_PUBLIC_PATH', 'vendor/page-builder'),
     'editor_public_url' => env('PAGE_BUILDER_EDITOR_PUBLIC_URL'),
-
-    // Automatic save requests are disabled by default. The host still owns persistence.
     'autosave_ms' => max(0, (int) env('PAGE_BUILDER_AUTOSAVE_MS', 0)),
 
-    // Built-in media library. Host applications can still listen to
-    // PAGE_BUILDER_MEDIA_REQUEST and return PAGE_BUILDER_MEDIA_SELECTED.
     'media_picker' => true,
     'media' => [
         'disk' => env('PAGE_BUILDER_MEDIA_DISK', 'public'),
         'directory' => trim((string) env('PAGE_BUILDER_MEDIA_DIRECTORY', 'page-builder/media'), '/'),
         'max_upload_kb' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_UPLOAD_KB', 10240)),
         'max_items' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_ITEMS', 250)),
+    ],
+
+    // Database/Eloquent bindings are allowlisted. Publish this config in the host app
+    // and expose only models that should be queryable by page-builder content.
+    'data' => [
+        'models' => [
+            // 'Product' => App\Models\Product::class,
+            // 'Post' => App\Models\Post::class,
+        ],
+        'max_results' => max(1, (int) env('PAGE_BUILDER_DATA_MAX_RESULTS', 100)),
     ],
 ];
