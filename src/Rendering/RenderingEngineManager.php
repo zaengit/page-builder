@@ -3,11 +3,12 @@
 namespace Zaengit\PageBuilder\Rendering;
 
 use InvalidArgumentException;
+use Zaengit\PageBuilder\Engine\Laravel\LaravelRenderingEngine;
 
 final class RenderingEngineManager
 {
     public function __construct(
-        private readonly PhpRenderingEngine $php,
+        private readonly LaravelRenderingEngine $laravel,
         private readonly ProcessPagePreparer $preparer,
     ) {}
 
@@ -21,7 +22,6 @@ final class RenderingEngineManager
     {
         $name ??= (string) config('page-builder.rendering.default', 'laravel');
 
-        // Backward compatibility for installations that used PAGE_BUILDER_RENDERER=php.
         if ($name === 'php') {
             $name = 'laravel';
         }
@@ -29,7 +29,7 @@ final class RenderingEngineManager
         $definition = config('page-builder.rendering.engines.'.$name);
 
         if ($name === 'laravel') {
-            return $this->php;
+            return $this->laravel;
         }
 
         if (! is_array($definition)) {
