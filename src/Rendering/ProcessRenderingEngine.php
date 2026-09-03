@@ -6,9 +6,7 @@ use RuntimeException;
 
 final class ProcessRenderingEngine implements RenderingEngine
 {
-    /**
-     * @param list<string> $command
-     */
+    /** @param list<string> $command */
     public function __construct(
         private readonly array $command,
         private readonly string $blockRoot,
@@ -27,11 +25,7 @@ final class ProcessRenderingEngine implements RenderingEngine
         $pipes = [];
         $process = proc_open(
             $this->command,
-            [
-                0 => ['pipe', 'r'],
-                1 => ['pipe', 'w'],
-                2 => ['pipe', 'w'],
-            ],
+            [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']],
             $pipes,
             null,
             null,
@@ -64,7 +58,7 @@ final class ProcessRenderingEngine implements RenderingEngine
                 $status = proc_get_status($process);
 
                 if (! $status['running']) {
-                    $exitCode = is_int($status['exitcode']) ? $status['exitcode'] : null;
+                    $exitCode = $status['exitcode'];
                     break;
                 }
 
