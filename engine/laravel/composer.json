@@ -20,6 +20,7 @@
     "laravel/framework": "^13.29",
     "laravel/pint": "^1.30.5",
     "mockery/mockery": "^1.6",
+    "orchestra/testbench": "^11.2",
     "phpstan/phpstan": "^2.2",
     "phpunit/phpunit": "^13.3.2"
   },
