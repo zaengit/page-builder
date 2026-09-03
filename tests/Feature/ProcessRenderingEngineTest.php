@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
-use Zaengit\PageBuilder\Rendering\ProcessRenderingEngine;
+use Zaengit\PageBuilder\Engine\Laravel\ProcessRenderingEngine;
 
 final class ProcessRenderingEngineTest extends TestCase
 {
@@ -19,6 +19,8 @@ final class ProcessRenderingEngineTest extends TestCase
 
         $this->assertSame('<main data-engine="fixture">Hello &lt;Universal&gt;</main>', $result->html);
         $this->assertSame(['css' => ['fixture.css'], 'js' => ['fixture.js']], $result->assets);
-        $this->assertSame(['fixture:ok'], $result->diagnostics);
+        $this->assertSame([
+            ['code' => 'fixture:ok', 'severity' => 'warning', 'path' => null, 'message' => null],
+        ], $result->diagnostics);
     }
 }
