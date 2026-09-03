@@ -2,15 +2,17 @@
 
 namespace Tests\Engine\Laravel;
 
+use Generator;
 use Tests\TestCase;
 use Zaengit\PageBuilder\Engine\Laravel\Runtime\RuntimeRenderer;
 
 final class RuntimeConformanceTest extends TestCase
 {
-    public function test_laravel_runtime_matches_canonical_conformance_fixture(): void
+    /** @dataProvider sharedConformanceFixtures */
+    public function test_laravel_runtime_matches_shared_conformance_fixture(string $path): void
     {
         $fixture = json_decode(
-            file_get_contents(base_path('specification/conformance/canonical-runtime.json')),
+            (string) file_get_contents($path),
             true,
             flags: JSON_THROW_ON_ERROR,
         );
@@ -18,10 +20,20 @@ final class RuntimeConformanceTest extends TestCase
         $result = app(RuntimeRenderer::class)->render(
             $fixture['page'],
             [],
-            $fixture['context'],
-            $fixture['registry'],
+            $fixture['context'] ?? [],
+            $fixture['registry'] ?? [],
         );
 
-        $this->assertSame($fixture['expected'], $result->toArray());
+        $this->assertSame($fixture['expected'], $result->toArray(), basename($path));
+    }
+
+    public static function sharedConformanceFixtures(): Generator
+    {
+        $paths = glob(base_path('specification/conformance/*.json')) ?: [];
+        sort($paths);
+
+        foreach ($paths as $path) {
+            yield basename($path) => [$path];
+        }
     }
 }
