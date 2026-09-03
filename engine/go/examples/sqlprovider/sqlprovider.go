@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
 
 	pagebuilder "github.com/zaengit/page-builder/engine/go"
@@ -28,8 +29,14 @@ func (a Adapter) Resolve(ctx context.Context, request pagebuilder.DatasourceRequ
 	if !ok || !identifier.MatchString(resource.Table) {
 		return nil, fmt.Errorf("unknown resource %q", request.Resource)
 	}
-	columns := make([]string, 0, len(resource.Columns))
-	for _, column := range resource.Columns {
+	keys := make([]string, 0, len(resource.Columns))
+	for key := range resource.Columns {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	columns := make([]string, 0, len(keys))
+	for _, key := range keys {
+		column := resource.Columns[key]
 		if !identifier.MatchString(column) {
 			return nil, fmt.Errorf("unsafe configured column %q", column)
 		}
@@ -64,34 +71,57 @@ func (a Adapter) Resolve(ctx context.Context, request pagebuilder.DatasourceRequ
 				return nil, fmt.Errorf("column %q is not exposed", order.Column)
 			}
 			direction := "ASC"
-			if strings.EqualFold(order.Direction, "desc") { direction = "DESC" }
+			if strings.EqualFold(order.Direction, "desc") {
+				direction = "DESC"
+			}
 			parts = append(parts, column+" "+direction)
 		}
 		query += " ORDER BY " + strings.Join(parts, ",")
 	}
 	maxRows := a.MaxRows
-	if maxRows <= 0 { maxRows = 100 }
+	if maxRows <= 0 {
+		maxRows = 100
+	}
 	limit := request.Query.Limit
-	if limit <= 0 || limit > maxRows { limit = maxRows }
+	if limit <= 0 || limit > maxRows {
+		limit = maxRows
+	}
 	query += " LIMIT ? OFFSET ?"
 	args = append(args, limit, request.Query.Offset)
 
 	rows, err := a.DB.QueryContext(ctx, query, args...)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer rows.Close()
 	result := []map[string]any{}
 	columnNames, err := rows.Columns()
-	if err != nil { return nil, err }
-	for rows.Next() {
-		values := make([]any, len(columnNames)); pointers := make([]any, len(columnNames))
-		for i := range values { pointers[i] = &values[i] }
-		if err := rows.Scan(pointers...); err != nil { return nil, err }
-		item := map[string]any{}
-		for i, name := range columnNames { item[name] = values[i] }
-		result = append(result, item)
-		if request.Mode != "collection" { return item, nil }
+	if err != nil {
+		return nil, err
 	}
-	if err := rows.Err(); err != nil { return nil, err }
-	if request.Mode != "collection" { return nil, nil }
+	for rows.Next() {
+		values := make([]any, len(columnNames))
+		pointers := make([]any, len(columnNames))
+		for i := range values {
+			pointers[i] = &values[i]
+		}
+		if err := rows.Scan(pointers...); err != nil {
+			return nil, err
+		}
+		item := map[string]any{}
+		for i, name := range columnNames {
+			item[name] = values[i]
+		}
+		result = append(result, item)
+		if request.Mode != "collection" {
+			return item, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if request.Mode != "collection" {
+		return nil, nil
+	}
 	return pagebuilder.DatasourceCollectionResult{Items: result}, nil
 }
