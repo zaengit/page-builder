@@ -56,7 +56,7 @@ export function DynamicDataPanel({ selected, definition, runtime, onBindings }: 
     </div>
 
     {binding.source === 'database' && <>
-      <div className="grid gap-1"><Label className="text-[11px]">Laravel model</Label><Select value={binding.model ?? ''} onValueChange={model => patch({ model })}><SelectTrigger size="sm"><SelectValue placeholder="Select model" /></SelectTrigger><SelectContent>{runtime.databaseModels?.map(model => <SelectItem key={model.class} value={model.class}>{model.title}</SelectItem>)}</SelectContent></Select></div>
+      <div className="grid gap-1"><Label className="text-[11px]">Resource</Label><Select value={binding.resource ?? ''} onValueChange={resource => patch({ resource })}><SelectTrigger size="sm"><SelectValue placeholder="Select resource" /></SelectTrigger><SelectContent>{runtime.dataResources?.map(resource => <SelectItem key={resource.name} value={resource.name}>{resource.title}</SelectItem>)}</SelectContent></Select></div>
       <div className="grid grid-cols-2 gap-2">
         <div className="grid gap-1"><Label className="text-[11px]">Mode</Label><Select value={binding.mode ?? 'single'} onValueChange={mode => patch({ mode: mode as 'single' | 'collection' })}><SelectTrigger size="sm"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="single">Single record</SelectItem><SelectItem value="collection">Collection</SelectItem></SelectContent></Select></div>
         {binding.mode !== 'collection' && <div className="grid gap-1"><Label className="text-[11px]">Record ID</Label><Input className="h-7 text-xs" value={String(binding.recordId ?? '')} onChange={event => patch({ recordId: event.target.value })} placeholder="Optional" /></div>}
