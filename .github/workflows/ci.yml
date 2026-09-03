@@ -23,6 +23,8 @@ jobs:
         run: composer validate --strict
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+      - name: Audit Composer dependencies
+        run: composer audit
       - name: Prepare environment
         run: |
           cp .env.example .env
@@ -63,6 +65,16 @@ jobs:
         run: |
           test -s ../resources/dist/page-builder.js
           test -s ../resources/dist/page-builder.css
+      - name: Upload compiled editor assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: editor-dist
+          path: |
+            resources/dist/page-builder.js
+            resources/dist/page-builder.js.map
+            resources/dist/page-builder.css
+          if-no-files-found: error
+          retention-days: 1
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
       - name: Browser E2E
@@ -75,3 +87,47 @@ jobs:
           path: editor/artifacts/screenshots/*.png
           if-no-files-found: error
           retention-days: 7
+
+  package:
+    runs-on: ubuntu-latest
+    needs: [backend, editor]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - name: Download compiled editor assets
+        uses: actions/download-artifact@v5
+        with:
+          name: editor-dist
+          path: resources/dist
+      - name: Stage release tree
+        run: |
+          test -s resources/dist/page-builder.js
+          test -s resources/dist/page-builder.css
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -f resources/dist/page-builder.js resources/dist/page-builder.js.map resources/dist/page-builder.css
+          git commit -m "ci: stage compiled editor assets"
+      - name: Build Composer archive
+        run: |
+          mkdir -p package-dist
+          composer archive --format=zip --dir=package-dist --file=page-builder-ci
+          test -s package-dist/page-builder-ci.zip
+          unzip -l package-dist/page-builder-ci.zip > package-dist/archive.txt
+      - name: Verify runtime archive contents
+        run: |
+          grep -q 'composer.json' package-dist/archive.txt
+          grep -q 'LICENSE' package-dist/archive.txt
+          grep -q 'src/PageBuilderServiceProvider.php' package-dist/archive.txt
+          grep -q 'config/page-builder.php' package-dist/archive.txt
+          grep -q 'resources/dist/page-builder.js' package-dist/archive.txt
+          grep -q 'resources/dist/page-builder.css' package-dist/archive.txt
+          grep -q 'blocks/heading/block.json' package-dist/archive.txt
+          ! grep -q '/editor/' package-dist/archive.txt
+          ! grep -q '/tests/' package-dist/archive.txt
+          ! grep -q '/.github/' package-dist/archive.txt
