@@ -10,7 +10,7 @@ var (
 	templateTag      = regexp.MustCompile(`{%\s*(.*?)\s*%}`)
 	templateIf       = regexp.MustCompile(`^if\s+[A-Za-z0-9_.]+$`)
 	templateFor      = regexp.MustCompile(`^for\s+[A-Za-z_][A-Za-z0-9_]*\s+in\s+[A-Za-z0-9_.]+$`)
-	interpolation    = regexp.MustCompile(`{{\s*[A-Za-z0-9_.]+(?:\s*\?\?\s*(["']).*?\1)?\s*}}`)
+	interpolation    = regexp.MustCompile(`{{\s*[A-Za-z0-9_.]+(?:\s*\?\?\s*(?:"[^"]*"|'[^']*'))?\s*}}`)
 	rawChildrenToken = "{{{ children }}}"
 )
 
