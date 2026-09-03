@@ -23,6 +23,20 @@ final class PageContentValidator
         'custom',
     ];
 
+    private const COLOR_SCHEME_KEYS = [
+        'background',
+        'foreground',
+        'primary',
+        'primaryForeground',
+        'secondary',
+        'secondaryForeground',
+        'accent',
+        'accentForeground',
+        'muted',
+        'mutedForeground',
+        'border',
+    ];
+
     public function __construct(
         private readonly BlockRegistry $registry,
         private readonly BlockMigrationRegistry $migrations,
@@ -183,6 +197,14 @@ final class PageContentValidator
 
         if (isset($block['slot']) && is_string($block['slot'])) {
             $validated['slot'] = mb_substr($block['slot'], 0, 100);
+        }
+
+        if (isset($block['colorSchemeId'])) {
+            if (! is_string($block['colorSchemeId']) || $block['colorSchemeId'] === '' || mb_strlen($block['colorSchemeId']) > 100) {
+                $this->fail("{$path}.colorSchemeId", 'Color scheme id must be a non-empty string up to 100 characters.');
+            }
+
+            $validated['colorSchemeId'] = $block['colorSchemeId'];
         }
 
         if (isset($block['styles'])) {
@@ -362,6 +384,8 @@ final class PageContentValidator
             'customCss',
             'tokens',
             'typography',
+            'colorSchemes',
+            'defaultColorSchemeId',
         ];
 
         foreach (array_keys($settings) as $key) {
@@ -398,6 +422,16 @@ final class PageContentValidator
             }
         }
 
+        if (isset($settings['colorSchemes'])) {
+            $settings['colorSchemes'] = $this->validateColorSchemes($settings['colorSchemes']);
+        }
+
+        if (isset($settings['defaultColorSchemeId'])) {
+            if (! is_string($settings['defaultColorSchemeId']) || $settings['defaultColorSchemeId'] === '' || mb_strlen($settings['defaultColorSchemeId']) > 100) {
+                $this->fail('settings.defaultColorSchemeId', 'Default color scheme id must be a non-empty string up to 100 characters.');
+            }
+        }
+
         foreach (['contentWidth', 'background', 'customClass'] as $key) {
             if (isset($settings[$key])) {
                 $this->assertBoundedValue($settings[$key], 'settings.'.$key);
@@ -409,6 +443,72 @@ final class PageContentValidator
         }
 
         return $settings;
+    }
+
+    private function validateColorSchemes(mixed $schemes): array
+    {
+        if (! is_array($schemes) || ! array_is_list($schemes)) {
+            $this->fail('settings.colorSchemes', 'Color schemes must be a list.');
+        }
+
+        if (count($schemes) > 50) {
+            $this->fail('settings.colorSchemes', 'A page may contain at most 50 color schemes.');
+        }
+
+        $ids = [];
+        $validated = [];
+
+        foreach ($schemes as $index => $scheme) {
+            $path = 'settings.colorSchemes.'.$index;
+
+            if (! is_array($scheme)) {
+                $this->fail($path, 'Each color scheme must be an object.');
+            }
+
+            $id = $scheme['id'] ?? null;
+            $name = $scheme['name'] ?? null;
+            $colors = $scheme['colors'] ?? null;
+
+            if (! is_string($id) || $id === '' || mb_strlen($id) > 100 || ! preg_match('/^[a-zA-Z0-9_-]+$/', $id)) {
+                $this->fail($path.'.id', 'Color scheme id must contain only letters, numbers, dashes, or underscores.');
+            }
+
+            if (isset($ids[$id])) {
+                $this->fail($path.'.id', 'Color scheme ids must be unique.');
+            }
+            $ids[$id] = true;
+
+            if (! is_string($name) || trim($name) === '' || mb_strlen($name) > 100) {
+                $this->fail($path.'.name', 'Color scheme name must be a non-empty string up to 100 characters.');
+            }
+
+            if (! is_array($colors)) {
+                $this->fail($path.'.colors', 'Color scheme colors must be an object.');
+            }
+
+            foreach (array_keys($colors) as $key) {
+                if (! in_array($key, self::COLOR_SCHEME_KEYS, true)) {
+                    $this->fail($path.'.colors.'.$key, 'Unknown color scheme token.');
+                }
+            }
+
+            $normalizedColors = [];
+            foreach (self::COLOR_SCHEME_KEYS as $key) {
+                $value = $colors[$key] ?? null;
+                if (! is_string($value) || $value === '' || mb_strlen($value) > 100) {
+                    $this->fail($path.'.colors.'.$key, 'Each color token must be a non-empty string up to 100 characters.');
+                }
+                $normalizedColors[$key] = $value;
+            }
+
+            $validated[] = [
+                'id' => $id,
+                'name' => trim($name),
+                'colors' => $normalizedColors,
+            ];
+        }
+
+        return $validated;
     }
 
     private function assertBoundedValue(mixed $value, string $path): void
