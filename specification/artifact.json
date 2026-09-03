@@ -1,0 +1,11 @@
+{
+  "name": "page-builder-specification",
+  "artifactVersion": "1.0.0",
+  "specificationVersion": 1,
+  "pageVersion": 1,
+  "blockManifestVersion": 1,
+  "datasourceVersion": 1,
+  "rendererProtocolVersion": 1,
+  "templateLanguageVersion": 1,
+  "canonicalBreakpoints": ["desktop", "tablet", "mobile"]
+}
