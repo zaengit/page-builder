@@ -72,12 +72,8 @@ final class LaravelDatasourceResolver implements DatasourceResolver
             $page = max(1, (int) ($spec['page'] ?? 1));
             $total = (clone $query)->count();
             $lastPage = max(1, (int) ceil($total / $perPage));
-            $items = $query
-                ->forPage($page, $perPage)
-                ->get()
-                ->map(fn (Model $item): array => $item->toArray())
-                ->values()
-                ->all();
+            /** @var list<array<string, mixed>> $items */
+            $items = $query->forPage($page, $perPage)->get()->toArray();
 
             return [
                 'items' => $items,
@@ -93,13 +89,8 @@ final class LaravelDatasourceResolver implements DatasourceResolver
 
         $limit = max(1, min((int) ($spec['limit'] ?? 12), $max));
         $offset = max(0, (int) ($spec['offset'] ?? 0));
-        $items = $query
-            ->offset($offset)
-            ->limit($limit)
-            ->get()
-            ->map(fn (Model $item): array => $item->toArray())
-            ->values()
-            ->all();
+        /** @var list<array<string, mixed>> $items */
+        $items = $query->offset($offset)->limit($limit)->get()->toArray();
 
         return [
             'items' => $items,
