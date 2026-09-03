@@ -13,6 +13,7 @@ final class ProcessRenderingEngine implements RenderingEngine
         private readonly array $command,
         private readonly string $blockRoot,
         private readonly int $timeoutMs = 5000,
+        private readonly ?ProcessPagePreparer $preparer = null,
     ) {}
 
     public function render(array $page): RenderResult
@@ -21,6 +22,8 @@ final class ProcessRenderingEngine implements RenderingEngine
             throw new RuntimeException('Renderer process command is not configured.');
         }
 
+        $runtimeContext = $this->runtimeContext();
+        $preparedPage = $this->preparer?->prepare($page, $runtimeContext) ?? $page;
         $pipes = [];
         $process = proc_open(
             $this->command,
@@ -42,8 +45,8 @@ final class ProcessRenderingEngine implements RenderingEngine
         try {
             fwrite($pipes[0], json_encode([
                 'version' => 1,
-                'page' => $page,
-                'context' => $this->runtimeContext(),
+                'page' => $preparedPage,
+                'context' => $runtimeContext,
                 'blockRoot' => $this->blockRoot,
             ], JSON_THROW_ON_ERROR));
             fclose($pipes[0]);
