@@ -131,8 +131,7 @@ export function TypographyPanel({ settings, onChange }: { settings?: PageSetting
 }
 
 export function GlobalTypographyInspector(_props: { block: PageBlock; definition: BlockDefinition }) {
-  const useBuilder = builderStoreBridge.current;
-  if (!useBuilder) return null;
+  const useBuilder = builderStoreBridge.current!;
   const settings = useBuilder(state => state.content.settings);
   const updateSettings = useBuilder(state => state.updateSettings);
   return <TypographyPanel settings={settings} onChange={updateSettings} />;
