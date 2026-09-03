@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"time"
 
 	pagebuilder "github.com/zaengit/page-builder/engine/go"
 )
@@ -23,36 +25,54 @@ func main() {
 		return
 	}
 	var request protocolRequest
-	if err := json.NewDecoder(os.Stdin).Decode(&request); err != nil {
-		fail(err)
+	decoder := json.NewDecoder(os.Stdin)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		emit("protocol_invalid_request", "$", err.Error())
 		return
 	}
 	if request.Version != pagebuilder.ProtocolVersion {
-		p := "$.version"
-		m := fmt.Sprintf("unsupported protocol version %d", request.Version)
-		_ = json.NewEncoder(os.Stdout).Encode(pagebuilder.RenderResult{Assets: pagebuilder.Assets{CSS: []string{}, JS: []string{}}, Diagnostics: []pagebuilder.Diagnostic{{Code: "unsupported_protocol_version", Severity: "error", Path: &p, Message: &m}}})
+		emit("unsupported_protocol_version", "$.version", fmt.Sprintf("unsupported protocol version %d", request.Version))
+		return
+	}
+	if request.Page == nil {
+		emit("protocol_invalid_request", "$.page", "page is required")
+		return
+	}
+	if (request.Registry == nil) == (request.BlockRoot == "") {
+		emit("protocol_invalid_request", "$", "exactly one of blockRoot or registry is required")
 		return
 	}
 	registry := request.Registry
 	if registry == nil {
-		if request.BlockRoot == "" {
-			fail(fmt.Errorf("blockRoot or registry is required"))
-			return
-		}
 		loaded, err := pagebuilder.LoadRegistry(request.BlockRoot)
 		if err != nil {
-			fail(err)
+			emit("block_registry_error", "$.blockRoot", err.Error())
 			return
 		}
 		registry = loaded
 	}
-	result, err := pagebuilder.New().Render(context.Background(), pagebuilder.RenderRequest{Page: request.Page, Registry: registry, Context: request.Context})
+
+	timeout := 5 * time.Second
+	if raw := os.Getenv("PAGE_BUILDER_RENDER_TIMEOUT_MS"); raw != "" {
+		if ms, err := strconv.Atoi(raw); err == nil && ms > 0 { timeout = time.Duration(ms) * time.Millisecond }
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	result, err := pagebuilder.New().Render(ctx, pagebuilder.RenderRequest{Page: request.Page, Registry: registry, Context: request.Context})
 	if err != nil {
-		fail(err)
+		if ctx.Err() == context.DeadlineExceeded { emit("render_timeout", "$", "renderer deadline exceeded") } else { emit("render_error", "$", err.Error()) }
 		return
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(result); err != nil {
-		fail(err)
+		emit("renderer_process_error", "$", err.Error())
 	}
 }
-func fail(err error) { fmt.Fprintln(os.Stderr, err); os.Exit(1) }
+
+func emit(code, path, message string) {
+	p, m := path, message
+	_ = json.NewEncoder(os.Stdout).Encode(pagebuilder.RenderResult{
+		Assets: pagebuilder.Assets{CSS: []string{}, JS: []string{}},
+		Diagnostics: []pagebuilder.Diagnostic{{Code: code, Severity: "error", Path: &p, Message: &m}},
+	})
+}
