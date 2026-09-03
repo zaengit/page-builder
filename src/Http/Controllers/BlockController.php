@@ -6,6 +6,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
 use Zaengit\PageBuilder\Blocks\PageContentValidator;
+use Zaengit\PageBuilder\Blocks\PageLayoutProcessor;
 use Zaengit\PageBuilder\Blocks\PageRenderer;
 
 final class BlockController
@@ -25,20 +26,37 @@ final class BlockController
         return response()->json($blocks);
     }
 
-    public function render(Request $request, PageRenderer $renderer, PageContentValidator $validator): JsonResponse
-    {
-        $content = $validator->validate(['blocks' => [$request->all()]]);
+    public function render(
+        Request $request,
+        PageRenderer $renderer,
+        PageContentValidator $validator,
+        PageLayoutProcessor $layouts,
+    ): JsonResponse {
+        $original = ['blocks' => [$request->all()]];
+        $content = $layouts->apply($original, $validator->validate($original));
         $block = $content['blocks'][0];
         $html = $renderer->render($content, true);
 
-        return response()->json(['id' => $block['id'], 'html' => $html, 'assets' => $renderer->assets()]);
+        return response()->json([
+            'id' => $block['id'],
+            'html' => $html,
+            'assets' => $renderer->assets(),
+        ]);
     }
 
-    public function renderPage(Request $request, PageRenderer $renderer, PageContentValidator $validator): JsonResponse
-    {
-        $content = $validator->validate($request->all());
+    public function renderPage(
+        Request $request,
+        PageRenderer $renderer,
+        PageContentValidator $validator,
+        PageLayoutProcessor $layouts,
+    ): JsonResponse {
+        $original = $request->all();
+        $content = $layouts->apply($original, $validator->validate($original));
         $html = $renderer->render($content, true);
 
-        return response()->json(['html' => $html, 'assets' => $renderer->assets()]);
+        return response()->json([
+            'html' => $html,
+            'assets' => $renderer->assets(),
+        ]);
     }
 }
