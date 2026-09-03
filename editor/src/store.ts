@@ -22,6 +22,7 @@ export type BuilderState = {
   updateAttrs: (id: string, attrs: Record<string, unknown>) => void;
   updateAttrPath: (id: string, path: string[], value: unknown) => void;
   updateStyles: (id: string, styles: Partial<BlockStyle>) => void;
+  updateColorScheme: (id: string, colorSchemeId?: string) => void;
   updateBindings: (id: string, bindings: PageBlock['bindings']) => void;
   updateSettings: (settings: Partial<PageSettings>) => void;
   setLock: (id: string, lock: BlockLock) => void;
@@ -141,6 +142,7 @@ export function createBuilderStore() {
     updateAttrs(id, attrs) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, attrs: { ...block.attrs, ...attrs } })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateAttrPath(id, path, value) { if (!path.length) return; const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, attrs: setPathValue(block.attrs, path, value) as Record<string, unknown> })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateStyles(id, styles) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, styles: { ...block.styles, ...styles } })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
+    updateColorScheme(id, colorSchemeId) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, colorSchemeId: colorSchemeId || undefined })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateBindings(id, bindings) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, bindings })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateSettings(settings) { const state = get(); const content = { ...state.content, settings: { ...state.content.settings, ...settings } }; const update = historyUpdate(state, content); if (update) set(update); },
     setLock(id, lock) { const state = get(); const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, lock: { ...block.lock, ...lock } })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
