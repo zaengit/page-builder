@@ -5,6 +5,7 @@ namespace Zaengit\PageBuilder\Blocks;
 final class PageRenderer
 {
     private array $colorSchemes = [];
+
     private ?string $defaultColorSchemeId = null;
 
     public function __construct(
@@ -27,7 +28,7 @@ final class PageRenderer
             : null;
         $this->defaultColorSchemeId = isset($this->colorSchemes[$requestedDefault])
             ? $requestedDefault
-            : (array_key_first($this->colorSchemes) ?: null);
+            : array_key_first($this->colorSchemes) ?: null;
 
         $body = implode('', array_map(
             fn (array $block) => $this->renderBlock($block, $preview),
