@@ -9,6 +9,7 @@ final class PortableBlockRegistryLoader
 {
     public function __construct(private readonly BlockManifestValidator $validator)
     {
+        // Constructor property promotion wires the manifest validator.
     }
 
     /**
