@@ -16,7 +16,7 @@ class PageBuilderTest extends TestCase
                 'type' => 'core/heading',
                 'attrs' => ['text' => '<script>alert(1)</script>'],
             ]],
-        ], [base_path('blocks')]);
+        ], [$this->blocksPath()]);
 
         $this->assertStringNotContainsString('<script>', $result->html);
         $this->assertStringContainsString('&lt;script&gt;', $result->html);
@@ -37,7 +37,7 @@ class PageBuilderTest extends TestCase
                     'attrs' => ['text' => 'Nested heading', 'level' => 2, 'alignment' => 'left'],
                 ]],
             ]],
-        ], [base_path('blocks')]);
+        ], [$this->blocksPath()]);
 
         $this->assertStringContainsString('data-pb-id="container-1"', $result->html);
         $this->assertStringContainsString('Nested heading', $result->html);
@@ -95,7 +95,7 @@ class PageBuilderTest extends TestCase
                 ['id' => 'carousel-a', 'type' => 'core/carousel', 'attrs' => ['items' => [['title' => 'Alpha', 'description' => 'First', 'image' => '']]]],
                 ['id' => 'carousel-b', 'type' => 'core/carousel', 'attrs' => ['items' => [['title' => 'Beta', 'description' => 'Second', 'image' => '']]]],
             ],
-        ], [base_path('blocks')]);
+        ], [$this->blocksPath()]);
 
         $this->assertStringContainsString('Alpha', $result->html);
         $this->assertStringContainsString('Beta', $result->html);
@@ -105,7 +105,7 @@ class PageBuilderTest extends TestCase
         $heading = $renderer->render([
             'version' => 1,
             'blocks' => [['id' => 'heading-only', 'type' => 'core/heading', 'attrs' => []]],
-        ], [base_path('blocks')]);
+        ], [$this->blocksPath()]);
         $this->assertSame(['css' => [], 'js' => []], $heading->assets);
     }
 
