@@ -1,22 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zaengit.dev/page-builder/specification/datasource.schema.json",
-  "title": "Page Builder Datasource Request v1",
+  "title": "Page Builder Datasource Contract v1",
   "$ref": "#/$defs/request",
   "$defs": {
     "filter": {
       "type": "object",
       "required": ["column", "operator"],
       "properties": {
-        "column": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$" },
-        "operator": { "enum": ["=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in", "null", "not null"] },
+        "column": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"},
+        "operator": {"enum": ["=", "!=", "<>", ">", ">=", "<", "<=", "like", "not like", "in", "not in", "null", "not null"]},
         "value": true
       },
       "allOf": [
         {
-          "if": { "properties": { "operator": { "enum": ["null", "not null"] } }, "required": ["operator"] },
+          "if": {"properties": {"operator": {"enum": ["null", "not null"]}}, "required": ["operator"]},
           "then": {},
-          "else": { "required": ["value"] }
+          "else": {"required": ["value"]}
         }
       ],
       "additionalProperties": false
@@ -25,8 +25,8 @@
       "type": "object",
       "required": ["column"],
       "properties": {
-        "column": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$" },
-        "direction": { "enum": ["asc", "desc"], "default": "asc" }
+        "column": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"},
+        "direction": {"enum": ["asc", "desc"], "default": "asc"}
       },
       "additionalProperties": false
     },
@@ -36,23 +36,29 @@
         "where": {
           "type": "array",
           "maxItems": 50,
-          "items": { "$ref": "#/$defs/filter" }
+          "items": {"$ref": "#/$defs/filter"}
         },
         "orderBy": {
           "type": "array",
           "maxItems": 10,
-          "items": { "$ref": "#/$defs/order" }
+          "items": {"$ref": "#/$defs/order"}
         },
         "with": {
           "type": "array",
           "maxItems": 20,
-          "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$" },
+          "items": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"},
           "uniqueItems": true
         },
-        "limit": { "type": "integer", "minimum": 1 },
-        "offset": { "type": "integer", "minimum": 0 },
-        "perPage": { "type": "integer", "minimum": 1 },
-        "page": { "type": "integer", "minimum": 1 }
+        "limit": {"type": "integer", "minimum": 1},
+        "offset": {"type": "integer", "minimum": 0},
+        "perPage": {"type": "integer", "minimum": 1},
+        "page": {"type": "integer", "minimum": 1}
+      },
+      "not": {
+        "anyOf": [
+          {"required": ["limit", "perPage"]},
+          {"required": ["offset", "perPage"]}
+        ]
       },
       "additionalProperties": false
     },
@@ -60,12 +66,12 @@
       "type": "object",
       "required": ["provider", "resource"],
       "properties": {
-        "provider": { "type": "string", "minLength": 1 },
-        "resource": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$" },
-        "mode": { "enum": ["single", "collection"], "default": "single" },
+        "provider": {"type": "string", "minLength": 1},
+        "resource": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"},
+        "mode": {"enum": ["single", "collection"], "default": "single"},
         "recordId": true,
-        "contextKey": { "type": "string" },
-        "query": { "$ref": "#/$defs/query" }
+        "contextKey": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"},
+        "query": {"$ref": "#/$defs/query"}
       },
       "additionalProperties": false
     },
@@ -73,25 +79,57 @@
       "type": "object",
       "required": ["currentPage", "perPage", "lastPage", "total", "hasMorePages"],
       "properties": {
-        "currentPage": { "type": "integer", "minimum": 1 },
-        "perPage": { "type": "integer", "minimum": 1 },
-        "lastPage": { "type": "integer", "minimum": 1 },
-        "total": { "type": "integer", "minimum": 0 },
-        "hasMorePages": { "type": "boolean" }
+        "currentPage": {"type": "integer", "minimum": 1},
+        "perPage": {"type": "integer", "minimum": 1},
+        "lastPage": {"type": "integer", "minimum": 1},
+        "total": {"type": "integer", "minimum": 0},
+        "hasMorePages": {"type": "boolean"}
       },
       "additionalProperties": false
+    },
+    "singleResult": {
+      "oneOf": [
+        {"type": "object"},
+        {"type": "null"}
+      ]
     },
     "collectionResult": {
       "type": "object",
       "required": ["items", "pagination"],
       "properties": {
-        "items": { "type": "array" },
+        "items": {"type": "array", "items": {"type": "object"}},
         "pagination": {
           "oneOf": [
-            { "$ref": "#/$defs/pagination" },
-            { "type": "null" }
+            {"$ref": "#/$defs/pagination"},
+            {"type": "null"}
           ]
         }
+      },
+      "additionalProperties": false
+    },
+    "result": {
+      "anyOf": [
+        {"$ref": "#/$defs/singleResult"},
+        {"$ref": "#/$defs/collectionResult"}
+      ]
+    },
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "path", "message"],
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["info", "warning", "error"]},
+        "path": {"type": ["string", "null"]},
+        "message": {"type": ["string", "null"]}
+      },
+      "additionalProperties": false
+    },
+    "response": {
+      "type": "object",
+      "required": ["data", "diagnostics"],
+      "properties": {
+        "data": {"$ref": "#/$defs/result"},
+        "diagnostics": {"type": "array", "items": {"$ref": "#/$defs/diagnostic"}}
       },
       "additionalProperties": false
     }
