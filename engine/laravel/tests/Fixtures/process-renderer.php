@@ -7,8 +7,15 @@ if (($request['version'] ?? null) !== 1) {
     exit(2);
 }
 
+$text = $request['page']['blocks'][0]['attrs']['text'] ?? '';
+
 echo json_encode([
-    'html' => '<main data-engine="fixture">'.htmlspecialchars((string) ($request['page']['title'] ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</main>',
+    'html' => '<main data-engine="fixture">'.htmlspecialchars((string) $text, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8').'</main>',
     'assets' => ['css' => ['fixture.css'], 'js' => ['fixture.js']],
-    'diagnostics' => ['fixture:ok'],
+    'diagnostics' => [[
+        'code' => 'fixture:ok',
+        'severity' => 'warning',
+        'path' => null,
+        'message' => null,
+    ]],
 ], JSON_THROW_ON_ERROR);
