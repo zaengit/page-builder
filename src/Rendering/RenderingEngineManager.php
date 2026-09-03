@@ -6,7 +6,10 @@ use InvalidArgumentException;
 
 final class RenderingEngineManager
 {
-    public function __construct(private readonly PhpRenderingEngine $php) {}
+    public function __construct(
+        private readonly PhpRenderingEngine $php,
+        private readonly ProcessPagePreparer $preparer,
+    ) {}
 
     /** @param array<string, mixed> $page */
     public function render(array $page, ?string $engine = null): RenderResult
@@ -43,7 +46,12 @@ final class RenderingEngineManager
         $blockRoot = (string) ($definition['block_root'] ?? config('page-builder.rendering.block_root', base_path('blocks')));
         $timeoutMs = max(100, (int) ($definition['timeout_ms'] ?? config('page-builder.rendering.timeout_ms', 5000)));
 
-        return new ProcessRenderingEngine(array_values($command), $blockRoot, $timeoutMs);
+        return new ProcessRenderingEngine(
+            array_values($command),
+            $blockRoot,
+            $timeoutMs,
+            $this->preparer,
+        );
     }
 
     /** @return list<string> */
