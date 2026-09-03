@@ -3,14 +3,20 @@
   "title": "Heading",
   "category": "text",
   "icon": "heading",
-  "description": "Semantic heading with level and alignment controls.",
+  "description": "Semantic heading using schema-driven content, layout and design controls.",
   "variations": [
-    {"name":"hero","title":"Hero heading","attrs":{"level":1,"alignment":"center","text":"Build something remarkable"}},
-    {"name":"section","title":"Section heading","attrs":{"level":2,"alignment":"left","text":"Section title"}}
+    {"name":"hero","title":"Hero heading","attrs":{"level":1,"alignment":"center","text":"Build something remarkable","typography":"h1"}},
+    {"name":"section","title":"Section heading","attrs":{"level":2,"alignment":"left","text":"Section title","typography":"h2"}}
   ],
   "attributes": {
-    "text": {"type": "string", "label": "Text", "default": "Hello World"},
+    "text": {"type": "string", "label": "Text", "default": "Hello World", "group": "Content"},
     "level": {"type": "select", "label": "Level", "default": 2, "options": [1,2,3,4,5,6]},
-    "alignment": {"type": "select", "label": "Alignment", "default": "left", "options": ["left","center","right"]}
+    "alignment": {"type": "select", "label": "Alignment", "default": "left", "options": ["left","center","right"], "group": "Layout"},
+    "typography": {"type": "string", "control": "typography", "label": "Typography", "default": "h2", "group": "Design", "help": "Uses a preset from global Typography Management."},
+    "colorScheme": {"type": "string", "control": "color_scheme", "label": "Color scheme", "default": "", "help": "Uses a reusable global color scheme."},
+    "spacing": {"type": "string", "control": "spacing", "label": "Padding", "default": "0 0 0 0", "help": "Top, right, bottom and left."},
+    "border": {"type": "string", "control": "border", "label": "Border", "default": "0|none|currentColor|0"},
+    "effects": {"type": "string", "control": "effects", "label": "Effects", "default": "none|1"},
+    "customClass": {"type": "string", "label": "CSS class", "default": "", "group": "Advanced"}
   }
 }
