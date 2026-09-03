@@ -88,6 +88,7 @@ func datasourceQuery(raw any) DatasourceQuery {
 			if relation, ok := entry.(string); ok {
 				query.With = append(query.With, relation)
 			}
+		}
 	}
 	if rawWhere, ok := value["where"].([]any); ok {
 		for _, entry := range rawWhere {
