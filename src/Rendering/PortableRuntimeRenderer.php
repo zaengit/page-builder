@@ -4,7 +4,9 @@ namespace Zaengit\PageBuilder\Rendering;
 
 final class PortableRuntimeRenderer
 {
-    public function __construct(private readonly UniversalTemplateRenderer $templates) {}
+    public function __construct(private readonly UniversalTemplateRenderer $templates)
+    {
+    }
 
     public function render(array $page, array $registry, array $runtimeContext = []): array
     {
@@ -25,13 +27,14 @@ final class PortableRuntimeRenderer
     {
         $type = is_string($block['type'] ?? null) ? $block['type'] : '';
         $definition = $registry[$type] ?? null;
-        if (! is_array($definition)) {
+        if (!is_array($definition)) {
             $result['diagnostics'][] = 'unknown_block:'.$type;
+
             return '';
         }
         foreach (['css', 'js'] as $kind) {
             foreach (($definition['assets'][$kind] ?? []) as $asset) {
-                if (! is_string($asset) || isset($seen[$kind][$asset])) {
+                if (!is_string($asset) || isset($seen[$kind][$asset])) {
                     continue;
                 }
                 $seen[$kind][$asset] = true;
@@ -48,7 +51,7 @@ final class PortableRuntimeRenderer
             $attrs = array_replace($attrs, $block['attrs']);
         }
         foreach (($block['bindings'] ?? []) as $attribute => $binding) {
-            if (! is_string($attribute) || ! is_array($binding) || ($binding['source'] ?? null) !== 'context') {
+            if (!is_string($attribute) || !is_array($binding) || ($binding['source'] ?? null) !== 'context') {
                 continue;
             }
             $path = (string) ($binding['path'] ?? '');
