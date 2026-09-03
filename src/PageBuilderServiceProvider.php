@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Zaengit\PageBuilder\Blocks\AssetCollector;
 use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
+use Zaengit\PageBuilder\DataProviders\DatabaseDataProvider;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 use Zaengit\PageBuilder\Editor\EditorResourceRegistry;
 
@@ -22,6 +23,13 @@ final class PageBuilderServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->app->make(DataProviderRegistry::class)->register(
+            'database',
+            DatabaseDataProvider::class,
+            'Database / Eloquent',
+            ['id', 'items', 'pagination.currentPage', 'pagination.total'],
+        );
+
         $this->loadRoutesFrom(__DIR__.'/../routes/page-builder.php');
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'page-builder');
         Blade::anonymousComponentPath(__DIR__.'/../resources/views/components', 'page-builder');
