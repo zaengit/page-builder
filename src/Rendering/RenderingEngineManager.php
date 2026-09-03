@@ -19,10 +19,16 @@ final class RenderingEngineManager
 
     public function engine(?string $name = null): RenderingEngine
     {
-        $name ??= (string) config('page-builder.rendering.default', 'php');
+        $name ??= (string) config('page-builder.rendering.default', 'laravel');
+
+        // Backward compatibility for installations that used PAGE_BUILDER_RENDERER=php.
+        if ($name === 'php') {
+            $name = 'laravel';
+        }
+
         $definition = config('page-builder.rendering.engines.'.$name);
 
-        if ($name === 'php') {
+        if ($name === 'laravel') {
             return $this->php;
         }
 
@@ -59,9 +65,9 @@ final class RenderingEngineManager
     {
         $engines = config('page-builder.rendering.engines', []);
         if (! is_array($engines)) {
-            return ['php'];
+            return ['laravel'];
         }
 
-        return array_values(array_unique(['php', ...array_keys($engines)]));
+        return array_values(array_unique(['laravel', ...array_keys($engines)]));
     }
 }
