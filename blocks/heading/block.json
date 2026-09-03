@@ -1,5 +1,6 @@
 {
   "name": "core/heading",
+  "version": 1,
   "title": "Heading",
   "category": "text",
   "icon": "heading",
