@@ -36,7 +36,13 @@ return [
     // Automatic save requests are disabled by default. The host still owns persistence.
     'autosave_ms' => max(0, (int) env('PAGE_BUILDER_AUTOSAVE_MS', 0)),
 
-    // Host applications may expose their own media picker. The editor emits
-    // PAGE_BUILDER_MEDIA_REQUEST and accepts PAGE_BUILDER_MEDIA_SELECTED.
+    // Built-in media library. Host applications can still listen to
+    // PAGE_BUILDER_MEDIA_REQUEST and return PAGE_BUILDER_MEDIA_SELECTED.
     'media_picker' => true,
+    'media' => [
+        'disk' => env('PAGE_BUILDER_MEDIA_DISK', 'public'),
+        'directory' => trim((string) env('PAGE_BUILDER_MEDIA_DIRECTORY', 'page-builder/media'), '/'),
+        'max_upload_kb' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_UPLOAD_KB', 10240)),
+        'max_items' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_ITEMS', 250)),
+    ],
 ];
