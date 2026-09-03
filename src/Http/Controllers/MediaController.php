@@ -4,6 +4,7 @@ namespace Zaengit\PageBuilder\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -37,7 +38,7 @@ final class MediaController extends Controller
         ]);
 
         $file = $request->file('file');
-        abort_unless($file, 422);
+        abort_unless($file instanceof UploadedFile, 422);
 
         $disk = $this->disk();
         $directory = $this->directory();
