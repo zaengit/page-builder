@@ -5,7 +5,11 @@
   "icon": "container",
   "supports": {"children": true},
   "attributes": {
-    "maxWidth": {"type": "select", "label": "Max width", "default": "1200px", "options": ["960px", "1200px", "1440px", "100%"]},
-    "padding": {"type": "select", "label": "Padding", "default": "24px", "options": ["0", "16px", "24px", "32px", "48px"]}
+    "maxWidth": {"type": "select", "label": "Max width", "default": "1200px", "options": ["960px", "1200px", "1440px", "100%"], "group": "Layout"},
+    "padding": {"type": "string", "control": "spacing", "label": "Padding", "default": "24px 24px 24px 24px"},
+    "colorScheme": {"type": "string", "control": "color_scheme", "label": "Color scheme", "default": "", "group": "Design"},
+    "border": {"type": "string", "control": "border", "label": "Border", "default": "0|none|currentColor|0"},
+    "effects": {"type": "string", "control": "effects", "label": "Effects", "default": "none|1"},
+    "customClass": {"type": "string", "label": "CSS class", "default": "", "group": "Advanced"}
   }
 }
