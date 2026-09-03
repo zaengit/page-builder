@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "registry": {
+    "test/title": {
+      "name": "test/title",
+      "version": 1,
+      "template": "<h1 class=\"x\">{{ attrs.title }}</h1><span class=\"pb-text-body-small\">Small</span>",
+      "attributes": {"title": {"type": "string", "default": "Untitled"}},
+      "assets": {"css": [], "js": []}
+    }
+  },
+  "page": {
+    "version": 1,
+    "settings": {
+      "contentWidth": "960px",
+      "background": "#f5f5f5",
+      "tokens": {"radius": "10px"},
+      "colorSchemes": [
+        {"id": "dark", "name": "Dark", "colors": {"background": "#111", "foreground": "#fff"}}
+      ],
+      "defaultColorSchemeId": "dark",
+      "typography": {
+        "families": {
+          "primary": "Inter,sans-serif",
+          "secondary": "Georgia,serif",
+          "monospace": "Mono"
+        },
+        "styles": {
+          "h1": {
+            "family": "secondary",
+            "size": "32px",
+            "weight": "700",
+            "lineHeight": "1.2",
+            "letterSpacing": "-0.02em",
+            "textTransform": "uppercase"
+          },
+          "bodySmall": {
+            "family": "primary",
+            "size": "12px"
+          }
+        }
+      },
+      "customCss": ".pb-page .x{display:grid}"
+    },
+    "blocks": [
+      {
+        "id": "title-1",
+        "type": "test/title",
+        "attrs": {"title": "Hello"},
+        "colorSchemeId": "dark",
+        "children": []
+      }
+    ]
+  },
+  "context": {},
+  "expected": {
+    "html": "<div class=\"pb-page pb-color-scheme--dark\" style=\"max-width:960px;background:#f5f5f5;--pb-radius:10px\"><div data-pb-style-id=\"title-1\" data-pb-id=\"title-1\" class=\"pb-color-scheme--dark\" data-pb-color-scheme=\"dark\" style=\"\"><h1 class=\"x\">Hello</h1><span class=\"pb-text-body-small\">Small</span></div></div><style data-pb-color-schemes>.pb-color-scheme--dark{--pb-color-background:#111;--pb-color-foreground:#fff;background-color:var(--pb-color-background);color:var(--pb-color-foreground);}</style><style data-pb-typography>.pb-page{--pb-font-primary:Inter,sans-serif;--pb-font-secondary:Georgia,serif;--pb-font-monospace:Mono;font-family:var(--pb-font-primary);}.pb-page :is(h1,.pb-text-h1){font-family:var(--pb-font-secondary);font-size:32px;font-weight:700;line-height:1.2;letter-spacing:-0.02em;text-transform:uppercase;}.pb-page :is(.pb-text-body-small){font-family:var(--pb-font-primary);font-size:12px;}</style><style data-pb-page-css>.pb-page .x{display:grid}</style>",
+    "assets": {"css": [], "js": []},
+    "diagnostics": []
+  }
+}
