@@ -37,6 +37,7 @@ jobs:
       - name: Verify Laravel engine
         run: |
           composer validate --strict
+          (cd engine/laravel && composer validate --strict --no-check-publish)
           composer install --no-interaction --prefer-dist --no-progress
           composer audit
           cp .env.example .env
@@ -49,14 +50,17 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.25.x'
+          cache-dependency-path: engine/go/go.mod
 
       - name: Verify and build Go engine
         run: |
           cd engine/go
+          test -z "$(gofmt -l .)"
           go test ./...
           cd ../..
-          bash scripts/build-universal-renderers.sh
+          bash scripts/build-engines.sh
           test -x dist/engine/page-builder-engine-go
+          dist/engine/page-builder-engine-go --version | grep -q 'protocol=1 specification=1'
           printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/engine/page-builder-engine-go | grep -q '"html"'
 
       - uses: actions/setup-node@v5
@@ -103,25 +107,18 @@ jobs:
           ARCHIVE="release-dist/page-builder-v$VERSION.zip"
           test -s "$ARCHIVE"
           unzip -l "$ARCHIVE" > release-dist/archive.txt
-          grep -q 'composer.json' release-dist/archive.txt
-          grep -q 'src/PageBuilderServiceProvider.php' release-dist/archive.txt
-          grep -q 'src/Rendering/RenderingEngineManager.php' release-dist/archive.txt
-          grep -q 'engine/README.md' release-dist/archive.txt
-          grep -q 'engine/laravel/src/LaravelRenderingEngine.php' release-dist/archive.txt
+          grep -q 'engine/laravel/composer.json' release-dist/archive.txt
+          grep -q 'engine/laravel/src/Runtime/RuntimeRenderer.php' release-dist/archive.txt
           grep -q 'engine/go/renderer.go' release-dist/archive.txt
           grep -q 'engine/go/go.mod' release-dist/archive.txt
-          grep -q 'config/page-builder.php' release-dist/archive.txt
-          grep -q 'resources/dist/page-builder.js' release-dist/archive.txt
-          grep -q 'resources/dist/page-builder.css' release-dist/archive.txt
           grep -q 'blocks/heading/block.json' release-dist/archive.txt
           grep -q 'blocks/heading/template.html' release-dist/archive.txt
           grep -q 'specification/page.schema.json' release-dist/archive.txt
           grep -q 'specification/block.schema.json' release-dist/archive.txt
           grep -q 'specification/renderer-protocol.schema.json' release-dist/archive.txt
           grep -q 'docs/universal-editor-engine-distribution-plan.md' release-dist/archive.txt
-          grep -q 'LICENSE' release-dist/archive.txt
+          ! grep -q '/core/' release-dist/archive.txt
           ! grep -q '/renderers/' release-dist/archive.txt
-          ! grep -q '/editor/' release-dist/archive.txt
           ! grep -q '/tests/' release-dist/archive.txt
           ! grep -q '/.github/' release-dist/archive.txt
 
