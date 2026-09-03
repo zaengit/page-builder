@@ -2,6 +2,7 @@
 
 namespace Zaengit\PageBuilder\Http\Controllers;
 
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -55,31 +56,31 @@ final class MediaController extends Controller
 
     public function show(string $media): StreamedResponse
     {
-        $disk = $this->disk();
+        $disk = $this->adapter($this->disk());
         $path = $this->pathFor($media);
-        abort_unless(Storage::disk($disk)->exists($path), 404);
-        abort_unless($this->isImage($disk, $path), 404);
+        abort_unless($disk->exists($path), 404);
+        abort_unless($this->isImageAdapter($disk, $path), 404);
 
-        return Storage::disk($disk)->response($path, basename($path), [
+        return $disk->response($path, basename($path), [
             'Cache-Control' => 'public, max-age=31536000, immutable',
-            'Content-Type' => Storage::disk($disk)->mimeType($path) ?: 'application/octet-stream',
+            'Content-Type' => $disk->mimeType($path) ?: 'application/octet-stream',
         ]);
     }
 
     public function destroy(string $media): JsonResponse
     {
-        $disk = $this->disk();
+        $disk = $this->adapter($this->disk());
         $path = $this->pathFor($media);
-        abort_unless(Storage::disk($disk)->exists($path), 404);
-        abort_unless(Storage::disk($disk)->delete($path), 500, 'Unable to delete media file.');
+        abort_unless($disk->exists($path), 404);
+        abort_unless($disk->delete($path), 500, 'Unable to delete media file.');
 
         return response()->json(['deleted' => true]);
     }
 
     private function mediaItem(string $disk, string $path): array
     {
+        $diskInstance = $this->adapter($disk);
         $filename = basename($path);
-        $diskInstance = Storage::disk($disk);
 
         return [
             'id' => $filename,
@@ -100,7 +101,20 @@ final class MediaController extends Controller
 
     private function isImage(string $disk, string $path): bool
     {
-        return Str::startsWith((string) Storage::disk($disk)->mimeType($path), 'image/');
+        return $this->isImageAdapter($this->adapter($disk), $path);
+    }
+
+    private function isImageAdapter(FilesystemAdapter $disk, string $path): bool
+    {
+        return Str::startsWith((string) $disk->mimeType($path), 'image/');
+    }
+
+    private function adapter(string $disk): FilesystemAdapter
+    {
+        $adapter = Storage::disk($disk);
+        abort_unless($adapter instanceof FilesystemAdapter, 500, 'Unsupported filesystem adapter.');
+
+        return $adapter;
     }
 
     private function disk(): string
