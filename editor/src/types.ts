@@ -62,6 +62,24 @@ export type ColorScheme = {
   colors: ColorSchemeColors;
 };
 
+export type TypographyFamilyName = 'primary' | 'secondary' | 'monospace';
+export type TypographyStyleName = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body' | 'bodySmall' | 'caption' | 'label' | 'button';
+export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
+
+export type TextStyle = {
+  family?: TypographyFamilyName;
+  size?: string;
+  weight?: string;
+  lineHeight?: string;
+  letterSpacing?: string;
+  textTransform?: TextTransform;
+};
+
+export type TypographySettings = {
+  families: Record<TypographyFamilyName, string>;
+  styles: Record<TypographyStyleName, TextStyle>;
+};
+
 export type BlockDefinition = {
   name: string;
   title: string;
@@ -101,7 +119,7 @@ export type PageSettings = {
   customClass?: string;
   customCss?: string;
   tokens?: Record<string, string>;
-  typography?: { fontFamily?: string; fontSize?: string; lineHeight?: string; color?: string };
+  typography?: TypographySettings;
   colorSchemes?: ColorScheme[];
   defaultColorSchemeId?: string;
 };
