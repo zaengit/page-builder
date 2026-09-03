@@ -1,23 +1,29 @@
 {
   "version": 1,
   "registry": {
-    "section": {
-      "name": "section",
+    "test/section": {
+      "name": "test/section",
       "version": 1,
+      "title": "Section",
+      "category": "test",
       "template": "<section><h2>{{ attrs.title ?? \"Section\" }}</h2>{{{ children }}}</section>",
       "attributes": {"title": {"type": "string", "default": "Section"}},
       "assets": {"css": ["section.css"], "js": []}
     },
-    "text": {
-      "name": "text",
+    "test/text": {
+      "name": "test/text",
       "version": 1,
+      "title": "Text",
+      "category": "test",
       "template": "<p>{{ attrs.text }}</p>",
       "attributes": {"text": {"type": "string", "default": ""}},
       "assets": {"css": ["text.css", "section.css"], "js": ["text.js"]}
     },
-    "context-card": {
-      "name": "context-card",
+    "test/context-card": {
+      "name": "test/context-card",
       "version": 1,
+      "title": "Context card",
+      "category": "test",
       "template": "{% if context.product.available %}<strong>{{ attrs.label }}</strong>{% endif %}",
       "attributes": {"label": {"type": "string", "default": "Fallback"}},
       "assets": {"css": [], "js": []}
@@ -28,20 +34,20 @@
     "settings": {
       "contentWidth": "1200px",
       "tokens": {"radius": "8px"},
-      "colorSchemes": [{"id": "dark", "colors": {"background": "#111", "foreground": "#fff"}}],
+      "colorSchemes": [{"id": "dark", "name": "Dark", "colors": {"background": "#111", "foreground": "#fff"}}],
       "defaultColorSchemeId": "dark",
-      "typography": {"families": {"primary": "Inter,sans-serif"}},
+      "typography": {"families": {"primary": "Inter,sans-serif"}, "styles": {}},
       "customCss": ".pb-page .custom{display:block}"
     },
     "blocks": [
       {
         "id": "section-1",
-        "type": "section",
+        "type": "test/section",
         "attrs": {"title": "Hello <World>"},
         "children": [
           {
             "id": "text-1",
-            "type": "text",
+            "type": "test/text",
             "attrs": {"text": "Safe <script>"},
             "styles": {"fontSize": {"desktop": "16px", "mobile": "14px"}},
             "slot": "content",
@@ -50,7 +56,7 @@
           },
           {
             "id": "context-1",
-            "type": "context-card",
+            "type": "test/context-card",
             "attrs": {},
             "bindings": {"label": {"source": "context", "path": "product.name", "fallback": "Unknown"}},
             "children": []
