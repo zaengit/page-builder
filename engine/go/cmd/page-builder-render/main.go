@@ -55,6 +55,10 @@ func main() {
 		emit("protocol_invalid_request", "$.page", "page is required")
 		return
 	}
+	if err := pagebuilder.ValidatePage(request.Page); err != nil {
+		emit("protocol_invalid_request", "$.page", err.Error())
+		return
+	}
 	if (request.Registry == nil) == (request.BlockRoot == "") {
 		emit("protocol_invalid_request", "$", "exactly one of blockRoot or registry is required")
 		return
@@ -67,6 +71,10 @@ func main() {
 			return
 		}
 		registry = loaded
+	}
+	if err := pagebuilder.ValidateRegistry(registry); err != nil {
+		emit("block_registry_error", "$.registry", err.Error())
+		return
 	}
 
 	timeout := 5 * time.Second
