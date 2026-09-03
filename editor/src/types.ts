@@ -149,7 +149,20 @@ export type PageContent = { blocks: PageBlock[]; settings?: PageSettings; schema
 export type Pattern = { id: string; title: string; category?: string; blocks: PageBlock[] };
 export type PageTemplate = { id: string; title: string; description?: string; content: PageContent };
 export type DataSource = { name: string; title: string; paths?: string[] };
-export type EditorRuntime = { blocksUrl: string; renderBlockUrl: string; renderPageUrl: string; previewUrl: string; mediaPicker?: boolean; patterns?: Pattern[]; templates?: PageTemplate[]; dataSources?: DataSource[]; autosaveMs?: number };
+export type EditorRuntime = {
+  blocksUrl: string;
+  renderBlockUrl: string;
+  renderPageUrl: string;
+  previewUrl: string;
+  mediaPicker?: boolean;
+  mediaListUrl?: string;
+  mediaUploadUrl?: string;
+  mediaDeleteUrl?: string;
+  patterns?: Pattern[];
+  templates?: PageTemplate[];
+  dataSources?: DataSource[];
+  autosaveMs?: number;
+};
 export type ControlProps = { name: string; path?: string[]; schema: AttrSchema; value: unknown; attrs?: Record<string, unknown>; breakpoint?: Breakpoint; onChange: (value: unknown) => void; requestMedia?: (path: string[]) => void };
 export type InspectorControl = ComponentType<ControlProps>;
 export type BlockEditorProps = { block: PageBlock; definition: BlockDefinition; children?: ReactNode; updateAttrs: (attrs: Record<string, unknown>) => void };
