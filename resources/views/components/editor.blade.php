@@ -11,8 +11,8 @@
 
 @php
     $id = 'page-builder-'.str()->uuid();
-    $devServer = rtrim((string) config('page-builder.editor_dev_server', ''), '/');
     $editorResources = app(\Zaengit\PageBuilder\Editor\EditorResourceRegistry::class);
+    $editorAssets = app(\Zaengit\PageBuilder\Editor\EditorAssetManager::class);
     $dataProviders = app(\Zaengit\PageBuilder\DataProviders\DataProviderRegistry::class);
     $runtime = [
         'blocksUrl' => route('page-builder.blocks'),
@@ -28,8 +28,8 @@
     $runtimeJson = e(json_encode($runtime, JSON_THROW_ON_ERROR));
     $contentJson = e(json_encode($content, JSON_THROW_ON_ERROR));
     $inputJson = e(json_encode($content, JSON_THROW_ON_ERROR));
-    $js = $devServer !== '' ? $devServer.'/src/main.tsx' : route('page-builder.editor-asset', ['asset' => config('page-builder.editor_js', 'page-builder.js')]);
-    $css = $devServer !== '' ? null : route('page-builder.editor-asset', ['asset' => config('page-builder.editor_css', 'page-builder.css')]);
+    $js = $editorAssets->jsUrl();
+    $css = $editorAssets->cssUrl();
 @endphp
 
 <div id="{{ $id }}" data-page-builder-root data-page-builder-runtime="{!! $runtimeJson !!}" data-page-builder-content="{!! $contentJson !!}" style="min-height: {{ $height }}" {{ $attributes }}></div>

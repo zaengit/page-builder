@@ -33,5 +33,9 @@ final class PageBuilderServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__.'/../config/page-builder.php' => config_path('page-builder.php'),
         ], 'page-builder-config');
+
+        $this->publishes([
+            __DIR__.'/../resources/dist' => public_path(trim((string) config('page-builder.editor_public_path', 'vendor/page-builder'), '/')),
+        ], 'page-builder-assets');
     }
 }
