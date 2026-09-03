@@ -174,11 +174,21 @@ jobs:
           grep -q 'composer.json' package-dist/archive.txt
           grep -q 'LICENSE' package-dist/archive.txt
           grep -q 'src/PageBuilderServiceProvider.php' package-dist/archive.txt
+          grep -q 'src/Rendering/RenderingEngineManager.php' package-dist/archive.txt
+          grep -q 'src/Rendering/ProcessRenderingEngine.php' package-dist/archive.txt
           grep -q 'config/page-builder.php' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.js' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.css' package-dist/archive.txt
           grep -q 'blocks/heading/block.json' package-dist/archive.txt
+          grep -q 'blocks/heading/template.html' package-dist/archive.txt
           grep -q 'specification/rendering-spec.md' package-dist/archive.txt
+          grep -q 'specification/page.schema.json' package-dist/archive.txt
+          grep -q 'docs/universal-renderers.md' package-dist/archive.txt
+          grep -q 'renderers/go/renderer.go' package-dist/archive.txt
+          grep -q 'renderers/node/runtime.mjs' package-dist/archive.txt
+          grep -q 'renderers/python/renderer.py' package-dist/archive.txt
+          grep -q 'renderers/rust/src/lib.rs' package-dist/archive.txt
+          grep -q 'scripts/build-universal-renderers.sh' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
           ! grep -q '/.github/' package-dist/archive.txt
