@@ -175,6 +175,7 @@ export type EditorRuntime = {
   templates?: PageTemplate[];
   dataSources?: DataSource[];
   databaseModels?: DatabaseModel[];
+  previewContext?: Record<string, unknown>;
   autosaveMs?: number;
 };
 export type ControlProps = { name: string; path?: string[]; schema: AttrSchema; value: unknown; attrs?: Record<string, unknown>; breakpoint?: Breakpoint; onChange: (value: unknown) => void; requestMedia?: (path: string[]) => void };
