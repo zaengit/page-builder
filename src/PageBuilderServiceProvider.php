@@ -9,6 +9,8 @@ use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
 use Zaengit\PageBuilder\DataProviders\DatabaseDataProvider;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 use Zaengit\PageBuilder\Editor\EditorResourceRegistry;
+use Zaengit\PageBuilder\Rendering\RenderingEngine;
+use Zaengit\PageBuilder\Rendering\RenderingEngineManager;
 
 final class PageBuilderServiceProvider extends ServiceProvider
 {
@@ -19,6 +21,10 @@ final class PageBuilderServiceProvider extends ServiceProvider
         $this->app->singleton(DataProviderRegistry::class, fn () => new DataProviderRegistry);
         $this->app->singleton(EditorResourceRegistry::class, fn () => new EditorResourceRegistry);
         $this->app->singleton(BlockMigrationRegistry::class, fn () => new BlockMigrationRegistry);
+        $this->app->bind(
+            RenderingEngine::class,
+            fn ($app): RenderingEngine => $app->make(RenderingEngineManager::class)->engine(),
+        );
     }
 
     public function boot(): void
