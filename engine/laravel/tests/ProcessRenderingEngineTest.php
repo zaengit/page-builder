@@ -2,7 +2,7 @@
 
 namespace Tests\Engine\Laravel;
 
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 use Zaengit\PageBuilder\Engine\Laravel\ProcessRenderingEngine;
 
 final class ProcessRenderingEngineTest extends TestCase
