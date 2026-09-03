@@ -55,12 +55,12 @@ final class TemplateRenderer
                 if ($items instanceof \Traversable) {
                     $items = iterator_to_array($items, false);
                 }
-                if (! is_array($items)) {
+                if (! is_array($items) || ! array_is_list($items)) {
                     return '';
                 }
                 $output = '';
                 $count = count($items);
-                foreach (array_values($items) as $index => $item) {
+                foreach ($items as $index => $item) {
                     $local = $context;
                     $local[$match[1]] = $item;
                     $local['loop'] = ['index' => $index, 'number' => $index + 1, 'first' => $index === 0, 'last' => $index === $count - 1, 'count' => $count];
@@ -80,7 +80,7 @@ final class TemplateRenderer
         foreach (explode('.', $path) as $segment) {
             if (is_array($value) && array_key_exists($segment, $value)) {
                 $value = $value[$segment];
-            } elseif (is_object($value) && isset($value->{$segment})) {
+            } elseif (is_object($value) && property_exists($value, $segment)) {
                 $value = $value->{$segment};
             } else {
                 return null;
@@ -92,6 +92,19 @@ final class TemplateRenderer
 
     private function truthy(mixed $value): bool
     {
-        return is_array($value) ? $value !== [] : (bool) $value;
+        if ($value === null || $value === false) {
+            return false;
+        }
+        if (is_int($value) || is_float($value)) {
+            return $value != 0;
+        }
+        if (is_string($value)) {
+            return $value !== '';
+        }
+        if (is_array($value)) {
+            return $value !== [];
+        }
+
+        return true;
     }
 }
