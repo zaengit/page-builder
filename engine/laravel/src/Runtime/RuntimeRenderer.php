@@ -46,6 +46,7 @@ final class RuntimeRenderer
         $definition = $registry[$type] ?? null;
         if (! is_array($definition)) {
             $diagnostics[] = (new Diagnostic('unknown_block', 'warning', $path.'.type', $type))->toArray();
+
             return '';
         }
 
@@ -132,10 +133,16 @@ final class RuntimeRenderer
         $default = isset($schemes[$requested]) ? $requested : array_key_first($schemes);
         $class = trim('pb-page'.($default ? ' pb-color-scheme--'.$this->identifier((string) $default) : '').' '.(string) ($settings['customClass'] ?? ''));
         $style = [];
-        if (isset($settings['contentWidth'])) $style[] = 'max-width:'.$this->cssValue((string) $settings['contentWidth']);
-        if (isset($settings['background'])) $style[] = 'background:'.$this->cssValue((string) $settings['background']);
+        if (isset($settings['contentWidth'])) {
+            $style[] = 'max-width:'.$this->cssValue((string) $settings['contentWidth']);
+        }
+        if (isset($settings['background'])) {
+            $style[] = 'background:'.$this->cssValue((string) $settings['background']);
+        }
         foreach (($settings['tokens'] ?? []) as $name => $value) {
-            if (is_string($name) && is_scalar($value)) $style[] = '--pb-'.$this->identifier($name).':'.$this->cssValue((string) $value);
+            if (is_string($name) && is_scalar($value)) {
+                $style[] = '--pb-'.$this->identifier($name).':'.$this->cssValue((string) $value);
+            }
         }
 
         $out = '<div class="'.$this->escape($class).'" style="'.$this->escape(implode(';', $style)).'">'.$body.'</div>';
@@ -143,23 +150,35 @@ final class RuntimeRenderer
         foreach ($schemes as $id => $scheme) {
             $declarations = '';
             foreach (($scheme['colors'] ?? []) as $name => $value) {
-                if (is_string($name) && is_scalar($value)) $declarations .= '--pb-color-'.$this->identifier($name).':'.$this->cssValue((string) $value).';';
+                if (is_string($name) && is_scalar($value)) {
+                    $declarations .= '--pb-color-'.$this->identifier($name).':'.$this->cssValue((string) $value).';';
+                }
             }
-            if ($declarations !== '') $schemeCss .= '.pb-color-scheme--'.$this->identifier((string) $id).'{'.$declarations.'background-color:var(--pb-color-background);color:var(--pb-color-foreground);}';
+            if ($declarations !== '') {
+                $schemeCss .= '.pb-color-scheme--'.$this->identifier((string) $id).'{'.$declarations.'background-color:var(--pb-color-background);color:var(--pb-color-foreground);}';
+            }
         }
 
         $typography = $this->typographyCss($settings['typography'] ?? null);
         $custom = is_string($settings['customCss'] ?? null) ? $this->safeStyleBody($settings['customCss']) : '';
-        if ($schemeCss !== '') $out .= '<style data-pb-color-schemes>'.$schemeCss.'</style>';
-        if ($typography !== '') $out .= '<style data-pb-typography>'.$typography.'</style>';
-        if ($custom !== '') $out .= '<style data-pb-page-css>'.$custom.'</style>';
+        if ($schemeCss !== '') {
+            $out .= '<style data-pb-color-schemes>'.$schemeCss.'</style>';
+        }
+        if ($typography !== '') {
+            $out .= '<style data-pb-typography>'.$typography.'</style>';
+        }
+        if ($custom !== '') {
+            $out .= '<style data-pb-page-css>'.$custom.'</style>';
+        }
 
         return $out;
     }
 
     private function typographyCss(mixed $typography): string
     {
-        if (! is_array($typography)) return '';
+        if (! is_array($typography)) {
+            return '';
+        }
         $families = is_array($typography['families'] ?? null) ? $typography['families'] : [];
         $styles = is_array($typography['styles'] ?? null) ? $typography['styles'] : [];
         $defaults = ['primary' => 'ui-sans-serif,system-ui,sans-serif', 'secondary' => 'Georgia,Cambria,serif', 'monospace' => 'ui-monospace,SFMono-Regular,Menlo,monospace'];
@@ -172,14 +191,19 @@ final class RuntimeRenderer
         $selectors = ['h1' => 'h1,.pb-text-h1', 'h2' => 'h2,.pb-text-h2', 'h3' => 'h3,.pb-text-h3', 'h4' => 'h4,.pb-text-h4', 'h5' => 'h5,.pb-text-h5', 'h6' => 'h6,.pb-text-h6', 'body' => 'p,.pb-text-body', 'bodySmall' => '.pb-text-body-small', 'caption' => '.pb-text-caption', 'label' => 'label,.pb-text-label', 'button' => 'button,.pb-text-button'];
         foreach ($selectors as $name => $selector) {
             $style = is_array($styles[$name] ?? null) ? $styles[$name] : [];
-            if ($style === []) continue;
+            if ($style === []) {
+                continue;
+            }
             $family = in_array($style['family'] ?? null, ['primary', 'secondary', 'monospace'], true) ? $style['family'] : 'primary';
             $declarations = 'font-family:var(--pb-font-'.$family.');';
             foreach (['size' => 'font-size', 'weight' => 'font-weight', 'lineHeight' => 'line-height', 'letterSpacing' => 'letter-spacing', 'textTransform' => 'text-transform'] as $key => $property) {
-                if (is_string($style[$key] ?? null) && $style[$key] !== '') $declarations .= $property.':'.$this->cssValue($style[$key]).';';
+                if (is_string($style[$key] ?? null) && $style[$key] !== '') {
+                    $declarations .= $property.':'.$this->cssValue($style[$key]).';';
+                }
             }
             $css .= '.pb-page :is('.$selector.'){'.$declarations.'}';
         }
+
         return $css;
     }
 
@@ -195,8 +219,23 @@ final class RuntimeRenderer
         }
     }
 
-    private function escape(string $value): string { return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true); }
-    private function identifier(string $value): string { return preg_replace('/[^a-z0-9_-]/i', '', $value) ?: 'value'; }
-    private function cssValue(string $value): string { return str_replace(['<', '>', ';', '{', '}'], '', trim($value)); }
-    private function safeStyleBody(string $value): string { return str_ireplace(['</style', '<script'], '', $value); }
+    private function escape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8', true);
+    }
+
+    private function identifier(string $value): string
+    {
+        return preg_replace('/[^a-z0-9_-]/i', '', $value) ?: 'value';
+    }
+
+    private function cssValue(string $value): string
+    {
+        return str_replace(['<', '>', ';', '{', '}'], '', trim($value));
+    }
+
+    private function safeStyleBody(string $value): string
+    {
+        return str_ireplace(['</style', '<script'], '', $value);
+    }
 }

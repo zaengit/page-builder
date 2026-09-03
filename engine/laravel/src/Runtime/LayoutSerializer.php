@@ -31,6 +31,7 @@ final class LayoutSerializer
         $mode = $this->responsive($layout['mode'] ?? null, $breakpoint, 'block');
         if ($mode === 'flex') {
             $gap = $this->responsive($layout['gap'] ?? null, $breakpoint, '0px');
+
             return [
                 'display:flex',
                 'flex-direction:'.$this->clean($this->responsive($layout['flexDirection'] ?? null, $breakpoint, 'row')),
@@ -59,6 +60,7 @@ final class LayoutSerializer
             if ($rows !== 'auto') {
                 $rules[] = 'grid-template-rows:repeat('.max(1, (int) $rows).',minmax(0,auto))';
             }
+
             return $rules;
         }
 
@@ -87,6 +89,7 @@ final class LayoutSerializer
             $rowSpan = max(1, (int) $this->responsive($item['rowSpan'] ?? null, $breakpoint, 1));
             $columnStart = $this->responsive($item['columnStart'] ?? null, $breakpoint, 'auto');
             $rowStart = $this->responsive($item['rowStart'] ?? null, $breakpoint, 'auto');
+
             return [
                 'grid-column:'.($columnStart === 'auto' ? 'span '.$columnSpan : max(1, (int) $columnStart).' / span '.$columnSpan),
                 'grid-row:'.($rowStart === 'auto' ? 'span '.$rowSpan : max(1, (int) $rowStart).' / span '.$rowSpan),

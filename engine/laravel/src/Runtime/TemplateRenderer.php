@@ -7,6 +7,7 @@ final class TemplateRenderer
     public function renderFile(string $path, array $context): string
     {
         $template = file_get_contents($path);
+
         return $template === false ? '' : $this->render($template, $context);
     }
 
@@ -21,9 +22,16 @@ final class TemplateRenderer
             if ($value === null && array_key_exists(3, $match)) {
                 $value = $match[3];
             }
-            if ($value === null) return '';
-            if (is_bool($value)) return $value ? '1' : '';
-            if (! is_scalar($value) && ! $value instanceof \Stringable) return '';
+            if ($value === null) {
+                return '';
+            }
+            if (is_bool($value)) {
+                return $value ? '1' : '';
+            }
+            if (! is_scalar($value) && ! $value instanceof \Stringable) {
+                return '';
+            }
+
             return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         }, $template) ?? $template;
     }
@@ -34,6 +42,7 @@ final class TemplateRenderer
         while (preg_match($pattern, $template) === 1) {
             $template = preg_replace_callback($pattern, fn (array $match): string => $this->truthy($this->get($context, $match[1])) ? $this->render($match[2], $context) : '', $template) ?? $template;
         }
+
         return $template;
     }
 
@@ -43,8 +52,12 @@ final class TemplateRenderer
         while (preg_match($pattern, $template) === 1) {
             $template = preg_replace_callback($pattern, function (array $match) use ($context): string {
                 $items = $this->get($context, $match[2]) ?? [];
-                if ($items instanceof \Traversable) $items = iterator_to_array($items, false);
-                if (! is_array($items)) return '';
+                if ($items instanceof \Traversable) {
+                    $items = iterator_to_array($items, false);
+                }
+                if (! is_array($items)) {
+                    return '';
+                }
                 $output = '';
                 $count = count($items);
                 foreach (array_values($items) as $index => $item) {
@@ -53,9 +66,11 @@ final class TemplateRenderer
                     $local['loop'] = ['index' => $index, 'number' => $index + 1, 'first' => $index === 0, 'last' => $index === $count - 1, 'count' => $count];
                     $output .= $this->render($match[3], $local);
                 }
+
                 return $output;
             }, $template) ?? $template;
         }
+
         return $template;
     }
 
@@ -63,10 +78,15 @@ final class TemplateRenderer
     {
         $value = $context;
         foreach (explode('.', $path) as $segment) {
-            if (is_array($value) && array_key_exists($segment, $value)) $value = $value[$segment];
-            elseif (is_object($value) && isset($value->{$segment})) $value = $value->{$segment};
-            else return null;
+            if (is_array($value) && array_key_exists($segment, $value)) {
+                $value = $value[$segment];
+            } elseif (is_object($value) && isset($value->{$segment})) {
+                $value = $value->{$segment};
+            } else {
+                return null;
+            }
         }
+
         return $value;
     }
 

@@ -91,16 +91,19 @@ final class LaravelDatasourceResolver implements DatasourceResolver
                 } else {
                     $query->whereNotIn($column, $values);
                 }
+
                 continue;
             }
 
             if ($operator === 'null') {
                 $query->whereNull($column);
+
                 continue;
             }
 
             if ($operator === 'not null') {
                 $query->whereNotNull($column);
+
                 continue;
             }
 

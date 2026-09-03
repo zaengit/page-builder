@@ -101,6 +101,7 @@ final class ProcessRenderingEngine implements RenderingEngine
                         'path' => null,
                         'message' => null,
                     ];
+
                     continue;
                 }
 
