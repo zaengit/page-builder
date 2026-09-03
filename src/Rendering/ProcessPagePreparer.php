@@ -13,7 +13,8 @@ final class ProcessPagePreparer
         private readonly DynamicBindingResolver $bindings,
         private readonly StyleSerializer $styles,
         private readonly LayoutSerializer $layouts,
-    ) {}
+    ) {
+    }
 
     public function prepare(array $page, array $runtimeContext): array
     {
@@ -34,7 +35,7 @@ final class ProcessPagePreparer
         $prepared = [];
 
         foreach ($blocks as $block) {
-            if (! is_array($block)) {
+            if (!is_array($block)) {
                 continue;
             }
 
@@ -135,7 +136,7 @@ final class ProcessPagePreparer
 
     private function compileTypography(mixed $typography): string
     {
-        if (! is_array($typography)) {
+        if (!is_array($typography)) {
             return '';
         }
         $families = is_array($typography['families'] ?? null) ? $typography['families'] : [];
@@ -146,10 +147,17 @@ final class ProcessPagePreparer
             'monospace' => 'ui-monospace,SFMono-Regular,Menlo,monospace',
         ];
         $selectors = [
-            'h1' => 'h1,.pb-text-h1', 'h2' => 'h2,.pb-text-h2', 'h3' => 'h3,.pb-text-h3',
-            'h4' => 'h4,.pb-text-h4', 'h5' => 'h5,.pb-text-h5', 'h6' => 'h6,.pb-text-h6',
-            'body' => 'p,.pb-text-body', 'bodySmall' => '.pb-text-body-small', 'caption' => '.pb-text-caption',
-            'label' => 'label,.pb-text-label', 'button' => 'button,.pb-text-button',
+            'h1' => 'h1,.pb-text-h1',
+            'h2' => 'h2,.pb-text-h2',
+            'h3' => 'h3,.pb-text-h3',
+            'h4' => 'h4,.pb-text-h4',
+            'h5' => 'h5,.pb-text-h5',
+            'h6' => 'h6,.pb-text-h6',
+            'body' => 'p,.pb-text-body',
+            'bodySmall' => '.pb-text-body-small',
+            'caption' => '.pb-text-caption',
+            'label' => 'label,.pb-text-label',
+            'button' => 'button,.pb-text-button',
         ];
         $root = '';
         foreach ($defaults as $name => $fallback) {
@@ -164,13 +172,20 @@ final class ProcessPagePreparer
             }
             $family = in_array($style['family'] ?? null, ['primary', 'secondary', 'monospace'], true) ? $style['family'] : 'primary';
             $declarations = 'font-family:var(--pb-font-'.$family.');';
-            foreach (['size' => 'font-size', 'weight' => 'font-weight', 'lineHeight' => 'line-height', 'letterSpacing' => 'letter-spacing', 'textTransform' => 'text-transform'] as $key => $property) {
+            foreach ([
+                'size' => 'font-size',
+                'weight' => 'font-weight',
+                'lineHeight' => 'line-height',
+                'letterSpacing' => 'letter-spacing',
+                'textTransform' => 'text-transform',
+            ] as $key => $property) {
                 if (is_string($style[$key] ?? null) && $style[$key] !== '') {
                     $declarations .= $property.':'.$this->safeCssValue($style[$key]).';';
                 }
             }
             $css .= '.pb-page :is('.$selector.'){'.$declarations.'}';
         }
+
         return $css;
     }
 
