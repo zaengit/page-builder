@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+import { create, type StoreApi, type UseBoundStore } from 'zustand';
 import type { BlockDefinition, BlockLock, BlockStyle, BlockTransform, BlockVariation, EditorRuntime, PageBlock, PageContent, PageSettings, Pattern } from './types';
 import { clone, EMPTY_CONTENT, setPathValue } from './utils';
 
@@ -33,7 +33,7 @@ export type BuilderState = {
   redo: () => void;
 };
 
-export const builderStoreBridge: { current: ReturnType<typeof create<BuilderState>> | null } = { current: null };
+export const builderStoreBridge: { current: UseBoundStore<StoreApi<BuilderState>> | null } = { current: null };
 
 const HISTORY_LIMIT = 100;
 const snapshot = (content: PageContent) => JSON.stringify(content);
