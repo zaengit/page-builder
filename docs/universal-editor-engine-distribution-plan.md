@@ -1,14 +1,14 @@
 # Universal Editor + Engine Distribution Plan
 
-> Status: implementation target completed for the currently supported engines: Laravel and Go.
+> Status: implemented for the current support matrix: Laravel + Go.
 >
-> Scope rule: the editor and portable block specification are universal. Laravel and Go are the only officially supported rendering engines in the current distribution. Rust, Node.js, Bun, and Python are future adapters and are not part of the active support matrix.
+> Canonical architecture rule: `editor/`, `specification/`, `blocks/`, and `engine/` are separate top-level concerns. The universal contracts never belong to Laravel or Go. Official engine implementations live only under `engine/`.
 
-## 1. Target Architecture
+## 1. Final Target Architecture
 
 ```text
 editor/
-  React editor
+  React visual editor
 
 specification/
   page.schema.json
@@ -25,31 +25,37 @@ blocks/
     style.css        # optional
     frontend.js      # optional
 
-engines /
-  Laravel adapter
-  Go runtime
+engine/
+  laravel/
+    src/
+      LaravelRenderingEngine.php
+  go/
+    go.mod
+    registry.go
+    renderer.go
+    cmd/
+      page-builder-render/
+        main.go
 ```
 
-The persisted page document, block definition, template grammar, datasource contract, rendering protocol, and conformance fixtures MUST NOT depend on Laravel, Eloquent, Blade, Go, or any other host framework.
+The persisted page document, block manifest, portable template grammar, datasource contract, renderer protocol, conformance fixtures, CSS, and browser JavaScript MUST NOT depend on Laravel, Eloquent, Blade, Go, or another host framework.
 
-## 2. Distribution Boundaries
+## 2. Canonical Ownership Boundaries
 
-- [x] React editor is separated from server rendering runtime.
-- [x] Persisted page JSON is language agnostic.
-- [x] Portable block contract lives outside the Laravel implementation.
-- [x] Portable template is `template.html`.
-- [x] `block.json` is the canonical block definition shared by every engine.
-- [x] CSS and frontend JavaScript assets are engine-independent.
-- [x] Renderer process protocol is defined as JSON input/output.
-- [x] Shared JSON Schemas live in `specification/`.
-- [x] Shared conformance fixtures live in `specification/conformance/`.
-- [x] Laravel-specific database resolution happens before external rendering.
-- [x] Go renderer consumes the same page/block contracts as Laravel.
-- [x] Unsupported engines are removed from the active configuration and CI support matrix.
+- [x] `editor/` owns React authoring UX only.
+- [x] `specification/` owns universal schemas, template semantics, renderer protocol, and conformance fixtures.
+- [x] `blocks/` owns portable block packages.
+- [x] `engine/laravel/` owns the Laravel rendering adapter.
+- [x] `engine/go/` owns the standalone Go rendering engine.
+- [x] `src/` contains Laravel package integration/shared host services but is not the universal specification owner.
+- [x] `renderers/` is not a canonical engine distribution boundary.
+- [x] Legacy/experimental renderer trees are excluded from Composer distribution.
+- [x] There is only one canonical Go implementation: `engine/go`.
+- [x] There is only one canonical Laravel engine class: `engine/laravel/src/LaravelRenderingEngine.php`.
 
 ## 3. Universal Block Contract
 
-Canonical block layout:
+Canonical portable block package:
 
 ```text
 blocks/hero/
@@ -59,47 +65,51 @@ blocks/hero/
   frontend.js
 ```
 
-### Requirements
+Requirements:
 
-- [x] Block identity is defined in `block.json`.
-- [x] Block attributes are declared in JSON and remain serializable.
-- [x] Inspector settings are declarative and not tied to PHP classes.
+- [x] `block.json` is the canonical block definition.
+- [x] Block identity and version are JSON-defined.
+- [x] Attributes are JSON-compatible.
+- [x] Inspector controls are declarative.
 - [x] Variations/presets are declarative.
-- [x] Nested children are represented by portable page JSON.
-- [x] Template interpolation is runtime-neutral.
-- [x] Conditions are runtime-neutral.
-- [x] Loops are runtime-neutral.
-- [x] Fallback values are runtime-neutral.
-- [x] HTML escaping semantics are part of the portable rendering contract.
-- [x] Block CSS is portable.
-- [x] Block frontend JavaScript is portable.
-- [x] Global color-scheme metadata remains portable.
-- [x] Typography metadata remains portable.
-- [x] Spacing, border, effects, responsive, flex, and grid metadata remain persisted as neutral JSON.
-
-### Compatibility
-
-- [x] `template.html` is the canonical universal template.
-- [x] Blade templates are Laravel compatibility templates only and are not part of the universal specification.
-- [x] A block can be distributed without requiring Go source changes or recompilation when it only uses the portable block contract.
-- [x] A newly added portable block can be loaded dynamically from the configured block root.
+- [x] Nested children are represented by Page JSON.
+- [x] Named slots are represented by portable metadata.
+- [x] Flex/grid metadata is framework neutral.
+- [x] Responsive values are framework neutral.
+- [x] Spacing, border, radius, effects, color scheme, and typography metadata are framework neutral.
+- [x] `template.html` is the canonical template format.
+- [x] Interpolation semantics are universal.
+- [x] Escaping semantics are universal.
+- [x] Fallback expressions are universal.
+- [x] Conditions are universal.
+- [x] Loops are universal.
+- [x] Raw children insertion is universal.
+- [x] CSS assets are portable.
+- [x] Frontend JavaScript assets are portable.
+- [x] Blade templates are Laravel compatibility templates only.
+- [x] Ordinary portable blocks can be added without changing Laravel engine source.
+- [x] Ordinary portable blocks can be added without recompiling Go only to register the block.
+- [x] Both engines dynamically load the same portable block contract.
 
 ## 4. Universal Page Document
 
-- [x] Page document has an explicit version.
-- [x] Blocks are stored as neutral objects.
-- [x] Block attributes are JSON-compatible.
+- [x] Page JSON has an explicit version.
+- [x] Blocks are neutral JSON objects.
+- [x] Block IDs/types/versions are neutral values.
+- [x] Attributes are JSON-compatible.
 - [x] Nested children are JSON-compatible.
-- [x] Dynamic binding metadata is JSON-compatible.
+- [x] Slots are JSON-compatible.
+- [x] Bindings are JSON-compatible.
 - [x] Layout metadata is JSON-compatible.
 - [x] Responsive metadata is JSON-compatible.
-- [x] Global tokens are JSON-compatible.
+- [x] Page tokens are JSON-compatible.
 - [x] Color schemes are JSON-compatible.
 - [x] Typography is JSON-compatible.
 - [x] Custom CSS is JSON-compatible.
-- [x] No Eloquent model class names are required in canonical page JSON.
-- [x] No Laravel service/container references are stored in canonical page JSON.
-- [x] No Go-specific types are stored in canonical page JSON.
+- [x] No Laravel service/container reference is persisted.
+- [x] No Eloquent class name is required by the canonical document.
+- [x] No Go-specific type is persisted.
+- [x] Switching Laravel ↔ Go does not rewrite or migrate Page JSON.
 
 ## 5. Universal Datasource Contract
 
@@ -113,20 +123,24 @@ categories
 users
 ```
 
-- [x] Resource identifiers are framework-neutral.
-- [x] Nested paths such as `product.name` are supported by the binding contract.
-- [x] Fallback values are supported.
-- [x] Collection/repeater data can be represented without framework-specific classes.
-- [x] Query metadata is represented as neutral JSON.
-- [x] Relations are represented as neutral resource/path metadata.
-- [x] Pagination metadata is portable.
-- [x] Current-record context can be passed through renderer context.
-- [x] Laravel owns Eloquent mapping only inside the Laravel adapter.
-- [x] Go can receive already-resolved context or implement a host-specific datasource adapter independently.
+- [x] Resource identifiers are framework neutral.
+- [x] Attribute bindings support nested paths such as `product.name`.
+- [x] Fallback values are portable.
+- [x] Collection/repeater values are portable.
+- [x] Query metadata is neutral JSON.
+- [x] Filter metadata is neutral JSON.
+- [x] Ordering metadata is neutral JSON.
+- [x] Limit metadata is neutral JSON.
+- [x] Relation metadata is neutral JSON.
+- [x] Pagination metadata is neutral JSON.
+- [x] Current-record/runtime context is portable.
+- [x] Laravel maps neutral resources to Eloquent only inside Laravel host integration.
+- [x] Go can receive pre-resolved context or use a host-defined datasource adapter.
+- [x] Database implementation details never change the universal Page JSON contract.
 
 ## 6. Renderer Protocol
 
-Input contract:
+Input:
 
 ```json
 {
@@ -137,7 +151,7 @@ Input contract:
 }
 ```
 
-Output contract:
+Output:
 
 ```json
 {
@@ -150,66 +164,90 @@ Output contract:
 }
 ```
 
-- [x] Protocol has an explicit version.
-- [x] Requests are JSON serializable.
-- [x] Results are JSON serializable.
-- [x] HTML is returned separately from asset metadata.
+- [x] Protocol version is explicit.
+- [x] Request is JSON serializable.
+- [x] Result is JSON serializable.
+- [x] HTML and asset metadata are separate.
 - [x] Diagnostics are portable.
-- [x] External engine execution bypasses the shell.
+- [x] Unknown protocol versions are rejected.
+- [x] Laravel process execution bypasses shell interpolation.
 - [x] External engine timeout is configurable.
 - [x] Invalid process output is rejected.
-- [x] stderr is captured for diagnostics/failure reporting.
+- [x] stderr is captured for failures/diagnostics.
+- [x] Go CLI implements the same protocol from `engine/go/cmd/page-builder-render`.
 
 ## 7. Laravel Engine
 
-Current official engine name: `laravel`.
+Canonical source:
 
-- [x] Laravel remains an official rendering engine.
-- [x] Laravel engine can render canonical page JSON.
-- [x] Laravel engine consumes portable blocks.
-- [x] Laravel can resolve host-owned Eloquent datasource bindings before rendering.
-- [x] Laravel can invoke Go using the renderer protocol.
-- [x] Blade remains optional compatibility behavior rather than the universal block format.
-- [x] Default engine configuration uses `laravel`.
-- [x] Legacy `php` selection remains accepted internally for backward compatibility but is not advertised as a separate supported engine.
+```text
+engine/laravel/src/LaravelRenderingEngine.php
+```
+
+- [x] Laravel is the default official engine.
+- [x] Canonical engine name is `laravel`.
+- [x] Legacy `php` selection remains a compatibility alias only.
+- [x] Laravel engine implements the shared `RenderingEngine` result contract.
+- [x] Laravel renders canonical Page JSON.
+- [x] Laravel consumes portable blocks.
+- [x] Laravel supports portable layout/style envelopes.
+- [x] Laravel supports global tokens/color schemes/typography/custom CSS.
+- [x] Laravel can resolve Eloquent-backed datasource bindings before external rendering.
+- [x] Laravel can dispatch rendering to Go through the universal process protocol.
+- [x] Blade remains a compatibility behavior rather than the portable specification.
+- [x] The old `src/Rendering/PhpRenderingEngine.php` implementation is removed to avoid duplicate engine ownership.
 
 ## 8. Go Engine
 
-- [x] Go renderer is a standalone module under `renderers/go`.
-- [x] Go renderer dynamically loads block metadata from the block root.
-- [x] Go renderer uses `template.html`.
-- [x] Go renderer supports nested blocks.
-- [x] Go renderer supports interpolation and escaping.
-- [x] Go renderer supports fallback values.
-- [x] Go renderer supports conditions.
-- [x] Go renderer supports loops.
-- [x] Go renderer consumes portable context bindings.
-- [x] Go renderer returns CSS/JS assets.
-- [x] Go renderer de-duplicates assets.
-- [x] Go renderer participates in conformance tests.
-- [x] Go renderer can be compiled as a standalone binary.
-- [x] The build pipeline creates `page-builder-render-go`.
+Canonical source:
+
+```text
+engine/go/
+```
+
+- [x] Go engine is a standalone Go module.
+- [x] Module path is `github.com/zaengit/page-builder/engine/go`.
+- [x] Go engine dynamically loads portable block manifests.
+- [x] Go engine loads `template.html` dynamically.
+- [x] Go engine renders nested blocks.
+- [x] Go engine supports interpolation.
+- [x] Go engine HTML-escapes portable interpolations.
+- [x] Go engine supports fallback values.
+- [x] Go engine supports conditions.
+- [x] Go engine supports loops.
+- [x] Go engine supports portable context bindings.
+- [x] Go engine collects CSS/JS assets.
+- [x] Go engine de-duplicates assets.
+- [x] Go engine consumes transient layout/style envelopes.
+- [x] Go engine consumes page-level style metadata.
+- [x] Go engine participates in shared conformance tests.
+- [x] Go engine has registry/block-loading tests.
+- [x] Go engine compiles as a standalone binary.
+- [x] Legacy `renderers/go` source is removed so there is no duplicate supported Go implementation.
 
 ## 9. React Editor
 
 - [x] Editor remains in `editor/`.
-- [x] Editor consumes block/schema metadata rather than Laravel rendering internals.
-- [x] Editor page state is stored as canonical portable JSON.
-- [x] Editor preview can use the Laravel engine.
-- [x] Editor preview can use the Go engine through the Laravel host process adapter.
-- [x] Editor does not need to change persisted page shape when renderer engine changes.
-- [x] Dynamic datasource metadata remains engine-neutral.
-- [x] Flex/grid layout metadata remains engine-neutral.
-- [x] Responsive metadata remains engine-neutral.
-- [x] Global color schemes and typography remain engine-neutral.
+- [x] Editor is independent from Laravel rendering internals.
+- [x] Editor persists canonical Page JSON.
+- [x] Editor consumes block/schema metadata.
+- [x] Editor can preview through Laravel.
+- [x] Editor can preview through Go using the Laravel process adapter.
+- [x] Switching engine does not change editor document shape.
+- [x] Datasource metadata remains neutral.
+- [x] Flex/grid metadata remains neutral.
+- [x] Responsive metadata remains neutral.
+- [x] Global color schemes remain neutral.
+- [x] Global typography remains neutral.
 
-## 10. Active Engine Support Matrix
+## 10. Active Support Matrix
 
 | Capability | Laravel | Go |
 | --- | --- | --- |
-| Canonical page JSON | ✅ | ✅ |
+| Canonical Page JSON | ✅ | ✅ |
 | Portable `block.json` | ✅ | ✅ |
 | Portable `template.html` | ✅ | ✅ |
+| Dynamic block discovery | ✅ | ✅ |
 | Nested blocks | ✅ | ✅ |
 | Conditions / loops | ✅ | ✅ |
 | Context binding | ✅ | ✅ |
@@ -217,58 +255,90 @@ Current official engine name: `laravel`.
 | Layout/style envelopes | ✅ | ✅ |
 | Responsive metadata | ✅ | ✅ |
 | Page tokens / schemes / typography | ✅ | ✅ |
-| Host database integration | ✅ Eloquent adapter | ✅ host-defined / pre-resolved context |
-| Conformance coverage | ✅ | ✅ |
+| Host database integration | Eloquent adapter | Host-defined or pre-resolved context |
+| Shared conformance coverage | ✅ | ✅ |
 | Officially distributed | ✅ | ✅ |
+| Canonical source under `engine/` | ✅ | ✅ |
 
-## 11. Engines Explicitly Out of Current Scope
+## 11. Engines Outside Current Scope
 
-The following are not current supported engines:
+Rust, Node.js, Python, and Bun are not current supported engines.
 
-- [x] Rust excluded from active config, build, CI, and support matrix.
-- [x] Node.js excluded from active config, build, CI, and support matrix.
-- [x] Python excluded from active config, build, CI, and support matrix.
-- [x] Bun is reserved as a possible future engine and has no active runtime contract implementation requirement.
+- [x] They are absent from active engine config.
+- [x] They are absent from active CI engine jobs.
+- [x] They are absent from active build artifacts.
+- [x] They are excluded from Composer distribution.
+- [x] They are not listed as supported in the active matrix.
 
-Their future implementations MUST consume the same `specification/` and conformance fixtures. No canonical page/block format changes may be introduced only to accommodate one language.
+Future engines MUST consume the same `specification/`, Page JSON, portable block contract, and conformance fixtures without redefining them.
 
-## 12. Build and CI
+## 12. Build Pipeline
 
-- [x] PHP/Laravel tests remain mandatory.
-- [x] Go tests remain mandatory.
-- [x] Editor tests remain mandatory.
-- [x] Editor build remains mandatory.
-- [x] Go standalone binary build remains mandatory.
-- [x] Go artifact smoke test remains mandatory.
-- [x] Composer archive validation includes shared specification files.
-- [x] Composer archive validation includes Go runtime source.
-- [x] CI no longer requires Rust, Node, or Python renderer jobs.
+Canonical build command:
 
-## 13. Packaging
+```bash
+bash scripts/build-universal-renderers.sh
+```
 
-### Laravel package distribution
+Canonical output:
+
+```text
+dist/engine/page-builder-engine-go
+```
+
+- [x] Build source is `engine/go`.
+- [x] Build no longer depends on `renderers/go`.
+- [x] Only the supported external Go engine is built.
+- [x] The generated Go engine binary has no Laravel/PHP runtime dependency.
+- [x] Runtime block root is provided at execution time.
+
+## 13. CI Gates
+
+- [x] Composer metadata validation.
+- [x] Composer dependency audit.
+- [x] Laravel/PHP static analysis.
+- [x] Laravel/PHP formatting including `engine/laravel/src`.
+- [x] Laravel engine PHPUnit suite.
+- [x] Go unit/conformance tests from `engine/go`.
+- [x] Go standalone engine build.
+- [x] Go protocol smoke test.
+- [x] React editor dependency lock install.
+- [x] React editor unit tests with coverage.
+- [x] React editor production build.
+- [x] React editor Playwright E2E.
+- [x] Composer archive build.
+- [x] Composer archive includes `engine/laravel`.
+- [x] Composer archive includes `engine/go` source.
+- [x] Composer archive includes universal specifications.
+- [x] Composer archive includes portable blocks.
+- [x] Composer archive excludes editor development source.
+- [x] Composer archive excludes tests/CI harness.
+- [x] Composer archive excludes legacy `renderers/` experiments.
+
+## 14. Packaging
+
+### Laravel/Composer distribution
 
 Contains:
 
-- [x] Laravel adapter/runtime integration.
-- [x] React editor compiled assets.
+- [x] Laravel package integration.
+- [x] `engine/laravel` canonical adapter.
+- [x] `engine/go` reproducible standalone engine source.
+- [x] Compiled React editor assets.
 - [x] Portable blocks.
 - [x] Universal specifications.
-- [x] Go renderer source for reproducible build/integration.
-- [x] Universal renderer documentation.
+- [x] Universal engine documentation.
 
 ### Go binary distribution
 
 Contains:
 
-- [x] Standalone `page-builder-render-go` binary.
+- [x] `page-builder-engine-go` standalone binary.
 - [x] No Laravel dependency.
-- [x] No PHP runtime dependency.
-- [x] Runtime block root supplied at execution time.
+- [x] No PHP dependency.
+- [x] Runtime block root supplied through protocol input.
 
 ### Portable block distribution
-
-A portable block package contains only:
 
 ```text
 block.json
@@ -277,62 +347,64 @@ style.css      # optional
 frontend.js    # optional
 ```
 
-- [x] No Laravel dependency required by the block contract.
-- [x] No Go dependency required by the block contract.
-- [x] No engine rebuild required for ordinary portable block additions.
+- [x] No Laravel dependency is required by the block contract.
+- [x] No Go dependency is required by the block contract.
+- [x] No engine source modification is required for ordinary block additions.
 
-## 14. Versioning Rules
+## 15. Release Workflow
 
-- [x] Page document includes a version.
-- [x] Renderer protocol includes a version.
-- [x] Schemas are committed and distributable.
-- [x] Backward-incompatible template grammar changes require a specification version change.
-- [x] Backward-incompatible renderer protocol changes require a protocol version change.
-- [x] Engines must reject unsupported major protocol versions instead of silently mis-rendering.
+- [x] Release verifies Laravel engine.
+- [x] Release verifies Go engine from `engine/go`.
+- [x] Release builds `dist/engine/page-builder-engine-go`.
+- [x] Release verifies Composer archive includes both canonical engines.
+- [x] Release verifies Composer archive excludes `renderers/`.
+- [x] Release publishes the Composer ZIP.
+- [x] Release publishes the standalone Go engine binary.
 
-## 15. Release Acceptance Checklist
+## 16. Versioning Rules
 
-A release is accepted only when all of the following pass:
+- [x] Page document has an explicit version.
+- [x] Renderer protocol has an explicit version.
+- [x] Block manifests have explicit versions.
+- [x] Schemas are committed/distributable.
+- [x] Breaking template grammar changes require specification versioning.
+- [x] Breaking process protocol changes require protocol versioning.
+- [x] Engines reject unsupported major protocol versions.
+- [x] One engine cannot introduce private persisted fields that become required by the editor or another engine.
 
-- [x] Laravel backend tests.
-- [x] PHP static analysis.
-- [x] PHP formatting checks.
-- [x] Go unit/conformance tests.
-- [x] Go standalone binary build.
-- [x] Go binary protocol smoke test.
-- [x] React editor unit tests.
-- [x] React editor production build.
-- [x] React editor browser E2E tests.
-- [x] Composer archive build.
-- [x] Composer archive contains portable specifications.
-- [x] Composer archive contains portable blocks.
-- [x] Composer archive contains Go renderer source.
-- [x] Active runtime documentation names only Laravel and Go as officially supported engines.
+## 17. Definition of Done
 
-## 16. Definition of Done
+The current Laravel + Go universal architecture is done only when all statements below remain true:
 
-The universal architecture is considered complete for the current release when:
+- [x] `editor/` is React and renderer independent.
+- [x] `specification/` is the universal contract source of truth.
+- [x] `blocks/` contains portable engine-neutral block packages.
+- [x] `engine/` physically exists as the canonical engine root.
+- [x] `engine/laravel/` physically contains the Laravel engine adapter.
+- [x] `engine/go/` physically contains the standalone Go engine source.
+- [x] Laravel does not own the universal document specification.
+- [x] Go consumes the same document/block specification.
+- [x] There is no duplicate supported Go implementation under `renderers/go`.
+- [x] There is no duplicate legacy PHP rendering engine class under `src/Rendering`.
+- [x] Switching Laravel ↔ Go does not migrate Page JSON.
+- [x] Adding portable blocks does not require modifying either engine for registration.
+- [x] CI tests the canonical engine directories.
+- [x] Release builds artifacts from the canonical engine directories.
+- [x] Composer distribution contains canonical engines and excludes legacy renderer experiments.
 
-- [x] `editor/` is React and remains renderer-independent.
-- [x] `specification/` is the source of truth for portable contracts.
-- [x] `blocks/` uses portable `block.json` + `template.html` as the canonical engine-neutral format.
-- [x] Laravel is an adapter/engine, not the owner of the universal document format.
-- [x] Go is a standalone engine consuming the same contracts.
-- [x] Switching Laravel ↔ Go does not migrate or rewrite persisted page JSON.
-- [x] Adding a portable block does not require modifying Laravel engine source.
-- [x] Adding a portable block does not require recompiling Go solely to register that block.
-- [x] CI verifies both official engines and the React editor.
-- [x] Distribution documentation and configuration expose only the supported Laravel + Go engine set.
-
-## 17. Future Engine Extension Rule
+## 18. Future Engine Extension Rule
 
 To add Rust, Python, Node.js, Bun, or another engine later:
 
-1. Implement `specification/renderer-protocol.schema.json`.
-2. Consume the canonical page schema and block schema without extensions tied to that language.
-3. Dynamically load blocks from the supplied block root.
-4. Pass the shared conformance fixtures unchanged.
-5. Add engine-specific CI only after conformance passes.
-6. Add it to the official support matrix only after release artifacts and documentation are complete.
+1. Create `engine/<name>/`.
+2. Implement `specification/renderer-protocol.schema.json`.
+3. Consume the canonical page and block schemas unchanged.
+4. Dynamically load portable blocks from the supplied block root.
+5. Implement the portable template semantics.
+6. Pass shared conformance fixtures unchanged.
+7. Add language-specific tests/builds.
+8. Add the engine to CI only after conformance passes.
+9. Add release artifacts.
+10. Add it to the official support matrix only after distribution is complete.
 
-No future engine is allowed to redefine the editor document model or portable block format.
+A future engine is never allowed to redefine the editor document model or portable block format.
