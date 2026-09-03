@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "registry": {},
+  "page": {
+    "version": 1,
+    "blocks": [
+      {
+        "id": "missing-1",
+        "type": "test/missing",
+        "attrs": {},
+        "children": []
+      }
+    ]
+  },
+  "context": {},
+  "expected": {
+    "html": "<div class=\"pb-page\" style=\"\"></div>",
+    "assets": {"css": [], "js": []},
+    "diagnostics": [
+      {
+        "code": "unknown_block",
+        "severity": "warning",
+        "path": "$.blocks[0].type",
+        "message": "test/missing"
+      }
+    ]
+  }
+}
