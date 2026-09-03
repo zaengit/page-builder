@@ -33,7 +33,7 @@ jobs:
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: Check PHP formatting
         run: vendor/bin/pint --test src routes config
-      - name: Run backend tests
+      - name: Run Laravel engine tests
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
@@ -42,7 +42,7 @@ jobs:
           SESSION_DRIVER: array
         run: vendor/bin/phpunit
 
-  universal-runtimes:
+  universal-runtime:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -53,42 +53,17 @@ jobs:
       - name: Test Go renderer
         working-directory: renderers/go
         run: go test ./...
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '26.8.1'
-      - name: Test Node renderer
-        working-directory: renderers/node
-        run: npm test
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.14'
-      - name: Test Python renderer
-        working-directory: renderers/python
-        run: python -m unittest -v test_renderer.py
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Test Rust renderer
-        working-directory: renderers/rust
-        run: cargo test --all-targets
-      - name: Build deployable renderer artifacts
+      - name: Build deployable Go renderer artifact
         run: bash scripts/build-universal-renderers.sh
-      - name: Smoke test renderer artifacts
+      - name: Smoke test Go renderer artifact
         run: |
           test -x dist/renderers/page-builder-render-go
-          test -x dist/renderers/page-builder-render-rust
-          test -x dist/renderers/page-builder-render-node
-          test -x dist/renderers/page-builder-render-python
           printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-go | grep -q '"html"'
-          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-rust | grep -q '"html"'
-          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-node | grep -q '"html"'
-          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-python | grep -q '"html"'
-      - name: Upload renderer artifacts
+      - name: Upload Go renderer artifact
         uses: actions/upload-artifact@v4
         with:
-          name: universal-renderers-linux
-          path: dist/renderers/*
+          name: page-builder-render-go-linux
+          path: dist/renderers/page-builder-render-go
           if-no-files-found: error
           retention-days: 7
 
@@ -140,7 +115,7 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
-    needs: [backend, universal-runtimes, editor]
+    needs: [backend, universal-runtime, editor]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -183,11 +158,11 @@ jobs:
           grep -q 'blocks/heading/template.html' package-dist/archive.txt
           grep -q 'specification/rendering-spec.md' package-dist/archive.txt
           grep -q 'specification/page.schema.json' package-dist/archive.txt
+          grep -q 'specification/block.schema.json' package-dist/archive.txt
+          grep -q 'specification/renderer-protocol.schema.json' package-dist/archive.txt
           grep -q 'docs/universal-renderers.md' package-dist/archive.txt
+          grep -q 'docs/universal-editor-engine-distribution-plan.md' package-dist/archive.txt
           grep -q 'renderers/go/renderer.go' package-dist/archive.txt
-          grep -q 'renderers/node/runtime.mjs' package-dist/archive.txt
-          grep -q 'renderers/python/renderer.py' package-dist/archive.txt
-          grep -q 'renderers/rust/src/lib.rs' package-dist/archive.txt
           grep -q 'scripts/build-universal-renderers.sh' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
