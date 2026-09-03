@@ -14,6 +14,7 @@ final class ProcessPagePreparer
         private readonly StyleSerializer $styles,
         private readonly LayoutSerializer $layouts,
     ) {
+        // Constructor property promotion wires render preparation services.
     }
 
     public function prepare(array $page, array $runtimeContext): array
