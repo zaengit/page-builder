@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
-use Zaengit\PageBuilder\Blocks\LayoutSerializer;
+use Zaengit\PageBuilder\Engine\Laravel\Runtime\LayoutSerializer;
 
 class LayoutSystemTest extends TestCase
 {
