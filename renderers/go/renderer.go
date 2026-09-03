@@ -22,7 +22,7 @@ func (r *UniversalRenderer) Render(_ context.Context, request RenderRequest) (Re
 	blocks, _ := request.Page["blocks"].([]any)
 	var body strings.Builder
 	for _, raw := range blocks { if block, ok := raw.(map[string]any); ok { body.WriteString(r.renderBlock(block, request.Registry, request.Context, &result, cssSeen, jsSeen)) } }
-	result.HTML = `<div class="pb-page">` + body.String() + `</div>`
+	result.HTML = wrapPage(request.Page, body.String())
 	result.HTML = strings.ReplaceAll(result.HTML, `\"`, `"`)
 	return result, nil
 }
@@ -54,6 +54,23 @@ func wrapBlock(block map[string]any, rendered string) string {
 	responsive := ""
 	if css, ok := compiled["css"].(string); ok && css != "" { responsive = `<style data-pb-responsive="` + id + `">` + strings.ReplaceAll(css, "</style", "") + `</style>` }
 	return `<div data-pb-style-id="` + id + `" data-pb-id="` + id + `"` + scheme + slot + ` style="` + style + `">` + rendered + `</div>` + responsive
+}
+
+func wrapPage(page map[string]any, body string) string {
+	compiled, ok := page["_pageRender"].(map[string]any)
+	if !ok { return `<div class="pb-page">` + body + `</div>` }
+	className := "pb-page"
+	if value, ok := compiled["class"].(string); ok && value != "" { className = value }
+	style, _ := compiled["style"].(string)
+	out := `<div class="` + html.EscapeString(className) + `" style="` + html.EscapeString(style) + `">` + body + `</div>`
+	for _, spec := range []struct{ key, attr string }{{"colorSchemeCss", "data-pb-color-schemes"}, {"typographyCss", "data-pb-typography"}, {"customCss", "data-pb-page-css"}} {
+		if css, ok := compiled[spec.key].(string); ok && css != "" {
+			css = strings.ReplaceAll(css, "</style", "")
+			if spec.key == "customCss" { css = strings.ReplaceAll(css, "<script", "") }
+			out += `<style ` + spec.attr + `>` + css + `</style>`
+		}
+	}
+	return out
 }
 
 func defaults(definition map[string]any) map[string]any { out := map[string]any{}; attributes, _ := definition["attributes"].(map[string]any); for key, raw := range attributes { if schema, ok := raw.(map[string]any); ok { if value, ok := schema["default"]; ok { out[key] = value } } }; return out }
