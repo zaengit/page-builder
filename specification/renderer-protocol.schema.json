@@ -2,38 +2,75 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zaengit.dev/page-builder/specification/renderer-protocol.schema.json",
   "title": "Page Builder Renderer Process Protocol v1",
-  "type": "object",
-  "required": ["version", "page"],
-  "properties": {
-    "version": { "const": 1 },
-    "page": { "$ref": "./page.schema.json" },
-    "context": { "type": "object", "default": {} },
-    "blockRoot": { "type": "string" },
-    "registry": { "type": "object" }
-  },
-  "oneOf": [
-    { "required": ["blockRoot"] },
-    { "required": ["registry"] }
-  ],
-  "additionalProperties": false,
   "$defs": {
+    "diagnostic": {
+      "type": "object",
+      "required": ["code", "severity", "path", "message"],
+      "properties": {
+        "code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
+        "severity": { "enum": ["info", "warning", "error"] },
+        "path": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] }
+      },
+      "additionalProperties": false
+    },
+    "assets": {
+      "type": "object",
+      "required": ["css", "js"],
+      "properties": {
+        "css": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "js": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "registryEntry": {
+      "allOf": [
+        { "$ref": "./block.schema.json" },
+        {
+          "type": "object",
+          "properties": {
+            "template": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "request": {
+      "type": "object",
+      "required": ["version", "page"],
+      "properties": {
+        "version": { "const": 1 },
+        "page": { "$ref": "./page.schema.json" },
+        "context": { "type": "object", "default": {} },
+        "blockRoot": { "type": "string", "minLength": 1 },
+        "registry": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        }
+      },
+      "oneOf": [
+        { "required": ["blockRoot"], "not": { "required": ["registry"] } },
+        { "required": ["registry"], "not": { "required": ["blockRoot"] } }
+      ],
+      "additionalProperties": false
+    },
     "result": {
       "type": "object",
       "required": ["html", "assets", "diagnostics"],
       "properties": {
         "html": { "type": "string" },
-        "assets": {
-          "type": "object",
-          "required": ["css", "js"],
-          "properties": {
-            "css": { "type": "array", "items": { "type": "string" } },
-            "js": { "type": "array", "items": { "type": "string" } }
-          },
-          "additionalProperties": false
+        "assets": { "$ref": "#/$defs/assets" },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/diagnostic" }
         },
-        "diagnostics": { "type": "array", "items": { "type": "string" } }
+        "version": { "const": 1 },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        }
       },
       "additionalProperties": false
     }
-  }
+  },
+  "$ref": "#/$defs/request"
 }
