@@ -29,6 +29,7 @@ final class DatabaseDataProvider implements BlockDataProvider
 
         /** @var Model $model */
         $model = new $modelClass;
+        /** @var Builder<Model> $query */
         $query = $model->newQuery();
         $spec = is_array($binding['query'] ?? null) ? $binding['query'] : [];
 
@@ -39,6 +40,9 @@ final class DatabaseDataProvider implements BlockDataProvider
         $contextKey = trim((string) ($binding['contextKey'] ?? ''));
         if ($contextKey !== '') {
             $contextValue = data_get($context->runtimeContext, $contextKey);
+            if ($contextValue instanceof Model) {
+                $contextValue = $contextValue->getKey();
+            }
             if ($contextValue !== null) {
                 $query->where($model->getQualifiedKeyName(), $contextValue);
             }
@@ -58,6 +62,7 @@ final class DatabaseDataProvider implements BlockDataProvider
         return $record?->toArray();
     }
 
+    /** @param Builder<Model> $query */
     private function applyRelations(Builder $query, array $spec): void
     {
         $relations = array_values(array_filter((array) ($spec['with'] ?? []), fn ($relation) => is_string($relation) && preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $relation)));
@@ -66,6 +71,7 @@ final class DatabaseDataProvider implements BlockDataProvider
         }
     }
 
+    /** @param Builder<Model> $query */
     private function applyFilters(Builder $query, array $spec): void
     {
         $allowed = ['=', '!=', '<>', '>', '>=', '<', '<=', 'like', 'not like'];
@@ -87,6 +93,7 @@ final class DatabaseDataProvider implements BlockDataProvider
         }
     }
 
+    /** @param Builder<Model> $query */
     private function applyOrdering(Builder $query, array $spec): void
     {
         foreach (array_slice((array) ($spec['orderBy'] ?? []), 0, 10) as $order) {
@@ -97,13 +104,16 @@ final class DatabaseDataProvider implements BlockDataProvider
         }
     }
 
+    /** @param Builder<Model> $query */
     private function collection(Builder $query, array $spec): array
     {
-        $limit = max(1, min((int) ($spec['limit'] ?? 12), (int) config('page-builder.data.max_results', 100)));
-        $perPage = max(1, min((int) ($spec['perPage'] ?? 0), (int) config('page-builder.data.max_results', 100)));
+        $max = (int) config('page-builder.data.max_results', 100);
+        $limit = max(1, min((int) ($spec['limit'] ?? 12), $max));
+        $requestedPerPage = max(0, (int) ($spec['perPage'] ?? 0));
+        $perPage = min($requestedPerPage, $max);
 
         if ($perPage > 0) {
-            /** @var LengthAwarePaginator $paginator */
+            /** @var LengthAwarePaginator<int, Model> $paginator */
             $paginator = $query->paginate($perPage, ['*'], 'page', max(1, (int) ($spec['page'] ?? request()->integer('page', 1))));
             return [
                 'items' => array_map(fn (Model $item) => $item->toArray(), $paginator->items()),
