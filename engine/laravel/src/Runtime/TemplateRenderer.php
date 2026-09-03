@@ -11,6 +11,57 @@ final class TemplateRenderer
         return $template === false ? '' : $this->render($template, $context);
     }
 
+    public function validate(string $template): ?string
+    {
+        $withoutChildren = str_replace('{{{ children }}}', '', $template);
+        if (str_contains($withoutChildren, '{{{') || str_contains($withoutChildren, '}}}')) {
+            return 'invalid raw interpolation; only {{{ children }}} is supported';
+        }
+
+        $stripped = preg_replace('/{{\s*[A-Za-z0-9_.]+(?:\s*\?\?\s*(?:"[^"]*"|\'[^\']*\'))?\s*}}/s', '', $withoutChildren) ?? $withoutChildren;
+        if (str_contains($stripped, '{{') || str_contains($stripped, '}}')) {
+            return 'invalid interpolation syntax';
+        }
+
+        preg_match_all('/{%\s*(.*?)\s*%}/s', $stripped, $matches, PREG_OFFSET_CAPTURE);
+        $stack = [];
+        $cursor = 0;
+        foreach ($matches[0] ?? [] as $index => $whole) {
+            [$token, $offset] = $whole;
+            $between = substr($stripped, $cursor, $offset - $cursor);
+            if (str_contains($between, '{%') || str_contains($between, '%}')) {
+                return 'invalid control tag syntax';
+            }
+            $content = trim((string) ($matches[1][$index][0] ?? ''));
+            if (preg_match('/^if\s+[A-Za-z0-9_.]+$/', $content) === 1) {
+                $stack[] = 'if';
+            } elseif ($content === 'endif') {
+                if (array_pop($stack) !== 'if') {
+                    return 'unexpected endif';
+                }
+            } elseif (preg_match('/^for\s+[A-Za-z_][A-Za-z0-9_]*\s+in\s+[A-Za-z0-9_.]+$/', $content) === 1) {
+                $stack[] = 'for';
+            } elseif ($content === 'endfor') {
+                if (array_pop($stack) !== 'for') {
+                    return 'unexpected endfor';
+                }
+            } else {
+                return 'unsupported control tag "'.$content.'"';
+            }
+            $cursor = $offset + strlen($token);
+        }
+
+        $tail = substr($stripped, $cursor);
+        if (str_contains($tail, '{%') || str_contains($tail, '%}')) {
+            return 'invalid control tag syntax';
+        }
+        if ($stack !== []) {
+            return 'unclosed '.end($stack).' block';
+        }
+
+        return null;
+    }
+
     public function render(string $template, array $context): string
     {
         $template = $this->renderLoops($template, $context);
