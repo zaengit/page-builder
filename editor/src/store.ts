@@ -33,6 +33,8 @@ export type BuilderState = {
   redo: () => void;
 };
 
+export const builderStoreBridge: { current: ReturnType<typeof create<BuilderState>> | null } = { current: null };
+
 const HISTORY_LIMIT = 100;
 const snapshot = (content: PageContent) => JSON.stringify(content);
 
@@ -99,7 +101,7 @@ function historyUpdate(state: BuilderState, content: PageContent, selectedId = s
 function canEdit(block: PageBlock | null) { return !block?.lock?.edit; }
 
 export function createBuilderStore() {
-  return create<BuilderState>((set, get) => ({
+  const store = create<BuilderState>((set, get) => ({
     content: EMPTY_CONTENT,
     definitions: [], runtime: null, selectedId: null, dirty: false, past: [], future: [], initialSnapshot: snapshot(EMPTY_CONTENT),
 
@@ -171,4 +173,7 @@ export function createBuilderStore() {
     undo() { const state = get(); if (!state.past.length) return; const content = state.past.at(-1)!; set({ content, past: state.past.slice(0, -1), future: [state.content, ...state.future].slice(0, HISTORY_LIMIT), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot }); },
     redo() { const state = get(); if (!state.future.length) return; const content = state.future[0]; set({ content, past: [...state.past, state.content].slice(-HISTORY_LIMIT), future: state.future.slice(1), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot }); },
   }));
+
+  builderStoreBridge.current = store;
+  return store;
 }
