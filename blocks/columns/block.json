@@ -3,9 +3,15 @@
   "title": "Columns",
   "category": "layout",
   "icon": "columns",
-  "supports": {"children": true},
+  "description": "Responsive multi-column layout with schema-driven design controls.",
+  "supports": {"children": true, "styles": true},
   "attributes": {
-    "columns": {"type": "select", "label": "Columns", "default": 2, "options": [2, 3, 4]},
-    "gap": {"type": "select", "label": "Gap", "default": "24px", "options": ["8px", "16px", "24px", "32px", "48px"]}
+    "columns": {"type": "select", "label": "Columns", "default": 2, "options": [1, 2, 3, 4], "group": "Layout"},
+    "gap": {"type": "select", "label": "Gap", "default": "24px", "options": ["0", "8px", "16px", "24px", "32px", "48px"]},
+    "colorScheme": {"type": "string", "control": "color_scheme", "label": "Color scheme", "default": "", "group": "Design"},
+    "spacing": {"type": "string", "control": "spacing", "label": "Padding", "default": "0 0 0 0"},
+    "border": {"type": "string", "control": "border", "label": "Border", "default": "0|none|currentColor|0"},
+    "effects": {"type": "string", "control": "effects", "label": "Effects", "default": "none|1"},
+    "customClass": {"type": "string", "label": "CSS class", "default": "", "group": "Advanced"}
   }
 }

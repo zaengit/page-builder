@@ -3,11 +3,10 @@
   "title": "Carousel",
   "category": "media",
   "icon": "images",
-  "description": "SSR-first carousel progressively enhanced on the frontend.",
+  "description": "SSR-first carousel progressively enhanced on the frontend with schema-driven design controls.",
+  "supports": {"styles": true},
   "attributes": {
-    "title": {"type": "string", "label": "Title", "default": "Featured slides"},
-    "autoplay": {"type": "boolean", "label": "Autoplay", "default": true},
-    "interval": {"type": "number", "label": "Interval (ms)", "default": 4000, "min": 1000, "max": 30000},
+    "title": {"type": "string", "label": "Title", "default": "Featured slides", "group": "Content"},
     "items": {
       "type": "repeater",
       "label": "Slides",
@@ -18,9 +17,16 @@
       "fields": {
         "title": {"type": "string", "label": "Title", "default": ""},
         "description": {"type": "textarea", "label": "Description", "default": ""},
-        "image": {"type": "url", "label": "Image URL", "default": ""}
+        "image": {"type": "image", "label": "Image", "default": ""}
       }
-    }
+    },
+    "autoplay": {"type": "boolean", "label": "Autoplay", "default": true, "group": "Behavior"},
+    "interval": {"type": "number", "label": "Interval (ms)", "default": 4000, "min": 1000, "max": 30000},
+    "colorScheme": {"type": "string", "control": "color_scheme", "label": "Color scheme", "default": "", "group": "Design"},
+    "spacing": {"type": "string", "control": "spacing", "label": "Padding", "default": "0 0 0 0"},
+    "border": {"type": "string", "control": "border", "label": "Border", "default": "0|none|currentColor|0"},
+    "effects": {"type": "string", "control": "effects", "label": "Effects", "default": "none|1"},
+    "customClass": {"type": "string", "label": "CSS class", "default": "", "group": "Advanced"}
   },
   "assets": {"css": ["style.css"], "js": ["frontend.js"]}
 }

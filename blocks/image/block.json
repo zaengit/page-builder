@@ -3,13 +3,18 @@
   "title": "Image",
   "category": "media",
   "icon": "image",
-  "description": "Responsive image with alt text and optional caption.",
+  "description": "Responsive image with content, layout and reusable design controls.",
+  "supports": {"styles": true},
   "attributes": {
     "src": {"type": "image", "label": "Image", "default": "", "group": "Content"},
     "alt": {"type": "string", "label": "Alt text", "default": ""},
     "caption": {"type": "string", "label": "Caption", "default": ""},
     "width": {"type": "select", "label": "Width", "default": "100%", "options": ["25%", "50%", "75%", "100%"], "group": "Layout"},
     "alignment": {"type": "select", "label": "Alignment", "default": "center", "options": ["left", "center", "right"]},
-    "spacing": {"type": "string", "control": "spacing", "label": "Outer spacing", "default": "0 0 0 0", "group": "Design"}
+    "colorScheme": {"type": "string", "control": "color_scheme", "label": "Color scheme", "default": "", "group": "Design"},
+    "spacing": {"type": "string", "control": "spacing", "label": "Outer spacing", "default": "0 0 0 0"},
+    "border": {"type": "string", "control": "border", "label": "Image border", "default": "0|none|currentColor|0"},
+    "effects": {"type": "string", "control": "effects", "label": "Effects", "default": "none|1"},
+    "customClass": {"type": "string", "label": "CSS class", "default": "", "group": "Advanced"}
   }
 }
