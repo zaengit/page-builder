@@ -3,6 +3,7 @@
 /artisan export-ignore
 /bootstrap export-ignore
 /editor export-ignore
+/engine/laravel/tests export-ignore
 /phpstan.neon export-ignore
 /phpunit.xml export-ignore
 /public export-ignore
