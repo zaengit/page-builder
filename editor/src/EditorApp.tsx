@@ -8,13 +8,13 @@ import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/ca
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Control } from './components/Controls';
+import { DynamicDataPanel } from './components/DynamicDataPanel';
 import { Inserter } from './components/Inserter';
 import { SectionTree } from './components/Tree';
 import { readClipboardBlock, useAutosave, useChangeEmitter, useEditorMessages, useEditorShortcuts, usePreview } from './hooks/useEditorEffects';
@@ -49,7 +49,6 @@ function InspectorPanel({ selected, definition, blocks, breakpoint, runtime, onC
   const transforms = selected ? getTransforms(selected.type) : [];
   const extensions = getInspectorPanels();
   const CustomEditor = selected ? getBlockEditor(selected.type) : undefined;
-  const binding = selected ? Object.entries(selected.bindings ?? {})[0] : undefined;
   const styleKeys: Array<keyof BlockStyle> = ['background', 'color', 'padding', 'margin', 'gap', 'width', 'fontSize', 'borderRadius', 'boxShadow'];
 
   return <Card className="h-full min-h-0 gap-0 overflow-hidden rounded-none border-0 shadow-none lg:rounded-lg lg:border lg:shadow-sm">
@@ -62,7 +61,7 @@ function InspectorPanel({ selected, definition, blocks, breakpoint, runtime, onC
           {Object.entries(definition.attributes).map(([name, schema]) => <Control key={name} name={name} path={[name]} schema={schema} value={selected.attrs[name]} attrs={selected.attrs} breakpoint={breakpoint} onChange={value => onChange(selected.id, { [name]: value })} requestMedia={requestMedia} />)}
         </div>}
         {definition.supports?.styles !== false && <div className="space-y-3 p-3"><p className="text-[11px] font-semibold">Design · {breakpoint}</p>{styleKeys.map(key => <div key={key} className="grid gap-1"><Label className="text-[11px] capitalize">{key}</Label><Input className="h-7 text-xs" value={styleValue(selected, key, breakpoint)} onChange={event => { const current = selected.styles?.[key]; const responsive = current && typeof current === 'object' && !Array.isArray(current) ? current as Record<string, unknown> : { desktop: current }; onStyle(selected.id, { [key]: { ...responsive, [breakpoint]: event.target.value } }); }} /></div>)}</div>}
-        <div className="space-y-3 p-3"><p className="text-[11px] font-semibold">Dynamic data</p><Select value={binding?.[1].source ?? 'static'} onValueChange={value => { if (value === 'static') { onBindings(selected.id, {}); return; } onBindings(selected.id, { [binding?.[0] ?? Object.keys(definition.attributes)[0] ?? 'value']: { source: value } }); }}><SelectTrigger size="sm" aria-label="Dynamic data source"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="static">Static</SelectItem>{runtime.dataSources?.map(source => <SelectItem key={source.name} value={source.name}>{source.title}</SelectItem>)}</SelectContent></Select>{binding && <Input className="h-7 text-xs" aria-label="Dynamic data path" placeholder="Path e.g. product.title" value={binding[1].path ?? ''} onChange={event => onBindings(selected.id, { ...selected.bindings, [binding[0]]: { ...binding[1], path: event.target.value } })} />}</div>
+        <DynamicDataPanel selected={selected} definition={definition} runtime={runtime} onBindings={onBindings} />
         <div className="space-y-3 p-3"><p className="text-[11px] font-semibold">Locking</p>{(['move','remove','edit'] as const).map(key => <div key={key} className="flex items-center justify-between"><Label className="text-xs capitalize">Lock {key}</Label><Switch size="sm" checked={Boolean(selected.lock?.[key])} onCheckedChange={value => onLock(selected.id, { ...selected.lock, [key]: value })} /></div>)}</div>
         {transforms.length > 0 && <div className="space-y-2 p-3"><p className="text-[11px] font-semibold">Transform</p>{transforms.map(transform => <Button key={transform.name} type="button" size="xs" variant="outline" className="w-full justify-start" onClick={() => window.dispatchEvent(new CustomEvent('page-builder:transform-request', { detail: { blockId: selected.id, transform } }))}>{transform.title}</Button>)}</div>}
         {extensions.map(extension => { const Panel = extension.render; return <div key={extension.id} className="p-3"><p className="mb-2 text-[11px] font-semibold">{extension.title}</p><Panel block={selected} definition={definition} /></div>; })}
