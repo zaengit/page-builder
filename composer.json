@@ -22,7 +22,12 @@
     "mockery/mockery": "^1.6",
     "phpunit/phpunit": "^13.3.2"
   },
-  "autoload": { "psr-4": { "Zaengit\\PageBuilder\\": "src/" } },
+  "autoload": {
+    "psr-4": {
+      "Zaengit\\PageBuilder\\": "src/",
+      "Zaengit\\PageBuilder\\Engine\\Laravel\\": "engine/laravel/src/"
+    }
+  },
   "autoload-dev": { "psr-4": { "Tests\\": "tests/" } },
   "extra": { "laravel": { "providers": ["Zaengit\\PageBuilder\\PageBuilderServiceProvider"] } },
   "scripts": {
