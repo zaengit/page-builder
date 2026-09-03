@@ -1,5 +1,6 @@
 import { useEffect, type MutableRefObject } from 'react';
-import type { PageBlock, PageContent, EditorRuntime } from '../types';
+import type { EditorHostAdapter } from '../host-adapter';
+import type { PageBlock, PageContent } from '../types';
 
 type MediaRequest = { id: string; path: string[] } | null;
 type MessageActions = { replaceContent: (content: PageContent) => void; select: (id: string | null) => void; updateAttrPath: (id: string, path: string[], value: unknown) => void; duplicateBlock: (id: string) => void; removeBlock: (id: string) => void; };
@@ -36,22 +37,18 @@ export function useEditorShortcuts(selectedId: string | null, undo: () => void, 
   }, [duplicateBlock, redo, selectedId, undo]);
 }
 
-export function usePreview(content: PageContent, ready: boolean, runtime: EditorRuntime, iframe: MutableRefObject<HTMLIFrameElement | null>, setError: (message: string) => void) {
+export function usePreview(content: PageContent, ready: boolean, host: EditorHostAdapter, context: Record<string, unknown> | undefined, iframe: MutableRefObject<HTMLIFrameElement | null>, setError: (message: string) => void) {
   useEffect(() => {
     if (!ready) return;
     const timer = setTimeout(async () => {
       try {
-        const payload = runtime.previewContext && Object.keys(runtime.previewContext).length > 0
-          ? { ...content, context: runtime.previewContext }
-          : content;
-        const response = await fetch(runtime.renderPageUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, credentials: 'same-origin', body: JSON.stringify(payload) });
-        const result = await response.json();
-        if (!response.ok) throw new Error(Object.values(result.errors ?? {}).flat().join(' ') || result.message || 'Preview failed');
-        setError(''); iframe.current?.contentWindow?.postMessage({ type: 'REPLACE_PAGE', html: result.html, assets: result.assets, settings: content.settings }, location.origin);
+        const result = await host.renderPage(content, context ?? {});
+        setError('');
+        iframe.current?.contentWindow?.postMessage({ type: 'REPLACE_PAGE', html: result.html, assets: result.assets, settings: content.settings, diagnostics: result.diagnostics ?? [] }, location.origin);
       } catch (error) { setError(error instanceof Error ? error.message : 'Preview failed'); }
     }, 120);
     return () => clearTimeout(timer);
-  }, [content, iframe, ready, runtime.previewContext, runtime.renderPageUrl, setError]);
+  }, [content, context, host, iframe, ready, setError]);
 }
 
 export function useChangeEmitter(root: HTMLElement, content: PageContent, ready: boolean) {
