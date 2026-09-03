@@ -20,6 +20,7 @@ final class UniversalTemplateRenderer
     {
         $template = $this->renderLoops($template, $context);
         $template = $this->renderConditions($template, $context);
+        $template = str_replace('{{{ children }}}', (string) ($context['children'] ?? ''), $template);
 
         return preg_replace_callback(
             '/{{\s*([A-Za-z0-9_.]+)(?:\s*\?\?\s*(["\'])(.*?)\2)?\s*}}/s',
