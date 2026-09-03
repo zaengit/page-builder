@@ -29,7 +29,8 @@ final class RuntimeConformanceTest extends TestCase
 
     public static function sharedConformanceFixtures(): Generator
     {
-        $paths = glob(base_path('specification/conformance/*.json')) ?: [];
+        $root = dirname(__DIR__, 3);
+        $paths = glob($root.'/specification/conformance/*.json') ?: [];
         sort($paths);
 
         foreach ($paths as $path) {
