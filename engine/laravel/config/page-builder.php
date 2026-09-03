@@ -1,10 +1,13 @@
 <?php
 
+$workspaceBlocks = dirname(__DIR__, 3).'/blocks';
+$workspaceEditorDist = dirname(__DIR__, 3).'/editor/dist';
+
 return [
-    'block_paths' => [
-        dirname(__DIR__).'/blocks',
+    'block_paths' => array_values(array_unique(array_filter([
+        is_dir($workspaceBlocks) ? $workspaceBlocks : null,
         env('PAGE_BUILDER_BLOCKS_PATH', base_path('blocks')),
-    ],
+    ]))),
     'custom_blocks_path' => env('PAGE_BUILDER_BLOCKS_PATH', base_path('blocks')),
     'route_prefix' => env('PAGE_BUILDER_ROUTE_PREFIX', 'page-builder'),
     'api_prefix' => env('PAGE_BUILDER_API_PREFIX', 'api/page-builder'),
@@ -13,7 +16,10 @@ return [
 
     'rendering' => [
         'default' => env('PAGE_BUILDER_RENDERER', 'laravel'),
-        'block_root' => env('PAGE_BUILDER_RENDERER_BLOCK_ROOT', base_path('blocks')),
+        'block_root' => env(
+            'PAGE_BUILDER_RENDERER_BLOCK_ROOT',
+            is_dir($workspaceBlocks) ? $workspaceBlocks : base_path('blocks'),
+        ),
         'timeout_ms' => max(100, (int) env('PAGE_BUILDER_RENDERER_TIMEOUT_MS', 5000)),
         'engines' => [
             'laravel' => [
@@ -38,7 +44,10 @@ return [
     ],
 
     'editor_dev_server' => env('PAGE_BUILDER_EDITOR_DEV_SERVER'),
-    'editor_dist_path' => dirname(__DIR__).'/resources/dist',
+    'editor_dist_path' => env(
+        'PAGE_BUILDER_EDITOR_DIST_PATH',
+        is_dir($workspaceEditorDist) ? $workspaceEditorDist : dirname(__DIR__).'/resources/dist',
+    ),
     'editor_js' => 'page-builder.js',
     'editor_css' => 'page-builder.css',
     'editor_asset_mode' => env('PAGE_BUILDER_EDITOR_ASSET_MODE', 'route'),
@@ -54,15 +63,11 @@ return [
         'max_items' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_ITEMS', 250)),
     ],
 
-    // Persisted page JSON references stable, language-agnostic resource names such as
-    // "products" or "posts". This Laravel adapter maps those names to Eloquent models.
     'data' => [
         'resources' => [
             // 'products' => App\Models\Product::class,
             // 'posts' => App\Models\Post::class,
         ],
-
-        // Deprecated compatibility alias for pages created before universal resources.
         'models' => [
             // 'Product' => App\Models\Product::class,
         ],
