@@ -6,6 +6,7 @@ final class PortableRuntimeRenderer
 {
     public function __construct(private readonly UniversalTemplateRenderer $templates)
     {
+        // Constructor property promotion wires the portable template renderer.
     }
 
     public function render(array $page, array $registry, array $runtimeContext = []): array
