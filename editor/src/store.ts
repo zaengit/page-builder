@@ -90,11 +90,11 @@ export function createBuilderStore() {
 
     async bootstrap(runtime, initial) {
       const definitions = await api<BlockDefinition[]>(runtime.blocksUrl);
-      const content = initial && Array.isArray(initial.blocks) ? { schemaVersion: 1, ...initial } : EMPTY_CONTENT;
+      const content: PageContent = initial && Array.isArray(initial.blocks) ? { ...initial, version: 1 } : EMPTY_CONTENT;
       set({ runtime, definitions, content, selectedId: content.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(content) });
     },
 
-    replaceContent(content) { const next = content && Array.isArray(content.blocks) ? content : EMPTY_CONTENT; set({ content: next, selectedId: next.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(next) }); },
+    replaceContent(content) { const next = content && Array.isArray(content.blocks) ? { ...content, version: 1 as const } : EMPTY_CONTENT; set({ content: next, selectedId: next.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(next) }); },
     markSaved() { const content = get().content; set({ dirty: false, initialSnapshot: snapshot(content), past: [], future: [] }); },
     select(selectedId) { set({ selectedId }); },
 
