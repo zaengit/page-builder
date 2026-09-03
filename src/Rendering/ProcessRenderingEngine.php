@@ -53,6 +53,7 @@ final class ProcessRenderingEngine implements RenderingEngine
             $stdout = '';
             $stderr = '';
             $started = hrtime(true);
+            $exitCode = null;
 
             while (true) {
                 $stdout .= stream_get_contents($pipes[1]) ?: '';
@@ -60,6 +61,7 @@ final class ProcessRenderingEngine implements RenderingEngine
                 $status = proc_get_status($process);
 
                 if (! $status['running']) {
+                    $exitCode = is_int($status['exitcode']) ? $status['exitcode'] : null;
                     break;
                 }
 
@@ -75,8 +77,9 @@ final class ProcessRenderingEngine implements RenderingEngine
             $stderr .= stream_get_contents($pipes[2]) ?: '';
             fclose($pipes[1]);
             fclose($pipes[2]);
-            $exitCode = proc_close($process);
+            $closedExitCode = proc_close($process);
             $process = null;
+            $exitCode = $exitCode ?? $closedExitCode;
 
             if ($exitCode !== 0) {
                 throw new RuntimeException('Renderer process failed: '.trim($stderr));
