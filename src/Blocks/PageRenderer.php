@@ -12,6 +12,7 @@ final class PageRenderer
         private readonly BlockRenderer $blocks,
         private readonly AssetCollector $assets,
         private readonly StyleSerializer $styles,
+        private readonly LayoutSerializer $layouts,
     ) {}
 
     public function render(array $pageContent, bool $preview = false): string
@@ -83,10 +84,13 @@ final class PageRenderer
         return $this->assets->all();
     }
 
-    private function renderBlock(array $block, bool $preview): string
+    private function renderBlock(array $block, bool $preview, ?array $parentLayout = null): string
     {
+        $layout = is_array($block['layout'] ?? null)
+            ? $block['layout']
+            : [];
         $children = implode('', array_map(
-            fn (array $child) => $this->renderBlock($child, $preview),
+            fn (array $child) => $this->renderBlock($child, $preview, $layout),
             $block['children'] ?? [],
         ));
 
@@ -94,6 +98,12 @@ final class PageRenderer
         $id = (string) ($block['id'] ?? '');
         $serialized = $this->styles->serialize(
             is_array($block['styles'] ?? null) ? $block['styles'] : [],
+            $id,
+        );
+        $layoutSerialized = $this->layouts->serialize(
+            $layout,
+            is_array($block['layoutItem'] ?? null) ? $block['layoutItem'] : [],
+            $parentLayout,
             $id,
         );
         $slot = isset($block['slot'])
@@ -105,15 +115,17 @@ final class PageRenderer
         $schemeClass = $schemeId
             ? ' class="pb-color-scheme--'.e($this->safeIdentifier($schemeId)).'" data-pb-color-scheme="'.e($schemeId).'"'
             : '';
+        $inlineStyle = trim($serialized['style'].';'.$layoutSerialized['style'], ';');
+        $responsiveCss = $serialized['css'].$layoutSerialized['css'];
 
-        $wrapper = '<div data-pb-style-id="'.e($id).'"'
+        $wrapper = '<div data-pb-style-id="'.e($id).'" data-pb-id="'.e($id).'"'
             .$schemeClass
             .$slot
-            .' style="'.e($serialized['style']).'">'
+            .' style="'.e($inlineStyle).'">'
             .$html
             .'</div>'
-            .($serialized['css'] !== ''
-                ? '<style data-pb-responsive="'.e($id).'">'.$serialized['css'].'</style>'
+            .($responsiveCss !== ''
+                ? '<style data-pb-responsive="'.e($id).'">'.$responsiveCss.'</style>'
                 : '');
 
         if (! $preview) {

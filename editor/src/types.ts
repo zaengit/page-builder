@@ -26,6 +26,41 @@ export type BlockTransform = { name: string; title: string; to: string; mapAttrs
 export type BlockLock = { move?: boolean; remove?: boolean; edit?: boolean };
 export type DynamicBinding = { source: string; path?: string; fallback?: unknown };
 
+export type LayoutMode = 'block' | 'flex' | 'grid';
+export type FlexDirection = 'row' | 'column' | 'row-reverse' | 'column-reverse';
+export type FlexWrap = 'nowrap' | 'wrap' | 'wrap-reverse';
+export type JustifyContent = 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around' | 'space-evenly';
+export type AlignItems = 'stretch' | 'flex-start' | 'center' | 'flex-end' | 'baseline';
+export type AlignContent = 'stretch' | 'flex-start' | 'center' | 'flex-end' | 'space-between' | 'space-around' | 'space-evenly';
+export type GridAutoFlow = 'row' | 'column' | 'row dense' | 'column dense';
+
+export type SectionLayout = {
+  mode?: ResponsiveValue<LayoutMode>;
+  gap?: ResponsiveValue<string>;
+  rowGap?: ResponsiveValue<string>;
+  columnGap?: ResponsiveValue<string>;
+  flexDirection?: ResponsiveValue<FlexDirection>;
+  flexWrap?: ResponsiveValue<FlexWrap>;
+  justifyContent?: ResponsiveValue<JustifyContent>;
+  alignItems?: ResponsiveValue<AlignItems>;
+  alignContent?: ResponsiveValue<AlignContent>;
+  gridColumns?: ResponsiveValue<number>;
+  gridRows?: ResponsiveValue<number | 'auto'>;
+  gridAutoFlow?: ResponsiveValue<GridAutoFlow>;
+};
+
+export type LayoutItem = {
+  flexGrow?: ResponsiveValue<number>;
+  flexShrink?: ResponsiveValue<number>;
+  flexBasis?: ResponsiveValue<string>;
+  alignSelf?: ResponsiveValue<'auto' | AlignItems>;
+  order?: ResponsiveValue<number>;
+  columnSpan?: ResponsiveValue<number>;
+  rowSpan?: ResponsiveValue<number>;
+  columnStart?: ResponsiveValue<number | 'auto'>;
+  rowStart?: ResponsiveValue<number | 'auto'>;
+};
+
 export type BlockStyle = {
   className?: string;
   background?: string | ResponsiveValue<string>;
@@ -56,29 +91,12 @@ export type ColorSchemeColors = {
   border: string;
 };
 
-export type ColorScheme = {
-  id: string;
-  name: string;
-  colors: ColorSchemeColors;
-};
-
+export type ColorScheme = { id: string; name: string; colors: ColorSchemeColors };
 export type TypographyFamilyName = 'primary' | 'secondary' | 'monospace';
 export type TypographyStyleName = 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'body' | 'bodySmall' | 'caption' | 'label' | 'button';
 export type TextTransform = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
-
-export type TextStyle = {
-  family?: TypographyFamilyName;
-  size?: string;
-  weight?: string;
-  lineHeight?: string;
-  letterSpacing?: string;
-  textTransform?: TextTransform;
-};
-
-export type TypographySettings = {
-  families: Record<TypographyFamilyName, string>;
-  styles: Record<TypographyStyleName, TextStyle>;
-};
+export type TextStyle = { family?: TypographyFamilyName; size?: string; weight?: string; lineHeight?: string; letterSpacing?: string; textTransform?: TextTransform };
+export type TypographySettings = { families: Record<TypographyFamilyName, string>; styles: Record<TypographyStyleName, TextStyle> };
 
 export type BlockDefinition = {
   name: string;
@@ -97,6 +115,7 @@ export type BlockDefinition = {
     lock?: boolean;
     styles?: boolean;
     inline?: string[];
+    layout?: boolean;
   };
 };
 
@@ -109,6 +128,8 @@ export type PageBlock = {
   slot?: string;
   colorSchemeId?: string;
   styles?: BlockStyle;
+  layout?: SectionLayout;
+  layoutItem?: LayoutItem;
   bindings?: Record<string, DynamicBinding>;
   lock?: BlockLock;
 };
@@ -128,30 +149,8 @@ export type PageContent = { blocks: PageBlock[]; settings?: PageSettings; schema
 export type Pattern = { id: string; title: string; category?: string; blocks: PageBlock[] };
 export type PageTemplate = { id: string; title: string; description?: string; content: PageContent };
 export type DataSource = { name: string; title: string; paths?: string[] };
-
-export type EditorRuntime = {
-  blocksUrl: string;
-  renderBlockUrl: string;
-  renderPageUrl: string;
-  previewUrl: string;
-  mediaPicker?: boolean;
-  patterns?: Pattern[];
-  templates?: PageTemplate[];
-  dataSources?: DataSource[];
-  autosaveMs?: number;
-};
-
-export type ControlProps = {
-  name: string;
-  path?: string[];
-  schema: AttrSchema;
-  value: unknown;
-  attrs?: Record<string, unknown>;
-  breakpoint?: Breakpoint;
-  onChange: (value: unknown) => void;
-  requestMedia?: (path: string[]) => void;
-};
-
+export type EditorRuntime = { blocksUrl: string; renderBlockUrl: string; renderPageUrl: string; previewUrl: string; mediaPicker?: boolean; patterns?: Pattern[]; templates?: PageTemplate[]; dataSources?: DataSource[]; autosaveMs?: number };
+export type ControlProps = { name: string; path?: string[]; schema: AttrSchema; value: unknown; attrs?: Record<string, unknown>; breakpoint?: Breakpoint; onChange: (value: unknown) => void; requestMedia?: (path: string[]) => void };
 export type InspectorControl = ComponentType<ControlProps>;
 export type BlockEditorProps = { block: PageBlock; definition: BlockDefinition; children?: ReactNode; updateAttrs: (attrs: Record<string, unknown>) => void };
 export type BlockEditor = ComponentType<BlockEditorProps>;

@@ -27,12 +27,10 @@ describe('builder store', () => {
     await store.getState().bootstrap(runtime, initial);
     expect(store.getState().selectedId).toBe('seed');
     expect(store.getState().dirty).toBe(false);
-
     store.getState().replaceContent({ blocks: [{ id: 'next', type: 'test/other', version: 1, attrs: {} }] });
     expect(store.getState().selectedId).toBe('next');
     store.getState().select(null);
     expect(store.getState().selectedId).toBeNull();
-
     vi.stubGlobal('fetch', vi.fn(async () => new Response('', { status: 503 })));
     await expect(createBuilderStore().getState().bootstrap(runtime)).rejects.toThrow('Request failed (503)');
   });
@@ -56,7 +54,6 @@ describe('builder store', () => {
     expect(findBlock(store.getState().content.blocks, parent)?.children).toHaveLength(0);
     store.getState().addBlock('test/text', parent);
     expect(findBlock(store.getState().content.blocks, parent)?.children).toHaveLength(1);
-
     const loose: PageBlock = { id: 'source', type: 'test/text', version: 3, attrs: { text: 'x', slides: [] } };
     store.getState().insertBlock(loose, 'missing-parent');
     expect(store.getState().content.blocks).toHaveLength(1);
@@ -78,6 +75,25 @@ describe('builder store', () => {
     expect(store.getState().dirty).toBe(true);
   });
 
+  it('updates responsive layout state and moves blocks into layout containers with history', async () => {
+    const store = await readyStore();
+    store.getState().addBlock('test/free-container');
+    const parent = store.getState().selectedId!;
+    store.getState().updateLayout(parent, { mode: { desktop: 'grid', mobile: 'flex' }, gridColumns: { desktop: 4 } });
+    expect(findBlock(store.getState().content.blocks, parent)?.layout?.gridColumns?.desktop).toBe(4);
+
+    store.getState().addBlock('test/text');
+    const child = store.getState().selectedId!;
+    store.getState().moveBlockToLayout(child, parent, undefined, { row: 2, column: 3 }, 'desktop');
+    expect(findBlock(store.getState().content.blocks, parent)?.children?.[0].id).toBe(child);
+    expect(findBlock(store.getState().content.blocks, child)?.layoutItem?.columnStart?.desktop).toBe(3);
+
+    store.getState().updateLayoutItem(child, { columnSpan: { desktop: 2 }, rowSpan: { desktop: 1 } });
+    expect(findBlock(store.getState().content.blocks, child)?.layoutItem?.columnSpan?.desktop).toBe(2);
+    store.getState().undo();
+    expect(findBlock(store.getState().content.blocks, child)?.layoutItem?.columnStart?.desktop).toBe(3);
+  });
+
   it('duplicates root and nested blocks with renewed ids', async () => {
     const store = await readyStore();
     store.getState().addBlock('test/text');
@@ -85,7 +101,6 @@ describe('builder store', () => {
     store.getState().duplicateBlock(rootId);
     expect(store.getState().content.blocks).toHaveLength(2);
     expect(store.getState().content.blocks[0].id).not.toBe(store.getState().content.blocks[1].id);
-
     store.getState().addBlock('test/container');
     const parent = store.getState().selectedId!;
     store.getState().addBlock('test/text', parent);
@@ -103,12 +118,10 @@ describe('builder store', () => {
     const second = store.getState().selectedId!;
     store.getState().moveBlock(second, first);
     expect(store.getState().content.blocks.map(block => block.id)).toEqual([second, first]);
-
     store.getState().addBlock('test/free-container');
     const parent = store.getState().selectedId!;
     store.getState().moveBlock(first, `children:${parent}`);
     expect(findBlock(store.getState().content.blocks, parent)?.children?.[0].id).toBe(first);
-
     store.getState().addBlock('test/text', parent);
     const sibling = store.getState().selectedId!;
     store.getState().moveBlock(sibling, first);
@@ -127,7 +140,6 @@ describe('builder store', () => {
     store.getState().moveBlock('missing', restrictive);
     store.getState().moveBlock(other, 'missing');
     expect(JSON.stringify(store.getState().content)).toBe(before);
-
     store.getState().addBlock('test/free-container');
     const parent = store.getState().selectedId!;
     store.getState().addBlock('test/free-container', parent);
@@ -148,7 +160,6 @@ describe('builder store', () => {
     expect(store.getState().selectedId).toBeNull();
     expect(store.getState().content.blocks).toHaveLength(0);
     store.getState().removeBlock('missing');
-
     store.getState().addBlock('test/free-container');
     const nextParent = store.getState().selectedId!;
     store.getState().addBlock('test/text', nextParent);

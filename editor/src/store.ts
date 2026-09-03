@@ -1,6 +1,7 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
-import type { BlockDefinition, BlockLock, BlockStyle, BlockTransform, BlockVariation, EditorRuntime, PageBlock, PageContent, PageSettings, Pattern } from './types';
+import type { BlockDefinition, BlockLock, BlockStyle, BlockTransform, BlockVariation, Breakpoint, EditorRuntime, LayoutItem, PageBlock, PageContent, PageSettings, Pattern, SectionLayout } from './types';
 import { clone, EMPTY_CONTENT, setPathValue } from './utils';
+import { moveIntoLayout } from './layout-store';
 
 export type BuilderState = {
   content: PageContent;
@@ -22,6 +23,9 @@ export type BuilderState = {
   updateAttrs: (id: string, attrs: Record<string, unknown>) => void;
   updateAttrPath: (id: string, path: string[], value: unknown) => void;
   updateStyles: (id: string, styles: Partial<BlockStyle>) => void;
+  updateLayout: (id: string, layout: SectionLayout) => void;
+  updateLayoutItem: (id: string, layoutItem: LayoutItem) => void;
+  moveBlockToLayout: (activeId: string, parentId: string | null, index?: number, grid?: { row: number; column: number }, breakpoint?: Breakpoint) => void;
   updateColorScheme: (id: string, colorSchemeId?: string) => void;
   updateBindings: (id: string, bindings: PageBlock['bindings']) => void;
   updateSettings: (settings: Partial<PageSettings>) => void;
@@ -34,7 +38,6 @@ export type BuilderState = {
 };
 
 export const builderStoreBridge: { current: UseBoundStore<StoreApi<BuilderState>> | null } = { current: null };
-
 const HISTORY_LIMIT = 100;
 const snapshot = (content: PageContent) => JSON.stringify(content);
 
@@ -60,11 +63,7 @@ function updateBlock(blocks: PageBlock[], id: string, transform: (block: PageBlo
 
 function removeBlockFromTree(blocks: PageBlock[], id: string): { blocks: PageBlock[]; removed: PageBlock | null } {
   const index = blocks.findIndex(block => block.id === id);
-  if (index >= 0) {
-    const next = [...blocks];
-    const [removed] = next.splice(index, 1);
-    return { blocks: next, removed };
-  }
+  if (index >= 0) { const next = [...blocks]; const [removed] = next.splice(index, 1); return { blocks: next, removed }; }
   for (const block of blocks) {
     const result = removeBlockFromTree(block.children ?? [], id);
     if (result.removed) return { blocks: blocks.map(item => item.id === block.id ? { ...item, children: result.blocks } : item), removed: result.removed };
@@ -73,37 +72,21 @@ function removeBlockFromTree(blocks: PageBlock[], id: string): { blocks: PageBlo
 }
 
 function findParentId(blocks: PageBlock[], id: string, parent: string | null = null): string | null | undefined {
-  for (const block of blocks) {
-    if (block.id === id) return parent;
-    const found = findParentId(block.children ?? [], id, block.id);
-    if (found !== undefined) return found;
-  }
+  for (const block of blocks) { if (block.id === id) return parent; const found = findParentId(block.children ?? [], id, block.id); if (found !== undefined) return found; }
   return undefined;
 }
 
 function insertBefore(blocks: PageBlock[], target: string, item: PageBlock): PageBlock[] {
-  const index = blocks.findIndex(block => block.id === target);
-  if (index < 0) return blocks;
-  const next = [...blocks];
-  next.splice(index, 0, item);
-  return next;
+  const index = blocks.findIndex(block => block.id === target); if (index < 0) return blocks; const next = [...blocks]; next.splice(index, 0, item); return next;
 }
 
-function renewIds(block: PageBlock): PageBlock {
-  return { ...clone(block), id: crypto.randomUUID(), children: block.children?.map(renewIds) };
-}
-
-function historyUpdate(state: BuilderState, content: PageContent, selectedId = state.selectedId) {
-  if (snapshot(state.content) === snapshot(content)) return null;
-  return { content, selectedId, past: [...state.past, state.content].slice(-HISTORY_LIMIT), future: [], dirty: snapshot(content) !== state.initialSnapshot };
-}
-
+function renewIds(block: PageBlock): PageBlock { return { ...clone(block), id: crypto.randomUUID(), children: block.children?.map(renewIds) }; }
+function historyUpdate(state: BuilderState, content: PageContent, selectedId = state.selectedId) { if (snapshot(state.content) === snapshot(content)) return null; return { content, selectedId, past: [...state.past, state.content].slice(-HISTORY_LIMIT), future: [], dirty: snapshot(content) !== state.initialSnapshot }; }
 function canEdit(block: PageBlock | null) { return !block?.lock?.edit; }
 
 export function createBuilderStore() {
   const store = create<BuilderState>((set, get) => ({
-    content: EMPTY_CONTENT,
-    definitions: [], runtime: null, selectedId: null, dirty: false, past: [], future: [], initialSnapshot: snapshot(EMPTY_CONTENT),
+    content: EMPTY_CONTENT, definitions: [], runtime: null, selectedId: null, dirty: false, past: [], future: [], initialSnapshot: snapshot(EMPTY_CONTENT),
 
     async bootstrap(runtime, initial) {
       const definitions = await api<BlockDefinition[]>(runtime.blocksUrl);
@@ -111,10 +94,7 @@ export function createBuilderStore() {
       set({ runtime, definitions, content, selectedId: content.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(content) });
     },
 
-    replaceContent(content) {
-      const next = content && Array.isArray(content.blocks) ? content : EMPTY_CONTENT;
-      set({ content: next, selectedId: next.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(next) });
-    },
+    replaceContent(content) { const next = content && Array.isArray(content.blocks) ? content : EMPTY_CONTENT; set({ content: next, selectedId: next.blocks[0]?.id ?? null, dirty: false, past: [], future: [], initialSnapshot: snapshot(next) }); },
     markSaved() { const content = get().content; set({ dirty: false, initialSnapshot: snapshot(content), past: [], future: [] }); },
     select(selectedId) { set({ selectedId }); },
 
@@ -144,6 +124,18 @@ export function createBuilderStore() {
     updateAttrs(id, attrs) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, attrs: { ...block.attrs, ...attrs } })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateAttrPath(id, path, value) { if (!path.length) return; const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, attrs: setPathValue(block.attrs, path, value) as Record<string, unknown> })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateStyles(id, styles) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, styles: { ...block.styles, ...styles } })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
+    updateLayout(id, layout) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, layout })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
+    updateLayoutItem(id, layoutItem) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, layoutItem })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
+    moveBlockToLayout(activeId, parentId, index, grid, breakpoint = 'desktop') {
+      const state = get(); const active = findBlock(state.content.blocks, activeId); if (!active || active.lock?.move) return;
+      if (parentId) {
+        const parent = findBlock(state.content.blocks, parentId); const definition = state.definitions.find(candidate => candidate.name === parent?.type);
+        if (!parent || !definition?.supports?.children || parent.lock?.edit || findBlock(active.children ?? [], parentId)) return;
+        if (definition.supports.allowedChildren?.length && !definition.supports.allowedChildren.includes(active.type)) return;
+      }
+      const blocks = moveIntoLayout(state.content.blocks, activeId, parentId, index, grid, breakpoint);
+      const update = historyUpdate(state, { ...state.content, blocks }, activeId); if (update) set(update);
+    },
     updateColorScheme(id, colorSchemeId) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, colorSchemeId: colorSchemeId || undefined })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateBindings(id, bindings) { const state = get(); if (!canEdit(findBlock(state.content.blocks, id))) return; const blocks = updateBlock(state.content.blocks, id, block => ({ ...block, bindings })); const update = historyUpdate(state, { ...state.content, blocks }); if (update) set(update); },
     updateSettings(settings) { const state = get(); const content = { ...state.content, settings: { ...state.content.settings, ...settings } }; const update = historyUpdate(state, content); if (update) set(update); },
@@ -171,9 +163,8 @@ export function createBuilderStore() {
 
     removeBlock(id) { const state = get(); const block = findBlock(state.content.blocks, id); if (!block || block.lock?.remove) return; const result = removeBlockFromTree(state.content.blocks, id); if (!result.removed) return; const selectedRemoved = state.selectedId === id || Boolean(state.selectedId && findBlock(result.removed.children ?? [], state.selectedId)); const update = historyUpdate(state, { ...state.content, blocks: result.blocks }, selectedRemoved ? null : state.selectedId); if (update) set(update); },
     undo() { const state = get(); if (!state.past.length) return; const content = state.past.at(-1)!; set({ content, past: state.past.slice(0, -1), future: [state.content, ...state.future].slice(0, HISTORY_LIMIT), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot }); },
-    redo() { const state = get(); if (!state.future.length) return; const content = state.future[0]; set({ content, past: [...state.past, state.content].slice(-HISTORY_LIMIT), future: state.future.slice(1), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot }); },
+    redo() { const state = get(); if (!state.future.length) return; const content = state.future[0]; set({ content, past: [...state.past, state.content].slice(0, HISTORY_LIMIT), future: state.future.slice(1), selectedId: state.selectedId && findBlock(content.blocks, state.selectedId) ? state.selectedId : null, dirty: snapshot(content) !== state.initialSnapshot }); },
   }));
-
   builderStoreBridge.current = store;
   return store;
 }
