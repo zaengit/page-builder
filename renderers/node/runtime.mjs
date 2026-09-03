@@ -88,6 +88,16 @@ function wrapBlock(block, html) {
     : '';
   return `<div data-pb-style-id="${id}" data-pb-id="${id}"${scheme}${slot} style="${style}">${html}</div>${responsive}`;
 }
+function wrapPage(page, body) {
+  const compiled = page._pageRender;
+  if (!compiled || typeof compiled !== 'object') return `<div class="pb-page">${body}</div>`;
+  const className = escapeHtml(compiled.class ?? 'pb-page');
+  const style = escapeHtml(compiled.style ?? '');
+  const schemeCss = compiled.colorSchemeCss ? `<style data-pb-color-schemes>${String(compiled.colorSchemeCss).replaceAll('</style', '')}</style>` : '';
+  const typographyCss = compiled.typographyCss ? `<style data-pb-typography>${String(compiled.typographyCss).replaceAll('</style', '')}</style>` : '';
+  const customCss = compiled.customCss ? `<style data-pb-page-css>${String(compiled.customCss).replaceAll('</style', '').replaceAll('<script', '')}</style>` : '';
+  return `<div class="${className}" style="${style}">${body}</div>${schemeCss}${typographyCss}${customCss}`;
+}
 
 export class UniversalRenderer {
   render({ page, registry, context = {} }) {
@@ -111,6 +121,6 @@ export class UniversalRenderer {
       return wrapBlock(block, html);
     };
     const body = (page.blocks ?? []).map(renderBlock).join('');
-    return { html: `<div class="pb-page">${body}</div>`, assets, diagnostics };
+    return { html: wrapPage(page, body), assets, diagnostics };
   }
 }
