@@ -111,8 +111,8 @@ final class MediaController extends Controller
 
     private function adapter(string $disk): FilesystemAdapter
     {
+        /** @var FilesystemAdapter $adapter */
         $adapter = Storage::disk($disk);
-        abort_unless($adapter instanceof FilesystemAdapter, 500, 'Unsupported filesystem adapter.');
 
         return $adapter;
     }
