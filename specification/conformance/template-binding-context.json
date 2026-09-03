@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "registry": {
+    "test/template": {
+      "name": "test/template",
+      "version": 1,
+      "template": "<h1>{{ attrs.title ?? \"Untitled\" }}</h1>{% if context.product.available %}<strong>{{ attrs.title }}</strong>{% endif %}{% for item in context.items %}<span>{{ item.name }}</span>{% endfor %}",
+      "attributes": {
+        "title": {"type": "string", "default": "Fallback"}
+      },
+      "assets": {"css": [], "js": []}
+    }
+  },
+  "page": {
+    "version": 1,
+    "blocks": [
+      {
+        "id": "template-1",
+        "type": "test/template",
+        "attrs": {},
+        "bindings": {
+          "title": {
+            "source": "context",
+            "path": "product.name",
+            "fallback": "Unknown"
+          }
+        },
+        "children": []
+      }
+    ]
+  },
+  "context": {
+    "product": {"name": "Phone & Tablet", "available": true},
+    "items": [{"name": "One"}, {"name": "Two"}]
+  },
+  "expected": {
+    "html": "<div class=\"pb-page\" style=\"\"><div data-pb-style-id=\"template-1\" data-pb-id=\"template-1\" style=\"\"><h1>Phone &amp; Tablet</h1><strong>Phone &amp; Tablet</strong><span>One</span><span>Two</span></div></div>",
+    "assets": {"css": [], "js": []},
+    "diagnostics": []
+  }
+}
