@@ -10,5 +10,6 @@ final readonly class BlockRenderContext
         public array $attrs,
         public mixed $data,
         public bool $preview,
+        public array $runtimeContext = [],
     ) {}
 }
