@@ -57,8 +57,11 @@ jobs:
               block_validator.validate(json.loads(path.read_text()))
 
           page_validator = Draft202012Validator(schemas['page.schema.json'])
-          datasource_request_validator = Draft202012Validator(schemas['datasource.schema.json']['$defs']['request'])
-          datasource_response_validator = Draft202012Validator(schemas['datasource.schema.json']['$defs']['response'])
+          datasource_root = schemas['datasource.schema.json']
+          datasource_request_schema = {**datasource_root, '$ref': '#/$defs/request'}
+          datasource_response_schema = {**datasource_root, '$ref': '#/$defs/response'}
+          datasource_request_validator = Draft202012Validator(datasource_request_schema)
+          datasource_response_validator = Draft202012Validator(datasource_response_schema)
           result_validator = Draft202012Validator(schemas['renderer-protocol.schema.json']['$defs']['result'])
 
           fixtures = sorted((spec / 'conformance').glob('*.json'))
