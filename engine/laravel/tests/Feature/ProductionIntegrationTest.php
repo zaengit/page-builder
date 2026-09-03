@@ -185,11 +185,19 @@ class ProductionIntegrationTest extends TestCase
 
     private function removeDirectory(string $directory): void
     {
-        if (!is_dir($directory)) return;
+        if (! is_dir($directory)) {
+            return;
+        }
+
         foreach (array_diff(scandir($directory) ?: [], ['.', '..']) as $entry) {
             $path = $directory.'/'.$entry;
-            if (is_dir($path)) $this->removeDirectory($path); else @unlink($path);
+            if (is_dir($path)) {
+                $this->removeDirectory($path);
+            } else {
+                @unlink($path);
+            }
         }
+
         @rmdir($directory);
     }
 }
