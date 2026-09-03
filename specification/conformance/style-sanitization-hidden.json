@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "registry": {
+    "test/text": {
+      "name": "test/text",
+      "version": 1,
+      "template": "<p>{{ attrs.text }}</p>",
+      "attributes": {"text": {"type": "string", "default": ""}},
+      "assets": {"css": [], "js": []}
+    }
+  },
+  "page": {
+    "version": 1,
+    "blocks": [
+      {
+        "id": "style-1",
+        "type": "test/text",
+        "attrs": {"text": "Styled"},
+        "styles": {
+          "fontSize": {
+            "desktop": "20px;position:fixed",
+            "tablet": "18px;bad",
+            "mobile": "16px"
+          },
+          "hidden": {
+            "tablet": true
+          }
+        },
+        "children": []
+      }
+    ]
+  },
+  "context": {},
+  "expected": {
+    "html": "<div class=\"pb-page\" style=\"\"><div data-pb-style-id=\"style-1\" data-pb-id=\"style-1\" style=\"font-size:20pxposition:fixed\"><p>Styled</p></div><style data-pb-responsive=\"style-1\">@media(max-width:1024px){[data-pb-style-id=\"style-1\"]{font-size:18pxbad;display:none}}@media(max-width:640px){[data-pb-style-id=\"style-1\"]{font-size:16px}}</style></div>",
+    "assets": {"css": [], "js": []},
+    "diagnostics": []
+  }
+}
