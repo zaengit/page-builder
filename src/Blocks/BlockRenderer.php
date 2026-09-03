@@ -70,8 +70,8 @@ final class BlockRenderer
             'blockId' => $context->blockId,
             'attrs' => $context->attrs,
             'data' => $data,
-            'context' => [
-                'runtime' => $context->runtime,
+            'context' => $context->runtimeContext,
+            'meta' => [
                 'preview' => $context->preview,
                 'blockId' => $context->blockId,
                 'blockType' => $context->blockType,
