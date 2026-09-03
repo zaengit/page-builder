@@ -2,20 +2,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DIST="$ROOT/dist/renderers"
+DIST="$ROOT/dist/engine"
 mkdir -p "$DIST"
 
-rm -f \
-  "$DIST/page-builder-render-go" \
-  "$DIST/page-builder-render-rust" \
-  "$DIST/page-builder-render-node" \
-  "$DIST/page-builder-render-python"
+rm -f "$DIST/page-builder-engine-go"
 
-echo "Building Go renderer..."
+echo "Building Go engine..."
 (
-  cd "$ROOT/renderers/go"
-  go build -trimpath -ldflags="-s -w" -o "$DIST/page-builder-render-go" ./cmd/page-builder-render
+  cd "$ROOT/engine/go"
+  go build -trimpath -ldflags="-s -w" -o "$DIST/page-builder-engine-go" ./cmd/page-builder-render
 )
 
-printf '\nBuilt supported external renderer in %s\n' "$DIST"
-printf '  %s\n' "$DIST/page-builder-render-go"
+printf '\nBuilt supported standalone engine in %s\n' "$DIST"
+printf '  %s\n' "$DIST/page-builder-engine-go"
