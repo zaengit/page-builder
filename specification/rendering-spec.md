@@ -4,24 +4,11 @@ This specification is the runtime contract for every renderer. Page content, blo
 
 ## Runtime contract
 
-A renderer receives:
-
-- a page document (`version`, `settings`, `blocks`)
-- a block registry loaded from `block.json`
-- a runtime context (route/current resource/preview context)
-- zero or more named data providers
-
-A renderer returns:
-
-- HTML
-- collected CSS/JS assets
-- diagnostics for unknown blocks, bindings, providers, or invalid templates
+A renderer receives a page document (`version`, `settings`, `blocks`), a block registry loaded from `block.json`, a runtime context, and zero or more named data providers. It returns HTML, collected CSS/JS assets, and diagnostics.
 
 ## Block template
 
 Portable blocks use `template.html`. `template.blade.php` is a Laravel compatibility fallback only and is not part of the universal format.
-
-Supported portable template syntax:
 
 ```html
 <h2>{{ product.name ?? "Untitled" }}</h2>
@@ -34,14 +21,16 @@ Supported portable template syntax:
   <article>{{ item.name }}</article>
 {% endfor %}
 
-<div>{{ children }}</div>
+<div>{{{ children }}}</div>
 ```
 
 ### Interpolation
 
-`{{ path.to.value }}` resolves a dot-separated path from the render context. Values are HTML escaped by default.
+`{{ path.to.value }}` resolves a dot-separated path from the render context and HTML escapes the value.
 
 `{{ path.to.value ?? "fallback" }}` uses the fallback when the path is missing or null.
+
+`{{{ children }}}` is the only raw interpolation in v1. It exists solely for renderer-generated nested block HTML. Arbitrary attributes or provider data must never be emitted raw.
 
 ### Conditions
 
@@ -92,17 +81,10 @@ A conforming implementation must:
 6. collect declared CSS/JS assets once per page;
 7. isolate host-specific database/model details behind data-provider adapters;
 8. treat preview context as runtime input, not persisted page state;
-9. escape interpolated output by default;
-10. produce deterministic HTML for the same page, registry, and context.
+9. escape ordinary interpolated output by default;
+10. only allow renderer-produced nested child HTML through the raw `children` slot;
+11. produce deterministic HTML for the same page, registry, and context.
 
 ## Host adapters
 
-Official adapters can implement this specification for:
-
-- PHP/Laravel
-- Go
-- Rust
-- Node.js
-- Python
-
-The React editor only writes the universal page schema and does not depend on which renderer serves production HTML.
+Official adapters can implement this specification for PHP/Laravel, Go, Rust, Node.js, and Python. The React editor only writes the universal page schema and does not depend on which renderer serves production HTML.
