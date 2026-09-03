@@ -5,10 +5,18 @@
   "type": "object",
   "required": ["name", "version"],
   "properties": {
-    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$"
+    },
     "version": { "type": "integer", "minimum": 1 },
     "title": { "type": "string" },
     "category": { "type": "string" },
+    "template": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+\\.html$",
+      "default": "template.html"
+    },
     "attributes": { "type": "object" },
     "data": {
       "type": "object",
