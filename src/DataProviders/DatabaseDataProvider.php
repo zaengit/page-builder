@@ -23,6 +23,7 @@ final class DatabaseDataProvider implements BlockDataProvider
         if ($modelClass === '' || ! in_array($modelClass, array_values($models), true)) {
             throw new InvalidArgumentException('Database binding model is not allowed.');
         }
+
         if (! is_subclass_of($modelClass, Model::class)) {
             throw new InvalidArgumentException('Database binding model must extend Eloquent Model.');
         }
@@ -43,6 +44,7 @@ final class DatabaseDataProvider implements BlockDataProvider
             if ($contextValue instanceof Model) {
                 $contextValue = $contextValue->getKey();
             }
+
             if ($contextValue !== null) {
                 $query->where($model->getQualifiedKeyName(), $contextValue);
             }
@@ -59,6 +61,7 @@ final class DatabaseDataProvider implements BlockDataProvider
         }
 
         $record = $query->first();
+
         return $record?->toArray();
     }
 
@@ -76,17 +79,42 @@ final class DatabaseDataProvider implements BlockDataProvider
     {
         $allowed = ['=', '!=', '<>', '>', '>=', '<', '<=', 'like', 'not like'];
         foreach (array_slice((array) ($spec['where'] ?? []), 0, 50) as $filter) {
-            if (! is_array($filter)) continue;
-            $column = (string) ($filter['column'] ?? '');
-            $operator = strtolower((string) ($filter['operator'] ?? '='));
-            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column)) continue;
-            if ($operator === 'in' || $operator === 'not in') {
-                $values = is_array($filter['value'] ?? null) ? $filter['value'] : array_filter(array_map('trim', explode(',', (string) ($filter['value'] ?? ''))));
-                $operator === 'in' ? $query->whereIn($column, $values) : $query->whereNotIn($column, $values);
+            if (! is_array($filter)) {
                 continue;
             }
-            if ($operator === 'null') { $query->whereNull($column); continue; }
-            if ($operator === 'not null') { $query->whereNotNull($column); continue; }
+
+            $column = (string) ($filter['column'] ?? '');
+            $operator = strtolower((string) ($filter['operator'] ?? '='));
+            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column)) {
+                continue;
+            }
+
+            if ($operator === 'in' || $operator === 'not in') {
+                $values = is_array($filter['value'] ?? null)
+                    ? $filter['value']
+                    : array_filter(array_map('trim', explode(',', (string) ($filter['value'] ?? ''))));
+
+                if ($operator === 'in') {
+                    $query->whereIn($column, $values);
+                } else {
+                    $query->whereNotIn($column, $values);
+                }
+
+                continue;
+            }
+
+            if ($operator === 'null') {
+                $query->whereNull($column);
+
+                continue;
+            }
+
+            if ($operator === 'not null') {
+                $query->whereNotNull($column);
+
+                continue;
+            }
+
             if (in_array($operator, $allowed, true)) {
                 $query->where($column, $operator, $filter['value'] ?? null);
             }
@@ -97,9 +125,15 @@ final class DatabaseDataProvider implements BlockDataProvider
     private function applyOrdering(Builder $query, array $spec): void
     {
         foreach (array_slice((array) ($spec['orderBy'] ?? []), 0, 10) as $order) {
-            if (! is_array($order)) continue;
+            if (! is_array($order)) {
+                continue;
+            }
+
             $column = (string) ($order['column'] ?? '');
-            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column)) continue;
+            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column)) {
+                continue;
+            }
+
             $query->orderBy($column, strtolower((string) ($order['direction'] ?? 'asc')) === 'desc' ? 'desc' : 'asc');
         }
     }
@@ -115,6 +149,7 @@ final class DatabaseDataProvider implements BlockDataProvider
         if ($perPage > 0) {
             /** @var LengthAwarePaginator<int, Model> $paginator */
             $paginator = $query->paginate($perPage, ['*'], 'page', max(1, (int) ($spec['page'] ?? request()->integer('page', 1))));
+
             return [
                 'items' => array_map(fn (Model $item) => $item->toArray(), $paginator->items()),
                 'pagination' => [
