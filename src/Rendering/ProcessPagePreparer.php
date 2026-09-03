@@ -35,7 +35,7 @@ final class ProcessPagePreparer
         $prepared = [];
 
         foreach ($blocks as $block) {
-            if (! is_array($block)) {
+            if (is_array($block) === false) {
                 continue;
             }
 
@@ -136,7 +136,7 @@ final class ProcessPagePreparer
 
     private function compileTypography(mixed $typography): string
     {
-        if (! is_array($typography)) {
+        if (is_array($typography) === false) {
             return '';
         }
         $families = is_array($typography['families'] ?? null) ? $typography['families'] : [];
