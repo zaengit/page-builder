@@ -10,8 +10,8 @@ final class ProcessRenderingEngineTest extends TestCase
     public function test_it_renders_through_the_universal_process_protocol(): void
     {
         $engine = new ProcessRenderingEngine(
-            [PHP_BINARY, base_path('tests/Fixtures/process-renderer.php')],
-            base_path('blocks'),
+            [PHP_BINARY, $this->enginePath('tests/Fixtures/process-renderer.php')],
+            $this->blocksPath(),
             5000,
         );
 
