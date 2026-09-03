@@ -1,7 +1,7 @@
 {
   "$schema": "https://getcomposer.org/schema.json",
   "name": "zaengit/page-builder",
-  "description": "Laravel + React block-based visual page builder package",
+  "description": "Universal React page builder distribution with Laravel and Go engines",
   "type": "library",
   "license": "MIT",
   "require": {
@@ -9,6 +9,7 @@
     "illuminate/cache": "^13.29",
     "illuminate/config": "^13.29",
     "illuminate/contracts": "^13.29",
+    "illuminate/database": "^13.29",
     "illuminate/http": "^13.29",
     "illuminate/routing": "^13.29",
     "illuminate/support": "^13.29",
@@ -25,18 +26,19 @@
   "autoload": {
     "psr-4": {
       "Zaengit\\PageBuilder\\": "src/",
+      "Zaengit\\PageBuilder\\Core\\": "core/php/src/",
       "Zaengit\\PageBuilder\\Engine\\Laravel\\": "engine/laravel/src/"
     }
   },
-  "autoload-dev": { "psr-4": { "Tests\\": "tests/" } },
-  "extra": { "laravel": { "providers": ["Zaengit\\PageBuilder\\PageBuilderServiceProvider"] } },
+  "autoload-dev": {"psr-4": {"Tests\\": "tests/"}},
+  "extra": {"laravel": {"providers": ["Zaengit\\PageBuilder\\PageBuilderServiceProvider"]}},
   "scripts": {
     "post-autoload-dump": ["Illuminate\\Foundation\\ComposerScripts::postAutoloadDump", "@php artisan package:discover --ansi"],
     "test": "phpunit",
     "analyse": "phpstan analyse --memory-limit=1G",
     "format:test": "pint --test"
   },
-  "config": { "optimize-autoloader": true, "preferred-install": "dist", "sort-packages": true },
+  "config": {"optimize-autoloader": true, "preferred-install": "dist", "sort-packages": true},
   "minimum-stability": "stable",
   "prefer-stable": true
 }
