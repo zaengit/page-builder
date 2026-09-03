@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
 use Zaengit\PageBuilder\Blocks\PageContentValidator;
 use Zaengit\PageBuilder\Blocks\PageLayoutProcessor;
-use Zaengit\PageBuilder\Blocks\PageRenderer;
+use Zaengit\PageBuilder\Rendering\RenderingEngineManager;
 
 final class BlockController
 {
@@ -28,35 +28,33 @@ final class BlockController
 
     public function render(
         Request $request,
-        PageRenderer $renderer,
+        RenderingEngineManager $engines,
         PageContentValidator $validator,
         PageLayoutProcessor $layouts,
     ): JsonResponse {
-        $original = ['blocks' => [$request->all()]];
+        $original = ['version' => 1, 'blocks' => [$request->all()]];
         $content = $layouts->apply($original, $validator->validate($original));
         $block = $content['blocks'][0];
-        $html = $renderer->render($content, true);
+        $result = $engines->render($content);
 
         return response()->json([
             'id' => $block['id'],
-            'html' => $html,
-            'assets' => $renderer->assets(),
+            'html' => $result->html,
+            'assets' => $result->assets,
+            'diagnostics' => $result->diagnostics,
         ]);
     }
 
     public function renderPage(
         Request $request,
-        PageRenderer $renderer,
+        RenderingEngineManager $engines,
         PageContentValidator $validator,
         PageLayoutProcessor $layouts,
     ): JsonResponse {
-        $original = $request->all();
+        $original = ['version' => 1, ...$request->all()];
         $content = $layouts->apply($original, $validator->validate($original));
-        $html = $renderer->render($content, true);
+        $result = $engines->render($content);
 
-        return response()->json([
-            'html' => $html,
-            'assets' => $renderer->assets(),
-        ]);
+        return response()->json($result->toArray());
     }
 }
