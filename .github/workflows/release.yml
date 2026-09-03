@@ -27,6 +27,14 @@ jobs:
           [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$ ]]
           ! git rev-parse "v$VERSION" >/dev/null 2>&1
 
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Validate portable blocks
+        run: |
+          python -m pip install --disable-pip-version-check jsonschema==4.25.1
+          python scripts/validate-block-packages.py
+
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -69,28 +77,61 @@ jobs:
           npm run test:coverage
           npm run build
           test -s dist/page-builder.js
+          test -s dist/index.js
           test -s dist/page-builder.css
+          npm run pack:check
 
       - name: Build release artifacts
         env:
           VERSION: ${{ inputs.version }}
         run: |
+          set -euo pipefail
           mkdir -p release-dist
 
           (cd engine/laravel && composer archive --format=zip --dir=../../release-dist --file="page-builder-engine-laravel-v$VERSION")
-          (cd engine/go && GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "../../release-dist/page-builder-engine-go-linux-amd64-v$VERSION" ./cmd/page-builder-render)
 
-          zip -qr "release-dist/page-builder-editor-v$VERSION.zip" editor/dist editor/package.json
-          zip -qr "release-dist/page-builder-specification-v$VERSION.zip" specification
-          zip -qr "release-dist/page-builder-blocks-v$VERSION.zip" blocks
+          for os in linux darwin windows; do
+            for arch in amd64 arm64; do
+              ext=""
+              [ "$os" = windows ] && ext=".exe"
+              output="../../release-dist/page-builder-engine-go-${os}-${arch}-v${VERSION}${ext}"
+              (cd engine/go && GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go.EngineVersion=$VERSION" -o "$output" ./cmd/page-builder-render)
+            done
+          done
+
+          zip -qr "release-dist/page-builder-engine-go-source-v$VERSION.zip" engine/go
+          zip -qr "release-dist/page-builder-editor-v$VERSION.zip" editor/dist editor/src editor/package.json editor/README.md
+          zip -qr "release-dist/page-builder-specification-v$VERSION.zip" specification docs/version-compatibility.md docs/migration-policy.md docs/third-engine.md
+          zip -qr "release-dist/page-builder-blocks-v$VERSION.zip" blocks docs/block-package-format.md docs/portable-blocks.md scripts/validate-block-packages.py
+
+          cat > release-dist/manifest.json <<JSON
+          {
+            "release": "$VERSION",
+            "specification": 1,
+            "page": 1,
+            "block": 1,
+            "datasource": 1,
+            "rendererProtocol": 1,
+            "templateLanguage": 1,
+            "engines": ["laravel", "go"],
+            "editor": "page-builder-editor"
+          }
+          JSON
 
           test -s "release-dist/page-builder-engine-laravel-v$VERSION.zip"
-          test -x "release-dist/page-builder-engine-go-linux-amd64-v$VERSION"
+          test -s "release-dist/page-builder-engine-go-linux-amd64-v$VERSION"
+          test -s "release-dist/page-builder-engine-go-linux-arm64-v$VERSION"
+          test -s "release-dist/page-builder-engine-go-darwin-amd64-v$VERSION"
+          test -s "release-dist/page-builder-engine-go-darwin-arm64-v$VERSION"
+          test -s "release-dist/page-builder-engine-go-windows-amd64-v$VERSION.exe"
+          test -s "release-dist/page-builder-engine-go-windows-arm64-v$VERSION.exe"
           test -s "release-dist/page-builder-editor-v$VERSION.zip"
           test -s "release-dist/page-builder-specification-v$VERSION.zip"
           test -s "release-dist/page-builder-blocks-v$VERSION.zip"
+          test -s release-dist/manifest.json
 
           (cd release-dist && sha256sum * > SHA256SUMS)
+          test -s release-dist/SHA256SUMS
 
       - name: Tag and publish GitHub release
         env:
