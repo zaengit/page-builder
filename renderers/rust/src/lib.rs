@@ -1,10 +1,8 @@
 use std::collections::{BTreeMap, BTreeSet};
-
 use regex::{Captures, Regex};
 use serde_json::{Map, Value};
 
 pub type JsonMap = Map<String, Value>;
-
 pub struct RenderRequest { pub page: JsonMap, pub registry: BTreeMap<String, JsonMap>, pub context: JsonMap }
 #[derive(Debug, Default, PartialEq, Eq)] pub struct Assets { pub css: Vec<String>, pub js: Vec<String> }
 #[derive(Debug, Default, PartialEq, Eq)] pub struct RenderResult { pub html: String, pub assets: Assets, pub diagnostics: Vec<String> }
@@ -14,19 +12,14 @@ pub struct UniversalRenderer;
 
 impl UniversalRenderer {
     pub fn new() -> Self { Self }
-
     fn render_block(&self, block: &JsonMap, request: &RenderRequest, result: &mut RenderResult, css_seen: &mut BTreeSet<String>, js_seen: &mut BTreeSet<String>) -> String {
         let block_type = block.get("type").and_then(Value::as_str).unwrap_or("");
         let Some(definition) = request.registry.get(block_type) else { result.diagnostics.push(format!("unknown_block:{block_type}")); return String::new(); };
         collect_assets(definition, result, css_seen, js_seen);
-
         let mut attrs = JsonMap::new();
-        if let Some(attributes) = definition.get("attributes").and_then(Value::as_object) {
-            for (key, schema) in attributes { if let Some(default) = schema.as_object().and_then(|value| value.get("default")) { attrs.insert(key.clone(), default.clone()); } }
-        }
+        if let Some(attributes) = definition.get("attributes").and_then(Value::as_object) { for (key, schema) in attributes { if let Some(default) = schema.as_object().and_then(|value| value.get("default")) { attrs.insert(key.clone(), default.clone()); } } }
         if let Some(block_attrs) = block.get("attrs").and_then(Value::as_object) { for (key, value) in block_attrs { attrs.insert(key.clone(), value.clone()); } }
         resolve_context_bindings(&mut attrs, block.get("bindings"), &request.context);
-
         let children = block.get("children").and_then(Value::as_array).map(|items| items.iter().filter_map(Value::as_object).map(|child| self.render_block(child, request, result, css_seen, js_seen)).collect::<String>()).unwrap_or_default();
         let mut context = JsonMap::new();
         context.insert("attrs".into(), Value::Object(attrs));
@@ -44,7 +37,7 @@ impl Renderer for UniversalRenderer {
     fn render(&self, request: RenderRequest) -> Result<RenderResult, String> {
         let mut result = RenderResult::default(); let mut css_seen = BTreeSet::new(); let mut js_seen = BTreeSet::new();
         let body = request.page.get("blocks").and_then(Value::as_array).map(|blocks| blocks.iter().filter_map(Value::as_object).map(|block| self.render_block(block, &request, &mut result, &mut css_seen, &mut js_seen)).collect::<String>()).unwrap_or_default();
-        result.html = format!("<div class=\"pb-page\">{body}</div>"); Ok(result)
+        result.html = wrap_page(&request.page, &body); Ok(result)
     }
 }
 
@@ -58,13 +51,27 @@ fn wrap_block(block: &JsonMap, rendered: &str) -> String {
     format!("<div data-pb-style-id=\"{id}\" data-pb-id=\"{id}\"{scheme}{slot} style=\"{style}\">{rendered}</div>{responsive}")
 }
 
+fn wrap_page(page: &JsonMap, body: &str) -> String {
+    let Some(compiled) = page.get("_pageRender").and_then(Value::as_object) else { return format!("<div class=\"pb-page\">{body}</div>"); };
+    let class_name = escape_html(compiled.get("class").and_then(Value::as_str).filter(|v| !v.is_empty()).unwrap_or("pb-page"));
+    let style = escape_html(compiled.get("style").and_then(Value::as_str).unwrap_or(""));
+    let mut output = format!("<div class=\"{class_name}\" style=\"{style}\">{body}</div>");
+    for (key, attr) in [("colorSchemeCss", "data-pb-color-schemes"), ("typographyCss", "data-pb-typography"), ("customCss", "data-pb-page-css")] {
+        if let Some(css) = compiled.get(key).and_then(Value::as_str).filter(|v| !v.is_empty()) {
+            let mut safe = css.replace("</style", "");
+            if key == "customCss" { safe = safe.replace("<script", ""); }
+            output.push_str(&format!("<style {attr}>{safe}</style>"));
+        }
+    }
+    output
+}
+
 fn resolve_context_bindings(attrs: &mut JsonMap, bindings: Option<&Value>, runtime: &JsonMap) {
     let Some(bindings) = bindings.and_then(Value::as_object) else { return; };
     for (attribute, raw) in bindings { let Some(binding) = raw.as_object() else { continue; }; if binding.get("source").and_then(Value::as_str) != Some("context") { continue; }
         let path = binding.get("path").and_then(Value::as_str).unwrap_or(""); let value = resolve(runtime, path).cloned().or_else(|| binding.get("fallback").cloned()); if let Some(value) = value { if !value.is_null() { attrs.insert(attribute.clone(), value); } }
     }
 }
-
 fn collect_assets(definition: &JsonMap, result: &mut RenderResult, css_seen: &mut BTreeSet<String>, js_seen: &mut BTreeSet<String>) {
     let Some(assets) = definition.get("assets").and_then(Value::as_object) else { return; };
     if let Some(items) = assets.get("css").and_then(Value::as_array) { for item in items.iter().filter_map(Value::as_str) { if css_seen.insert(item.to_string()) { result.assets.css.push(item.to_string()); } } }
