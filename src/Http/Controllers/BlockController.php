@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
 use Zaengit\PageBuilder\Blocks\PageContentValidator;
 use Zaengit\PageBuilder\Blocks\PageLayoutProcessor;
-use Zaengit\PageBuilder\Rendering\RenderingEngineManager;
+use Zaengit\PageBuilder\Engine\Laravel\RenderingEngineManager;
 
 final class BlockController
 {
