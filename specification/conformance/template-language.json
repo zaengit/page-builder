@@ -8,10 +8,22 @@
       "expected": "<h1>Phone &amp; Tablet</h1>"
     },
     {
-      "name": "fallback",
+      "name": "fallback on missing value",
       "template": "<h1>{{ product.name ?? \"Untitled\" }}</h1>",
       "context": {},
       "expected": "<h1>Untitled</h1>"
+    },
+    {
+      "name": "fallback on null value",
+      "template": "{{ product.name ?? \"Untitled\" }}",
+      "context": {"product": {"name": null}},
+      "expected": "Untitled"
+    },
+    {
+      "name": "fallback does not replace empty string false or zero",
+      "template": "[{{ empty ?? \"x\" }}][{{ disabled ?? \"x\" }}][{{ zero ?? \"x\" }}]",
+      "context": {"empty": "", "disabled": false, "zero": 0},
+      "expected": "[][][0]"
     },
     {
       "name": "condition true",
@@ -20,22 +32,70 @@
       "expected": "<b>yes</b>"
     },
     {
-      "name": "condition false",
-      "template": "{% if product.available %}<b>yes</b>{% endif %}",
-      "context": {"product": {"available": false}},
+      "name": "truthiness false values",
+      "template": "{% if missing %}a{% endif %}{% if nil %}b{% endif %}{% if disabled %}c{% endif %}{% if zero %}d{% endif %}{% if empty %}e{% endif %}{% if list %}f{% endif %}",
+      "context": {"nil": null, "disabled": false, "zero": 0, "empty": "", "list": []},
       "expected": ""
     },
     {
-      "name": "loop",
+      "name": "truthiness string zero is true",
+      "template": "{% if value %}yes{% endif %}",
+      "context": {"value": "0"},
+      "expected": "yes"
+    },
+    {
+      "name": "truthiness nonempty list and map are true",
+      "template": "{% if list %}l{% endif %}{% if object %}o{% endif %}",
+      "context": {"list": [0], "object": {"value": false}},
+      "expected": "lo"
+    },
+    {
+      "name": "loop preserves source order",
       "template": "{% for item in products %}<i>{{ item.name }}</i>{% endfor %}",
       "context": {"products": [{"name": "One"}, {"name": "Two"}]},
       "expected": "<i>One</i><i>Two</i>"
     },
     {
+      "name": "loop metadata",
+      "template": "{% for item in items %}[{{ loop.index }}:{{ loop.number }}:{{ loop.first }}:{{ loop.last }}:{{ loop.count }}={{ item }}]{% endfor %}",
+      "context": {"items": ["a", "b"]},
+      "expected": "[0:1:1::2=a][1:2::1:2=b]"
+    },
+    {
+      "name": "loop over scalar yields no iterations",
+      "template": "A{% for item in items %}{{ item }}{% endfor %}B",
+      "context": {"items": "not-a-list"},
+      "expected": "AB"
+    },
+    {
+      "name": "loop over object yields no iterations",
+      "template": "A{% for item in items %}{{ item }}{% endfor %}B",
+      "context": {"items": {"one": 1}},
+      "expected": "AB"
+    },
+    {
+      "name": "nested path traversal through scalar is missing",
+      "template": "{{ product.name.value ?? \"missing\" }}",
+      "context": {"product": {"name": "Phone"}},
+      "expected": "missing"
+    },
+    {
+      "name": "numbers use base ten representation",
+      "template": "{{ integer }}|{{ decimal }}|{{ negative }}",
+      "context": {"integer": 12, "decimal": 1.5, "negative": -3},
+      "expected": "12|1.5|-3"
+    },
+    {
+      "name": "objects and arrays are not implicitly serialized",
+      "template": "[{{ object }}][{{ list }}]",
+      "context": {"object": {"name": "Phone"}, "list": [1, 2]},
+      "expected": "[][]"
+    },
+    {
       "name": "unsafe interpolation escapes html",
       "template": "<div>{{ unsafe }}</div>",
-      "context": {"unsafe": "<script>alert(1)</script>"},
-      "expected": "<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>"
+      "context": {"unsafe": "<script>alert('x') & test</script>"},
+      "expected": "<div>&lt;script&gt;alert(&#039;x&#039;) &amp; test&lt;/script&gt;</div>"
     },
     {
       "name": "raw children slot",
