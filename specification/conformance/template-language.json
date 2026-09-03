@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "templateCases": [
+    {
+      "name": "escaped interpolation",
+      "template": "<h1>{{ product.name ?? \"Untitled\" }}</h1>",
+      "context": {"product": {"name": "Phone & Tablet"}},
+      "expected": "<h1>Phone &amp; Tablet</h1>"
+    },
+    {
+      "name": "fallback",
+      "template": "<h1>{{ product.name ?? \"Untitled\" }}</h1>",
+      "context": {},
+      "expected": "<h1>Untitled</h1>"
+    },
+    {
+      "name": "condition true",
+      "template": "{% if product.available %}<b>yes</b>{% endif %}",
+      "context": {"product": {"available": true}},
+      "expected": "<b>yes</b>"
+    },
+    {
+      "name": "condition false",
+      "template": "{% if product.available %}<b>yes</b>{% endif %}",
+      "context": {"product": {"available": false}},
+      "expected": ""
+    },
+    {
+      "name": "loop",
+      "template": "{% for item in products %}<i>{{ item.name }}</i>{% endfor %}",
+      "context": {"products": [{"name": "One"}, {"name": "Two"}]},
+      "expected": "<i>One</i><i>Two</i>"
+    },
+    {
+      "name": "unsafe interpolation escapes html",
+      "template": "<div>{{ unsafe }}</div>",
+      "context": {"unsafe": "<script>alert(1)</script>"},
+      "expected": "<div>&lt;script&gt;alert(1)&lt;/script&gt;</div>"
+    },
+    {
+      "name": "raw children slot",
+      "template": "<main>{{{ children }}}</main>",
+      "context": {"children": "<section>child</section>"},
+      "expected": "<main><section>child</section></main>"
+    },
+    {
+      "name": "boolean interpolation",
+      "template": "<span>{{ enabled }}</span><span>{{ disabled }}</span>",
+      "context": {"enabled": true, "disabled": false},
+      "expected": "<span>1</span><span></span>"
+    }
+  ]
+}
