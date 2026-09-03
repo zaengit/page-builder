@@ -38,6 +38,7 @@ jobs:
         run: |
           composer validate --strict
           composer install --no-interaction --prefer-dist --no-progress
+          composer audit
           cp .env.example .env
           php artisan key:generate
           vendor/bin/phpstan analyse --memory-limit=1G
@@ -59,7 +60,15 @@ jobs:
           test -s ../resources/dist/page-builder.js
           test -s ../resources/dist/page-builder.css
 
-      - name: Commit distributable assets and tag
+      - name: Install Playwright Chromium
+        working-directory: editor
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser E2E
+        working-directory: editor
+        run: npm run test:e2e
+
+      - name: Commit distributable assets
         env:
           VERSION: ${{ inputs.version }}
         run: |
@@ -70,6 +79,32 @@ jobs:
             git commit -m "build: compile editor for v$VERSION"
             git push origin HEAD:main
           fi
+
+      - name: Build and verify Composer archive
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p release-dist
+          composer archive --format=zip --dir=release-dist --file="page-builder-v$VERSION"
+          ARCHIVE="release-dist/page-builder-v$VERSION.zip"
+          test -s "$ARCHIVE"
+          unzip -l "$ARCHIVE" > release-dist/archive.txt
+          grep -q 'composer.json' release-dist/archive.txt
+          grep -q 'src/PageBuilderServiceProvider.php' release-dist/archive.txt
+          grep -q 'config/page-builder.php' release-dist/archive.txt
+          grep -q 'resources/dist/page-builder.js' release-dist/archive.txt
+          grep -q 'resources/dist/page-builder.css' release-dist/archive.txt
+          grep -q 'blocks/heading/block.json' release-dist/archive.txt
+          grep -q 'LICENSE' release-dist/archive.txt
+          ! grep -q '/editor/' release-dist/archive.txt
+          ! grep -q '/tests/' release-dist/archive.txt
+          ! grep -q '/.github/' release-dist/archive.txt
+
+      - name: Tag and publish GitHub release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin "v$VERSION"
-          gh release create "v$VERSION" --generate-notes --title "v$VERSION"
+          gh release create "v$VERSION" "release-dist/page-builder-v$VERSION.zip" --generate-notes --title "v$VERSION"
