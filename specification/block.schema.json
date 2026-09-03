@@ -1,38 +1,150 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://zaengit.dev/page-builder/specification/block.schema.json",
-  "title": "Page Builder Block Manifest",
+  "title": "Page Builder Portable Block Manifest v1",
   "type": "object",
-  "required": ["name", "version"],
+  "required": ["name", "version", "title", "category", "attributes"],
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$"
+      "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$"
     },
     "version": { "type": "integer", "minimum": 1 },
-    "title": { "type": "string" },
-    "category": { "type": "string" },
+    "title": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "icon": { "type": "string" },
+    "description": { "type": "string" },
     "template": {
       "type": "string",
       "pattern": "^[A-Za-z0-9._-]+\\.html$",
       "default": "template.html"
     },
-    "attributes": { "type": "object" },
+    "attributes": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/attribute" }
+    },
+    "variations": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/variation" }
+    },
+    "supports": { "$ref": "#/$defs/supports" },
     "data": {
       "type": "object",
       "properties": {
-        "provider": { "type": "string" }
+        "provider": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": true
     },
     "assets": {
       "type": "object",
       "properties": {
-        "css": { "type": "array", "items": { "type": "string" } },
-        "js": { "type": "array", "items": { "type": "string" } }
+        "css": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.css$" },
+          "uniqueItems": true
+        },
+        "js": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.js$" },
+          "uniqueItems": true
+        }
       },
       "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "$defs": {
+    "visibilityRule": {
+      "type": "object",
+      "required": ["attribute"],
+      "properties": {
+        "attribute": { "type": "string", "minLength": 1 },
+        "equals": true,
+        "notEquals": true,
+        "truthy": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "attribute": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "enum": ["string", "textarea", "url", "image", "number", "range", "boolean", "select", "repeater", "color", "date", "code"] },
+        "control": { "type": "string", "minLength": 1 },
+        "label": { "type": "string" },
+        "default": true,
+        "options": { "type": "array" },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/attribute" }
+        },
+        "min": { "type": "number" },
+        "max": { "type": "number" },
+        "step": { "type": "number", "exclusiveMinimum": 0 },
+        "help": { "type": "string" },
+        "responsive": { "type": "boolean" },
+        "group": { "type": "string" },
+        "visibleWhen": {
+          "oneOf": [
+            { "$ref": "#/$defs/visibilityRule" },
+            { "type": "array", "items": { "$ref": "#/$defs/visibilityRule" } }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "type": { "const": "select" } }, "required": ["type"] },
+          "then": { "required": ["options"] }
+        },
+        {
+          "if": { "properties": { "type": { "const": "repeater" } }, "required": ["type"] },
+          "then": { "required": ["fields"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "variation": {
+      "type": "object",
+      "required": ["name", "title"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "attrs": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "slot": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[A-Za-z0-9_-]+$" },
+        "title": { "type": "string" },
+        "allowedChildren": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$" },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "supports": {
+      "type": "object",
+      "properties": {
+        "children": { "type": "boolean" },
+        "allowedChildren": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)+$" },
+          "uniqueItems": true
+        },
+        "slots": { "type": "array", "items": { "$ref": "#/$defs/slot" } },
+        "reusable": { "type": "boolean" },
+        "lock": { "type": "boolean" },
+        "styles": { "type": "boolean" },
+        "layout": { "type": "boolean" },
+        "inline": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    }
+  }
 }
