@@ -39,6 +39,14 @@
       "providers": [
         "Zaengit\\PageBuilder\\PageBuilderServiceProvider"
       ]
+    },
+    "page-builder": {
+      "specification": 1,
+      "page": 1,
+      "block": 1,
+      "datasource": 1,
+      "renderer-protocol": 1,
+      "template-language": 1
     }
   },
   "scripts": {
