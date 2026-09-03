@@ -51,9 +51,23 @@ jobs:
               raise SystemExit('no conformance fixtures found')
           for fixture_path in fixture_paths:
               fixture = json.loads(fixture_path.read_text())
-              page_validator.validate(fixture['page'])
-              result_validator.validate(fixture['expected'])
-              print('valid conformance', fixture_path)
+              if 'page' in fixture and 'expected' in fixture:
+                  page_validator.validate(fixture['page'])
+                  result_validator.validate(fixture['expected'])
+                  print('valid renderer conformance', fixture_path)
+                  continue
+              if 'templateCases' in fixture:
+                  if fixture.get('version') != 1 or not isinstance(fixture['templateCases'], list) or not fixture['templateCases']:
+                      raise SystemExit(f'invalid template conformance envelope: {fixture_path}')
+                  for index, case in enumerate(fixture['templateCases']):
+                      required = {'name', 'template', 'context', 'expected'}
+                      if not isinstance(case, dict) or not required.issubset(case):
+                          raise SystemExit(f'invalid template case {fixture_path}#{index}')
+                      if not isinstance(case['name'], str) or not isinstance(case['template'], str) or not isinstance(case['context'], dict) or not isinstance(case['expected'], str):
+                          raise SystemExit(f'invalid template case types {fixture_path}#{index}')
+                  print('valid template conformance', fixture_path)
+                  continue
+              raise SystemExit(f'unknown conformance fixture shape: {fixture_path}')
           PY
       - name: Verify portable machine-readable artifacts are engine neutral
         run: |
