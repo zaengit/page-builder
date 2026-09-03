@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "registry": {
+    "section": {
+      "name": "section",
+      "version": 1,
+      "template": "<section><h2>{{ attrs.title ?? \"Section\" }}</h2>{{{ children }}}</section>",
+      "attributes": {
+        "title": { "type": "string", "default": "Section" }
+      },
+      "assets": {
+        "css": ["section.css"],
+        "js": []
+      }
+    },
+    "text": {
+      "name": "text",
+      "version": 1,
+      "template": "<p>{{ attrs.text }}</p>",
+      "attributes": {
+        "text": { "type": "string", "default": "" }
+      },
+      "assets": {
+        "css": ["text.css", "section.css"],
+        "js": ["text.js"]
+      }
+    },
+    "context-card": {
+      "name": "context-card",
+      "version": 1,
+      "template": "{% if context.product.available %}<strong>{{ context.product.name }}</strong>{% endif %}",
+      "attributes": {},
+      "assets": { "css": [], "js": [] }
+    }
+  },
+  "page": {
+    "version": 1,
+    "settings": {},
+    "blocks": [
+      {
+        "id": "section-1",
+        "type": "section",
+        "attrs": { "title": "Hello <World>" },
+        "children": [
+          {
+            "id": "text-1",
+            "type": "text",
+            "attrs": { "text": "Safe <script>" },
+            "children": []
+          },
+          {
+            "id": "context-1",
+            "type": "context-card",
+            "attrs": {},
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "context": {
+    "product": { "name": "Phone & Tablet", "available": true }
+  },
+  "expected": {
+    "html": "<div class=\"pb-page\"><div data-pb-id=\"section-1\"><section><h2>Hello &lt;World&gt;</h2><div data-pb-id=\"text-1\"><p>Safe &lt;script&gt;</p></div><div data-pb-id=\"context-1\"><strong>Phone &amp; Tablet</strong></div></section></div></div>",
+    "assets": {
+      "css": ["section.css", "text.css"],
+      "js": ["text.js"]
+    },
+    "diagnostics": []
+  }
+}
