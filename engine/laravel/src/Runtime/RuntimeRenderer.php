@@ -18,8 +18,11 @@ final class RuntimeRenderer
     public function render(array $page, array $blockRoots = [], array $context = [], ?array $registry = null, ?DatasourceResolver $datasource = null): RuntimeRenderResult
     {
         $diagnostics = [];
-        if (($page['version'] ?? $page['schemaVersion'] ?? 1) !== 1) {
-            return new RuntimeRenderResult('', ['css' => [], 'js' => []], [(new Diagnostic('unsupported_page_version', 'error', '$.version'))->toArray()]);
+        $version = $page['version'] ?? null;
+        if ($version !== 1) {
+            $message = is_scalar($version) ? (string) $version : 'missing';
+
+            return new RuntimeRenderResult('', ['css' => [], 'js' => []], [(new Diagnostic('unsupported_page_version', 'error', '$.version', $message))->toArray()]);
         }
 
         try {
