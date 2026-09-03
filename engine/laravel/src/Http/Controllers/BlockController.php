@@ -33,7 +33,8 @@ final class BlockController
         PageLayoutProcessor $layouts,
     ): JsonResponse {
         $original = ['version' => 1, 'blocks' => [$request->all()]];
-        $content = $layouts->apply($original, $validator->validate($original));
+        $content = ['version' => 1, ...$layouts->apply($original, $validator->validate($original))];
+        unset($content['schemaVersion']);
         $block = $content['blocks'][0];
         $result = $engines->render($content);
 
@@ -52,7 +53,8 @@ final class BlockController
         PageLayoutProcessor $layouts,
     ): JsonResponse {
         $original = ['version' => 1, ...$request->all()];
-        $content = $layouts->apply($original, $validator->validate($original));
+        $content = ['version' => 1, ...$layouts->apply($original, $validator->validate($original))];
+        unset($content['schemaVersion']);
         $result = $engines->render($content);
 
         return response()->json($result->toArray());
