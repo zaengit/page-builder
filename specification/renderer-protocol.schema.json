@@ -14,6 +14,11 @@
       },
       "additionalProperties": false
     },
+    "capabilities": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z][a-z0-9._-]*$" },
+      "additionalProperties": { "type": "boolean" }
+    },
     "assets": {
       "type": "object",
       "required": ["css", "js"],
@@ -34,6 +39,12 @@
         "registry": {
           "type": "object",
           "additionalProperties": { "type": "object" }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9._-]*$" },
+          "uniqueItems": true,
+          "default": []
         }
       },
       "oneOf": [
@@ -47,34 +58,10 @@
       "required": ["html", "assets", "diagnostics"],
       "properties": {
         "html": { "type": "string" },
-        "assets": {
-          "type": "object",
-          "required": ["css", "js"],
-          "properties": {
-            "css": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
-            "js": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
-          },
-          "additionalProperties": false
-        },
-        "diagnostics": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": ["code", "severity", "path", "message"],
-            "properties": {
-              "code": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]*$" },
-              "severity": { "enum": ["info", "warning", "error"] },
-              "path": { "type": ["string", "null"] },
-              "message": { "type": ["string", "null"] }
-            },
-            "additionalProperties": false
-          }
-        },
+        "assets": { "$ref": "#/$defs/assets" },
+        "diagnostics": { "type": "array", "items": { "$ref": "#/$defs/diagnostic" } },
         "version": { "const": 1 },
-        "capabilities": {
-          "type": "object",
-          "additionalProperties": { "type": "boolean" }
-        }
+        "capabilities": { "$ref": "#/$defs/capabilities" }
       },
       "additionalProperties": false
     }
