@@ -47,6 +47,20 @@ php artisan page-builder:publish-assets
 
 Route-based asset delivery requires no publishing step.
 
+After deployment, run the production diagnostics command:
+
+```bash
+php artisan page-builder:doctor
+```
+
+It verifies block manifests, editor asset delivery, payload resource limits, asset mode, and whether route middleware has been configured. Missing runtime assets or invalid configuration fail the command. Missing route protection is reported as a warning because the package cannot know whether the host intentionally isolates those routes elsewhere.
+
+For CI/CD environments where every warning must block deployment:
+
+```bash
+php artisan page-builder:doctor --strict
+```
+
 ## Persistence and autosave
 
 The package emits save/autosave lifecycle events but does not write page data. The host must validate authorization, persist the received page JSON transactionally, and implement revisions or optimistic concurrency if required by the product.
