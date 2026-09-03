@@ -24,11 +24,20 @@ jobs:
               with path.open() as f: json.load(f)
               print('valid', path)
           PY
-      - name: Verify universal artifacts are framework neutral
+      - name: Verify portable artifacts are engine neutral
         run: |
           ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade|github.com/zaengit/page-builder/engine/go' specification blocks --include='*.json' --include='*.md' --include='*.html'
+      - name: Verify canonical repository boundaries
+        run: |
+          test -d editor
+          test -d specification
+          test -d blocks
+          test -d engine/laravel
+          test -d engine/go
+          test ! -e core
+          test ! -e renderers
 
-  backend:
+  laravel-engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -41,7 +50,6 @@ jobs:
       - name: Validate Composer metadata
         run: |
           composer validate --strict
-          (cd core/php && composer validate --strict)
           (cd engine/laravel && composer validate --strict --no-check-publish)
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
@@ -54,8 +62,8 @@ jobs:
       - name: Run PHP static analysis
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: Check PHP formatting
-        run: vendor/bin/pint --test src core/php/src engine/laravel/src routes config
-      - name: Run Laravel engine and core conformance tests
+        run: vendor/bin/pint --test src engine/laravel/src routes config
+      - name: Run Laravel engine tests
         env:
           APP_ENV: testing
           DB_CONNECTION: sqlite
@@ -64,7 +72,7 @@ jobs:
           SESSION_DRIVER: array
         run: vendor/bin/phpunit
 
-  universal-runtime:
+  go-engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -134,7 +142,7 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
-    needs: [specification, backend, universal-runtime, editor]
+    needs: [specification, laravel-engine, go-engine, editor]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -161,11 +169,12 @@ jobs:
           unzip -l package-dist/page-builder-ci.zip > package-dist/archive.txt
       - name: Verify archive boundaries
         run: |
-          grep -q 'core/php/src/RuntimeRenderer.php' package-dist/archive.txt
-          grep -q 'engine/laravel/src/LaravelRenderingEngine.php' package-dist/archive.txt
+          grep -q 'engine/laravel/composer.json' package-dist/archive.txt
+          grep -q 'engine/laravel/src/Runtime/RuntimeRenderer.php' package-dist/archive.txt
           grep -q 'engine/go/renderer.go' package-dist/archive.txt
           grep -q 'specification/conformance/canonical-runtime.json' package-dist/archive.txt
           grep -q 'blocks/heading/template.html' package-dist/archive.txt
+          ! grep -q '/core/' package-dist/archive.txt
           ! grep -q '/renderers/' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
