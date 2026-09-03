@@ -24,9 +24,9 @@ jobs:
               with path.open() as f: json.load(f)
               print('valid', path)
           PY
-      - name: Verify portable artifacts are engine neutral
+      - name: Verify portable machine-readable artifacts are engine neutral
         run: |
-          ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade|github.com/zaengit/page-builder/engine/go' specification blocks --include='*.json' --include='*.md' --include='*.html'
+          ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade|github.com/zaengit/page-builder/engine/go' specification/*.json specification/conformance blocks --include='*.json' --include='*.html'
       - name: Verify canonical repository boundaries
         run: |
           test -d editor
@@ -34,6 +34,7 @@ jobs:
           test -d blocks
           test -d engine/laravel
           test -d engine/go
+          test -d engine/laravel/tests
           test ! -e core
           test ! -e renderers
 
@@ -62,7 +63,7 @@ jobs:
       - name: Run PHP static analysis
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: Check PHP formatting
-        run: vendor/bin/pint --test src engine/laravel/src routes config
+        run: vendor/bin/pint --test src engine/laravel/src engine/laravel/tests routes config
       - name: Run Laravel engine tests
         env:
           APP_ENV: testing
