@@ -29,12 +29,12 @@ final class PortableBlockRegistryLoader
 
             foreach (glob($root.'/*/block.json') ?: [] as $manifestPath) {
                 $realManifest = realpath($manifestPath);
-                if ($realManifest === false || ! str_starts_with($realManifest, $root.DIRECTORY_SEPARATOR)) {
+                if ($realManifest === false || str_starts_with($realManifest, $root.DIRECTORY_SEPARATOR) === false) {
                     throw new RuntimeException('Unsafe portable block manifest path.');
                 }
 
                 $manifest = json_decode(file_get_contents($realManifest), true, flags: JSON_THROW_ON_ERROR);
-                if (! is_array($manifest)) {
+                if (is_array($manifest) === false) {
                     throw new RuntimeException("Invalid block manifest in {$manifestPath}");
                 }
                 $manifest['version'] ??= 1;
@@ -48,13 +48,13 @@ final class PortableBlockRegistryLoader
                 $templateName = is_string($manifest['template'] ?? null) && $manifest['template'] !== ''
                     ? $manifest['template']
                     : 'template.html';
-                if (! preg_match('/^[A-Za-z0-9._-]+\.html$/', $templateName)) {
+                if (preg_match('/^[A-Za-z0-9._-]+\.html$/', $templateName) !== 1) {
                     throw new RuntimeException("Invalid portable template name for {$name}");
                 }
 
                 $directory = dirname($realManifest);
                 $templatePath = realpath($directory.DIRECTORY_SEPARATOR.$templateName);
-                if ($templatePath === false || ! str_starts_with($templatePath, $directory.DIRECTORY_SEPARATOR)) {
+                if ($templatePath === false || str_starts_with($templatePath, $directory.DIRECTORY_SEPARATOR) === false) {
                     throw new RuntimeException("Missing portable template for {$name}");
                 }
 
