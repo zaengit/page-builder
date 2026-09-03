@@ -46,11 +46,18 @@ class EditorRuntimeRegistryTest extends TestCase
 
         $this->assertTrue($registry->has('catalog'));
         $this->assertInstanceOf(RuntimeFixtureProvider::class, $registry->resolve('catalog'));
-        $this->assertSame([[
+
+        $definitions = $registry->definitions();
+        $catalog = collect($definitions)->firstWhere('name', 'catalog');
+
+        $this->assertSame([
             'name' => 'catalog',
             'title' => 'Catalog',
             'paths' => ['title', 'price.formatted'],
-        ]], $registry->definitions());
+        ], $catalog);
+        $this->assertNotNull(collect($definitions)->firstWhere('name', 'context'));
+        $this->assertNotNull(collect($definitions)->firstWhere('name', 'database'));
+        $this->assertStringNotContainsString(RuntimeFixtureProvider::class, json_encode($definitions, JSON_THROW_ON_ERROR));
     }
 
     public function test_blade_editor_runtime_includes_registered_resources_and_explicit_overrides(): void

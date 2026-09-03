@@ -6,9 +6,12 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\ServiceProvider;
 use Zaengit\PageBuilder\Blocks\AssetCollector;
 use Zaengit\PageBuilder\Blocks\BlockMigrationRegistry;
+use Zaengit\PageBuilder\DataProviders\ContextDataProvider;
 use Zaengit\PageBuilder\DataProviders\DatabaseDataProvider;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 use Zaengit\PageBuilder\Editor\EditorResourceRegistry;
+use Zaengit\PageBuilder\Rendering\RenderingEngine;
+use Zaengit\PageBuilder\Rendering\RenderingEngineManager;
 
 final class PageBuilderServiceProvider extends ServiceProvider
 {
@@ -19,11 +22,22 @@ final class PageBuilderServiceProvider extends ServiceProvider
         $this->app->singleton(DataProviderRegistry::class, fn () => new DataProviderRegistry);
         $this->app->singleton(EditorResourceRegistry::class, fn () => new EditorResourceRegistry);
         $this->app->singleton(BlockMigrationRegistry::class, fn () => new BlockMigrationRegistry);
+        $this->app->bind(
+            RenderingEngine::class,
+            fn ($app): RenderingEngine => $app->make(RenderingEngineManager::class)->engine(),
+        );
     }
 
     public function boot(): void
     {
-        $this->app->make(DataProviderRegistry::class)->register(
+        $providers = $this->app->make(DataProviderRegistry::class);
+        $providers->register(
+            'context',
+            ContextDataProvider::class,
+            'Runtime context',
+            [],
+        );
+        $providers->register(
             'database',
             DatabaseDataProvider::class,
             'Database / Eloquent',

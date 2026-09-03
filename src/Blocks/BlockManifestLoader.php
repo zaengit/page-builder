@@ -28,7 +28,9 @@ final class BlockManifestLoader
                 }
 
                 $directory = dirname($manifest['_manifest']);
-                $manifest['_template'] = $this->resolveTemplate($directory, $root, $name);
+                [$template, $engine] = $this->resolveTemplate($directory, $root, $name);
+                $manifest['_template'] = $template;
+                $manifest['_template_engine'] = $engine;
                 $manifest['_directory'] = $directory;
                 unset($manifest['_manifest']);
 
@@ -69,14 +71,19 @@ final class BlockManifestLoader
         return $manifest;
     }
 
-    private function resolveTemplate(string $directory, string $root, string $name): string
+    private function resolveTemplate(string $directory, string $root, string $name): array
     {
-        $template = realpath($directory.'/template.blade.php');
-        if ($template === false || ! str_starts_with($template, $root.DIRECTORY_SEPARATOR)) {
-            throw new RuntimeException("Missing or unsafe template for {$name}");
+        foreach ([
+            ['template.html', 'universal'],
+            ['template.blade.php', 'blade'],
+        ] as [$filename, $engine]) {
+            $template = realpath($directory.'/'.$filename);
+            if ($template !== false && str_starts_with($template, $root.DIRECTORY_SEPARATOR)) {
+                return [$template, $engine];
+            }
         }
 
-        return $template;
+        throw new RuntimeException("Missing or unsafe template for {$name}. Expected template.html or template.blade.php");
     }
 
     private function validateAssetFiles(array $manifest, string $directory, string $name): void

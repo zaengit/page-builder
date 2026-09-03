@@ -5,11 +5,12 @@ namespace Zaengit\PageBuilder\DataProviders;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
-use InvalidArgumentException;
 use Zaengit\PageBuilder\Blocks\BlockRenderContext;
 
 final class DatabaseDataProvider implements BlockDataProvider
 {
+    public function __construct(private readonly DatabaseResourceResolver $resources) {}
+
     public function resolve(array $attrs, BlockRenderContext $context): mixed
     {
         return [];
@@ -17,16 +18,7 @@ final class DatabaseDataProvider implements BlockDataProvider
 
     public function resolveBinding(array $binding, array $attrs, BlockRenderContext $context): mixed
     {
-        $modelClass = (string) ($binding['model'] ?? '');
-        $models = (array) config('page-builder.data.models', []);
-
-        if ($modelClass === '' || ! in_array($modelClass, array_values($models), true)) {
-            throw new InvalidArgumentException('Database binding model is not allowed.');
-        }
-
-        if (! is_subclass_of($modelClass, Model::class)) {
-            throw new InvalidArgumentException('Database binding model must extend Eloquent Model.');
-        }
+        $modelClass = $this->resources->modelClass($binding);
 
         /** @var Model $model */
         $model = new $modelClass;

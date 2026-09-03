@@ -11,6 +11,43 @@ return [
     'middleware' => [],
     'asset_middleware' => [],
 
+    'rendering' => [
+        'default' => env('PAGE_BUILDER_RENDERER', 'php'),
+        'block_root' => env('PAGE_BUILDER_RENDERER_BLOCK_ROOT', base_path('blocks')),
+        'timeout_ms' => max(100, (int) env('PAGE_BUILDER_RENDERER_TIMEOUT_MS', 5000)),
+        'engines' => [
+            'php' => [
+                'driver' => 'php',
+            ],
+            'go' => [
+                'driver' => 'process',
+                'command' => array_values(array_filter([
+                    env('PAGE_BUILDER_GO_BINARY'),
+                ])),
+            ],
+            'rust' => [
+                'driver' => 'process',
+                'command' => array_values(array_filter([
+                    env('PAGE_BUILDER_RUST_BINARY'),
+                ])),
+            ],
+            'node' => [
+                'driver' => 'process',
+                'command' => array_values(array_filter([
+                    env('PAGE_BUILDER_NODE_BINARY', 'node'),
+                    env('PAGE_BUILDER_NODE_RENDERER', dirname(__DIR__).'/renderers/node/cli.mjs'),
+                ])),
+            ],
+            'python' => [
+                'driver' => 'process',
+                'command' => array_values(array_filter([
+                    env('PAGE_BUILDER_PYTHON_BINARY', 'python3'),
+                    env('PAGE_BUILDER_PYTHON_RENDERER', dirname(__DIR__).'/renderers/python/cli.py'),
+                ])),
+            ],
+        ],
+    ],
+
     'limits' => [
         'max_depth' => max(1, (int) env('PAGE_BUILDER_MAX_DEPTH', 20)),
         'max_blocks' => max(1, (int) env('PAGE_BUILDER_MAX_BLOCKS', 1000)),
@@ -37,12 +74,17 @@ return [
         'max_items' => max(1, (int) env('PAGE_BUILDER_MEDIA_MAX_ITEMS', 250)),
     ],
 
-    // Database/Eloquent bindings are allowlisted. Publish this config in the host app
-    // and expose only models that should be queryable by page-builder content.
+    // Persisted page JSON references stable, language-agnostic resource names such as
+    // "products" or "posts". This Laravel adapter maps those names to Eloquent models.
     'data' => [
+        'resources' => [
+            // 'products' => App\Models\Product::class,
+            // 'posts' => App\Models\Post::class,
+        ],
+
+        // Deprecated compatibility alias for pages created before universal resources.
         'models' => [
             // 'Product' => App\Models\Product::class,
-            // 'Post' => App\Models\Post::class,
         ],
         'max_results' => max(1, (int) env('PAGE_BUILDER_DATA_MAX_RESULTS', 100)),
     ],

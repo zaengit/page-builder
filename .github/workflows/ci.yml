@@ -42,6 +42,56 @@ jobs:
           SESSION_DRIVER: array
         run: vendor/bin/phpunit
 
+  universal-runtimes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+      - name: Test Go renderer
+        working-directory: renderers/go
+        run: go test ./...
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '26.8.1'
+      - name: Test Node renderer
+        working-directory: renderers/node
+        run: npm test
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Test Python renderer
+        working-directory: renderers/python
+        run: python -m unittest -v test_renderer.py
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Test Rust renderer
+        working-directory: renderers/rust
+        run: cargo test --all-targets
+      - name: Build deployable renderer artifacts
+        run: bash scripts/build-universal-renderers.sh
+      - name: Smoke test renderer artifacts
+        run: |
+          test -x dist/renderers/page-builder-render-go
+          test -x dist/renderers/page-builder-render-rust
+          test -x dist/renderers/page-builder-render-node
+          test -x dist/renderers/page-builder-render-python
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-go | grep -q '"html"'
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-rust | grep -q '"html"'
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-node | grep -q '"html"'
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-python | grep -q '"html"'
+      - name: Upload renderer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-renderers-linux
+          path: dist/renderers/*
+          if-no-files-found: error
+          retention-days: 7
+
   editor:
     runs-on: ubuntu-latest
     defaults:
@@ -90,7 +140,7 @@ jobs:
 
   package:
     runs-on: ubuntu-latest
-    needs: [backend, editor]
+    needs: [backend, universal-runtimes, editor]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -124,10 +174,21 @@ jobs:
           grep -q 'composer.json' package-dist/archive.txt
           grep -q 'LICENSE' package-dist/archive.txt
           grep -q 'src/PageBuilderServiceProvider.php' package-dist/archive.txt
+          grep -q 'src/Rendering/RenderingEngineManager.php' package-dist/archive.txt
+          grep -q 'src/Rendering/ProcessRenderingEngine.php' package-dist/archive.txt
           grep -q 'config/page-builder.php' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.js' package-dist/archive.txt
           grep -q 'resources/dist/page-builder.css' package-dist/archive.txt
           grep -q 'blocks/heading/block.json' package-dist/archive.txt
+          grep -q 'blocks/heading/template.html' package-dist/archive.txt
+          grep -q 'specification/rendering-spec.md' package-dist/archive.txt
+          grep -q 'specification/page.schema.json' package-dist/archive.txt
+          grep -q 'docs/universal-renderers.md' package-dist/archive.txt
+          grep -q 'renderers/go/renderer.go' package-dist/archive.txt
+          grep -q 'renderers/node/runtime.mjs' package-dist/archive.txt
+          grep -q 'renderers/python/renderer.py' package-dist/archive.txt
+          grep -q 'renderers/rust/src/lib.rs' package-dist/archive.txt
+          grep -q 'scripts/build-universal-renderers.sh' package-dist/archive.txt
           ! grep -q '/editor/' package-dist/archive.txt
           ! grep -q '/tests/' package-dist/archive.txt
           ! grep -q '/.github/' package-dist/archive.txt

@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "registry": {
+    "section": {
+      "name": "section",
+      "version": 1,
+      "template": "<section><h2>{{ attrs.title ?? \"Section\" }}</h2>{{{ children }}}</section>",
+      "attributes": { "title": { "type": "string", "default": "Section" } },
+      "assets": { "css": ["section.css"], "js": [] }
+    },
+    "text": {
+      "name": "text",
+      "version": 1,
+      "template": "<p>{{ attrs.text }}</p>",
+      "attributes": { "text": { "type": "string", "default": "" } },
+      "assets": { "css": ["text.css", "section.css"], "js": ["text.js"] }
+    },
+    "context-card": {
+      "name": "context-card",
+      "version": 1,
+      "template": "{% if context.product.available %}<strong>{{ attrs.label }}</strong>{% endif %}",
+      "attributes": { "label": { "type": "string", "default": "Fallback" } },
+      "assets": { "css": [], "js": [] }
+    }
+  },
+  "page": {
+    "version": 1,
+    "settings": {},
+    "_pageRender": {
+      "class": "pb-page pb-color-scheme--dark",
+      "style": "max-width:1200px;--pb-radius:8px",
+      "colorSchemeCss": ".pb-color-scheme--dark{--pb-color-background:#111;--pb-color-foreground:#fff;background-color:var(--pb-color-background);color:var(--pb-color-foreground);}",
+      "typographyCss": ".pb-page{--pb-font-primary:Inter,sans-serif;font-family:var(--pb-font-primary);}",
+      "customCss": ".pb-page .custom{display:block}"
+    },
+    "blocks": [
+      {
+        "id": "section-1",
+        "type": "section",
+        "attrs": { "title": "Hello <World>" },
+        "children": [
+          {
+            "id": "text-1",
+            "type": "text",
+            "attrs": { "text": "Safe <script>" },
+            "_render": {
+              "style": "display:flex;gap:16px",
+              "css": "@media(max-width:640px){[data-pb-style-id=\"text-1\"]{display:block}}",
+              "slot": "content",
+              "colorSchemeId": "dark"
+            },
+            "children": []
+          },
+          {
+            "id": "context-1",
+            "type": "context-card",
+            "attrs": {},
+            "bindings": {
+              "label": { "source": "context", "path": "product.name", "fallback": "Unknown" }
+            },
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  "context": { "product": { "name": "Phone & Tablet", "available": true } },
+  "expected": {
+    "html": "<div class=\"pb-page pb-color-scheme--dark\" style=\"max-width:1200px;--pb-radius:8px\"><div data-pb-id=\"section-1\"><section><h2>Hello &lt;World&gt;</h2><div data-pb-style-id=\"text-1\" data-pb-id=\"text-1\" class=\"pb-color-scheme--dark\" data-pb-color-scheme=\"dark\" data-pb-slot=\"content\" style=\"display:flex;gap:16px\"><p>Safe &lt;script&gt;</p></div><style data-pb-responsive=\"text-1\">@media(max-width:640px){[data-pb-style-id=\"text-1\"]{display:block}}</style><div data-pb-id=\"context-1\"><strong>Phone &amp; Tablet</strong></div></section></div></div><style data-pb-color-schemes>.pb-color-scheme--dark{--pb-color-background:#111;--pb-color-foreground:#fff;background-color:var(--pb-color-background);color:var(--pb-color-foreground);}</style><style data-pb-typography>.pb-page{--pb-font-primary:Inter,sans-serif;font-family:var(--pb-font-primary);}</style><style data-pb-page-css>.pb-page .custom{display:block}</style>",
+    "assets": { "css": ["section.css", "text.css"], "js": ["text.js"] },
+    "diagnostics": []
+  }
+}

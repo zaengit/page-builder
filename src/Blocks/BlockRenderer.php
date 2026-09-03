@@ -5,6 +5,7 @@ namespace Zaengit\PageBuilder\Blocks;
 use Illuminate\Support\Facades\View;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 use Zaengit\PageBuilder\DataProviders\DynamicBindingResolver;
+use Zaengit\PageBuilder\Rendering\UniversalTemplateRenderer;
 
 final class BlockRenderer
 {
@@ -13,6 +14,7 @@ final class BlockRenderer
         private readonly DataProviderRegistry $providers,
         private readonly DynamicBindingResolver $bindings,
         private readonly AssetCollector $assets,
+        private readonly UniversalTemplateRenderer $templates,
     ) {}
 
     public function render(array $block, bool $preview = false, string $children = ''): string
@@ -64,14 +66,32 @@ final class BlockRenderer
             );
         }
 
-        return View::file($definition['_template'], [
+        $variables = [
             'blockId' => $context->blockId,
             'attrs' => $context->attrs,
             'data' => $data,
-            'context' => $context,
+            'context' => $context->runtimeContext,
+            'meta' => [
+                'preview' => $context->preview,
+                'blockId' => $context->blockId,
+                'blockType' => $context->blockType,
+            ],
             'children' => $children,
             'preview' => $preview,
             'slot' => $block['slot'] ?? null,
+        ];
+
+        if (is_array($data)) {
+            $variables = array_replace($variables, $data);
+        }
+
+        if (($definition['_template_engine'] ?? 'blade') === 'universal') {
+            return $this->templates->renderFile($definition['_template'], $variables);
+        }
+
+        return View::file($definition['_template'], [
+            ...$variables,
+            'context' => $context,
         ])->render();
     }
 

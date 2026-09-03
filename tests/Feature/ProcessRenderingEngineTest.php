@@ -1,0 +1,24 @@
+<?php
+
+namespace Tests\Feature;
+
+use Tests\TestCase;
+use Zaengit\PageBuilder\Rendering\ProcessRenderingEngine;
+
+final class ProcessRenderingEngineTest extends TestCase
+{
+    public function test_it_renders_through_the_universal_process_protocol(): void
+    {
+        $engine = new ProcessRenderingEngine(
+            [PHP_BINARY, base_path('tests/Fixtures/process-renderer.php')],
+            base_path('blocks'),
+            5000,
+        );
+
+        $result = $engine->render(['title' => 'Hello <Universal>']);
+
+        $this->assertSame('<main data-engine="fixture">Hello &lt;Universal&gt;</main>', $result->html);
+        $this->assertSame(['css' => ['fixture.css'], 'js' => ['fixture.js']], $result->assets);
+        $this->assertSame(['fixture:ok'], $result->diagnostics);
+    }
+}

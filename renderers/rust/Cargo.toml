@@ -1,0 +1,11 @@
+[package]
+name = "page-builder-renderer-rust"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+path = "src/runtime.rs"
+
+[dependencies]
+regex = "1"
+serde_json = "1"

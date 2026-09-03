@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zaengit.dev/page-builder/specification/block.schema.json",
+  "title": "Page Builder Block Manifest",
+  "type": "object",
+  "required": ["name", "version"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*(/[a-z0-9][a-z0-9-]*)*$"
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "title": { "type": "string" },
+    "category": { "type": "string" },
+    "template": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._-]+\\.html$",
+      "default": "template.html"
+    },
+    "attributes": { "type": "object" },
+    "data": {
+      "type": "object",
+      "properties": {
+        "provider": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "assets": {
+      "type": "object",
+      "properties": {
+        "css": { "type": "array", "items": { "type": "string" } },
+        "js": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": true
+}

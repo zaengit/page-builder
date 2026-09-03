@@ -70,18 +70,45 @@ function Carousel({items, autoplay, interval}) {
   );
 }
 
+function propsFromSsr(root) {
+  const items = Array.from(root.querySelectorAll('.pb-carousel__track > .pb-carousel__slide')).map(slide => ({
+    title: slide.querySelector('h3')?.textContent ?? '',
+    description: slide.querySelector('p')?.textContent ?? '',
+    image: slide.querySelector('img')?.getAttribute('src') ?? '',
+  }));
+
+  const rawAutoplay = String(root.dataset.autoplay ?? 'true').toLowerCase();
+
+  return {
+    items,
+    autoplay: !['false', '0', 'off', 'no', ''].includes(rawAutoplay),
+    interval: Number(root.dataset.interval) || 4000,
+  };
+}
+
+function readProps(root) {
+  const fallback = propsFromSsr(root);
+  const encoded = root.dataset.props;
+  if (!encoded) return fallback;
+
+  try {
+    const parsed = JSON.parse(encoded);
+    return {
+      items: Array.isArray(parsed?.items) ? parsed.items : fallback.items,
+      autoplay: typeof parsed?.autoplay === 'boolean' ? parsed.autoplay : fallback.autoplay,
+      interval: Number(parsed?.interval) || fallback.interval,
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 function mount(root) {
   if (!(root instanceof HTMLElement) || mounted.has(root)) return;
   const host = root.querySelector('[data-carousel-island]');
   if (!(host instanceof HTMLElement)) return;
 
-  let props = {};
-  try {
-    props = JSON.parse(root.dataset.props || '{}');
-  } catch {
-    props = {};
-  }
-
+  const props = readProps(root);
   const reactRoot = createRoot(host);
   reactRoot.render(React.createElement(Carousel, props));
   mounted.set(root, reactRoot);
