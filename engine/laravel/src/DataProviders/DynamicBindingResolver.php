@@ -25,9 +25,13 @@ final class DynamicBindingResolver
 
             try {
                 $provider = $this->providers->resolve($source);
-                $data = method_exists($provider, 'resolveBinding')
-                    ? $provider->resolveBinding($binding, $attrs, $context)
-                    : $provider->resolve($attrs, $context);
+                if ($provider instanceof DataProvider) {
+                    $data = $provider->resolve($binding, $attrs, $context->runtimeContext);
+                } elseif (method_exists($provider, 'resolveBinding')) {
+                    $data = $provider->resolveBinding($binding, $attrs, $context);
+                } else {
+                    $data = $provider->resolve($attrs, $context);
+                }
 
                 $value = ($binding['path'] ?? '') !== ''
                     ? data_get($data, (string) $binding['path'])
