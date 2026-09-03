@@ -17,9 +17,12 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
     rollupOptions: {
-      input: resolve(root, 'src/main.tsx'),
+      input: {
+        'page-builder': resolve(root, 'src/main.tsx'),
+        index: resolve(root, 'src/index.ts'),
+      },
       output: {
-        entryFileNames: 'page-builder.js',
+        entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: asset => asset.name?.endsWith('.css') ? 'page-builder.css' : 'assets/[name]-[hash][extname]',
       },
