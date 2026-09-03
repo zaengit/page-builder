@@ -16,6 +16,8 @@ TEMPLATE_FILE = re.compile(r"^[A-Za-z0-9._-]+\.html$")
 
 
 def resolve(context: Mapping[str, Any], path: str) -> Any:
+    if not path:
+        return context
     value: Any = context
     for part in path.split('.'):
         if not isinstance(value, Mapping) or part not in value:
@@ -73,6 +75,21 @@ def load_registry(root: str | Path) -> dict[str, dict[str, Any]]:
     return registry
 
 
+def resolve_context_bindings(attrs: Mapping[str, Any], bindings: Any, context: Mapping[str, Any]) -> dict[str, Any]:
+    result = dict(attrs)
+    if not isinstance(bindings, Mapping):
+        return result
+    for attribute, binding in bindings.items():
+        if not isinstance(attribute, str) or not isinstance(binding, Mapping) or binding.get('source') != 'context':
+            continue
+        value = resolve(context, str(binding.get('path', '')))
+        if value is None and 'fallback' in binding:
+            value = binding['fallback']
+        if value is not None:
+            result[attribute] = value
+    return result
+
+
 @dataclass(slots=True)
 class RenderRequest:
     page: Mapping[str, Any]
@@ -117,6 +134,7 @@ class UniversalRenderer:
                 if isinstance(schema, Mapping) and 'default' in schema:
                     attrs[key] = schema['default']
             attrs.update(block.get('attrs', {}))
+            attrs = resolve_context_bindings(attrs, block.get('bindings'), request.context)
             children = ''.join(render_block(child) for child in block.get('children', []))
             rendered = render_template(str(definition.get('template', '')), {
                 'attrs': attrs,
