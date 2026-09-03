@@ -1,17 +1,19 @@
 {
   "$schema": "https://getcomposer.org/schema.json",
   "name": "zaengit/page-builder-engine-laravel",
-  "description": "Laravel engine adapter for the Zaengit universal page-builder runtime",
+  "description": "Laravel rendering engine for the Zaengit universal page builder specification",
   "type": "library",
   "license": "MIT",
   "require": {
-    "php": "^8.3",
-    "illuminate/database": "^13.0",
-    "illuminate/http": "^13.0",
-    "illuminate/support": "^13.0",
-    "zaengit/page-builder-core": "^1.0"
+    "php": "^8.5",
+    "illuminate/config": "^13.29",
+    "illuminate/database": "^13.29",
+    "illuminate/http": "^13.29",
+    "illuminate/support": "^13.29"
   },
-  "autoload": {"psr-4": {"Zaengit\\PageBuilder\\Engine\\Laravel\\": "src/"}},
-  "minimum-stability": "stable",
-  "prefer-stable": true
+  "autoload": {
+    "psr-4": {
+      "Zaengit\\PageBuilder\\Engine\\Laravel\\": "src/"
+    }
+  }
 }
