@@ -27,12 +27,12 @@ export function DynamicDataPanel({ selected, definition, runtime, onBindings }: 
 
   const setFilter = (index: number, next: Partial<DynamicFilter>) => {
     const where = [...(query.where ?? [])];
-    where[index] = { column: '', operator: '=', ...where[index], ...next };
+    where[index] = { ...(where[index] ?? { column: '', operator: '=' }), ...next };
     patchQuery({ where });
   };
   const setOrder = (index: number, next: Partial<DynamicOrder>) => {
     const orderBy = [...(query.orderBy ?? [])];
-    orderBy[index] = { column: '', direction: 'asc', ...orderBy[index], ...next };
+    orderBy[index] = { ...(orderBy[index] ?? { column: '', direction: 'asc' }), ...next };
     patchQuery({ orderBy });
   };
 
