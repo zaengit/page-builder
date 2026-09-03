@@ -18,19 +18,33 @@ jobs:
           python-version: '3.14'
       - name: Install specification validator
         run: python -m pip install --disable-pip-version-check jsonschema==4.25.1
-      - name: Validate schemas, blocks, and conformance fixtures
+      - name: Validate schemas, versions, blocks, and conformance fixtures
         run: |
           python - <<'PY'
           import json
           import pathlib
-          from jsonschema import Draft202012Validator
+          from jsonschema import Draft202012Validator, RefResolver
 
           root = pathlib.Path('.')
+          spec = root / 'specification'
+          version = json.loads((spec / 'version.json').read_text())
+          expected_keys = {
+              'specification', 'page', 'block', 'datasource',
+              'rendererProtocol', 'templateLanguage', 'breakpoints'
+          }
+          if set(version) != expected_keys:
+              raise SystemExit(f'invalid specification/version.json keys: {set(version)}')
+          for key in expected_keys - {'breakpoints'}:
+              if version[key] != 1:
+                  raise SystemExit(f'unsupported canonical {key} version: {version[key]}')
+          if version['breakpoints'] != ['desktop', 'tablet', 'mobile']:
+              raise SystemExit('canonical breakpoint order changed')
+
           schema_paths = [
-              root / 'specification/page.schema.json',
-              root / 'specification/block.schema.json',
-              root / 'specification/datasource.schema.json',
-              root / 'specification/renderer-protocol.schema.json',
+              spec / 'page.schema.json',
+              spec / 'block.schema.json',
+              spec / 'datasource.schema.json',
+              spec / 'renderer-protocol.schema.json',
           ]
           schemas = {}
           for path in schema_paths:
@@ -43,8 +57,11 @@ jobs:
               block_validator.validate(json.loads(path.read_text()))
 
           page_validator = Draft202012Validator(schemas['page.schema.json'])
+          datasource_request_validator = Draft202012Validator(schemas['datasource.schema.json']['$defs']['request'])
+          datasource_response_validator = Draft202012Validator(schemas['datasource.schema.json']['$defs']['response'])
           result_validator = Draft202012Validator(schemas['renderer-protocol.schema.json']['$defs']['result'])
-          fixtures = sorted((root / 'specification/conformance').glob('*.json'))
+
+          fixtures = sorted((spec / 'conformance').glob('*.json'))
           if not fixtures:
               raise SystemExit('no conformance fixtures found')
           for path in fixtures:
@@ -53,8 +70,19 @@ jobs:
                   page_validator.validate(fixture['page'])
                   result_validator.validate(fixture['expected'])
               elif 'templateCases' in fixture:
-                  if fixture.get('version') != 1 or not fixture['templateCases']:
+                  if fixture.get('version') != version['templateLanguage'] or not fixture['templateCases']:
                       raise SystemExit(f'invalid template fixture: {path}')
+              elif 'datasourceCases' in fixture:
+                  if fixture.get('version') != version['datasource']:
+                      raise SystemExit(f'invalid datasource fixture version: {path}')
+                  cases = fixture['datasourceCases']
+                  for request in cases.get('validRequests', []):
+                      datasource_request_validator.validate(request)
+                  for request in cases.get('invalidRequests', []):
+                      if datasource_request_validator.is_valid(request):
+                          raise SystemExit(f'expected invalid datasource request is valid: {request}')
+                  for response in cases.get('validResponses', []):
+                      datasource_response_validator.validate(response)
               else:
                   raise SystemExit(f'unknown fixture shape: {path}')
           PY
@@ -86,6 +114,8 @@ jobs:
           test -f engine/laravel/composer.json
           test -d engine/laravel/src
           test -d engine/laravel/tests
+          test -f specification/version.json
+          test -f specification/compatibility-policy.md
 
   laravel-engine:
     runs-on: ubuntu-latest
