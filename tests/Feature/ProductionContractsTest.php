@@ -5,13 +5,13 @@ namespace Tests\Feature;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
-use Zaengit\PageBuilder\Blocks\PageContentValidator;
-use Zaengit\PageBuilder\Blocks\PageRenderer;
-use Zaengit\PageBuilder\Blocks\StyleSerializer;
 use Zaengit\PageBuilder\Blocks\BlockRenderContext;
+use Zaengit\PageBuilder\Blocks\PageContentValidator;
 use Zaengit\PageBuilder\DataProviders\BlockDataProvider;
 use Zaengit\PageBuilder\DataProviders\DataProviderRegistry;
 use Zaengit\PageBuilder\DataProviders\DynamicBindingResolver;
+use Zaengit\PageBuilder\Engine\Laravel\Runtime\RuntimeRenderer;
+use Zaengit\PageBuilder\Engine\Laravel\Runtime\StyleSerializer;
 
 final class ProductionContractsTest extends TestCase
 {
@@ -47,7 +47,8 @@ final class ProductionContractsTest extends TestCase
 
     public function test_page_settings_render_width_background_tokens_class_and_custom_css(): void
     {
-        $html = app(PageRenderer::class)->render([
+        $result = app(RuntimeRenderer::class)->render([
+            'version' => 1,
             'blocks' => [],
             'settings' => [
                 'contentWidth' => '1200px',
@@ -56,7 +57,8 @@ final class ProductionContractsTest extends TestCase
                 'tokens' => ['brand color' => '#123456'],
                 'customCss' => '.landing-page{min-height:100vh}',
             ],
-        ]);
+        ], [base_path('blocks')]);
+        $html = $result->html;
 
         $this->assertStringContainsString('pb-page landing-page', $html);
         $this->assertStringContainsString('max-width:1200px', $html);
@@ -68,10 +70,12 @@ final class ProductionContractsTest extends TestCase
 
     public function test_custom_css_strips_style_and_script_breakout_sequences(): void
     {
-        $html = app(PageRenderer::class)->render([
+        $result = app(RuntimeRenderer::class)->render([
+            'version' => 1,
             'blocks' => [],
             'settings' => ['customCss' => '.x{color:red}</style><script>alert(1)</script>'],
-        ]);
+        ], [base_path('blocks')]);
+        $html = $result->html;
 
         $this->assertStringNotContainsString('</style><script>', $html);
         $this->assertStringNotContainsString('<script>', $html);
