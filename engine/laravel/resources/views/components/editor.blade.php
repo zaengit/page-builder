@@ -1,5 +1,5 @@
 @props([
-    'content' => ['blocks' => []],
+    'content' => ['version' => 1, 'blocks' => []],
     'name' => null,
     'height' => '720px',
     'mediaPicker' => null,
@@ -15,10 +15,10 @@
     $editorResources = app(\Zaengit\PageBuilder\Editor\EditorResourceRegistry::class);
     $editorAssets = app(\Zaengit\PageBuilder\Editor\EditorAssetManager::class);
     $dataProviders = app(\Zaengit\PageBuilder\DataProviders\DataProviderRegistry::class);
-    $databaseModels = collect((array) config('page-builder.data.models', []))->map(function ($class, $title) {
+    $dataResources = collect((array) config('page-builder.data.resources', []))->map(function ($class, $name) {
         return [
-            'title' => is_string($title) ? $title : class_basename($class),
-            'class' => $class,
+            'name' => (string) $name,
+            'title' => str((string) $name)->replace(['-', '_'], ' ')->title()->toString(),
         ];
     })->values()->all();
     $runtime = [
@@ -33,7 +33,7 @@
         'patterns' => array_values(array_merge($editorResources->patterns(), is_array($patterns) ? $patterns : [])),
         'templates' => array_values(array_merge($editorResources->templates(), is_array($templates) ? $templates : [])),
         'dataSources' => array_values(array_merge($dataProviders->definitions(), is_array($dataSources) ? $dataSources : [])),
-        'databaseModels' => $databaseModels,
+        'dataResources' => $dataResources,
         'previewContext' => is_array($context) ? $context : [],
         'autosaveMs' => max(0, (int) ($autosaveMs ?? config('page-builder.autosave_ms', 0))),
     ];
