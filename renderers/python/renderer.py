@@ -75,6 +75,21 @@ def wrap_block(block: Mapping[str, Any], rendered: str) -> str:
     responsive = '' if not css else f'<style data-pb-responsive="{block_id}">{css}</style>'
     return f'<div data-pb-style-id="{block_id}" data-pb-id="{block_id}"{scheme}{slot} style="{style}">{rendered}</div>{responsive}'
 
+def wrap_page(page: Mapping[str, Any], body: str) -> str:
+    compiled = page.get('_pageRender')
+    if not isinstance(compiled, Mapping): return f'<div class="pb-page">{body}</div>'
+    class_name = html.escape(str(compiled.get('class') or 'pb-page'), quote=True)
+    style = html.escape(str(compiled.get('style') or ''), quote=True)
+    scheme_css = str(compiled.get('colorSchemeCss') or '').replace('</style', '')
+    typography_css = str(compiled.get('typographyCss') or '').replace('</style', '')
+    custom_css = str(compiled.get('customCss') or '').replace('</style', '').replace('<script', '')
+    return (
+        f'<div class="{class_name}" style="{style}">{body}</div>'
+        + (f'<style data-pb-color-schemes>{scheme_css}</style>' if scheme_css else '')
+        + (f'<style data-pb-typography>{typography_css}</style>' if typography_css else '')
+        + (f'<style data-pb-page-css>{custom_css}</style>' if custom_css else '')
+    )
+
 @dataclass(slots=True)
 class RenderRequest:
     page: Mapping[str, Any]
@@ -109,4 +124,4 @@ class UniversalRenderer:
             rendered = render_template(str(definition.get('template', '')), {'attrs': attrs, 'context': request.context, 'children': children, 'blockId': block.get('id', ''), 'slot': block.get('slot'), 'preview': False})
             return wrap_block(block, rendered)
         body = ''.join(render_block(block) for block in request.page.get('blocks', []))
-        return RenderResult(html=f'<div class="pb-page">{body}</div>', assets=assets, diagnostics=diagnostics)
+        return RenderResult(html=wrap_page(request.page, body), assets=assets, diagnostics=diagnostics)
