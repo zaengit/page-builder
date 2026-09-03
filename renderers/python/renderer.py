@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 import html
+import json
 import re
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping, Protocol
 
 RAW = re.compile(r"\{\{\{\s*([A-Za-z0-9_.]+)\s*\}\}\}")
 INTERPOLATION = re.compile(r"\{\{\s*([A-Za-z0-9_.]+)(?:\s*\?\?\s*[\"']([^\"']*)[\"'])?\s*\}\}")
 CONDITION = re.compile(r"\{%\s*if\s+([A-Za-z0-9_.]+)\s*%\}(.*?)\{%\s*endif\s*%\}", re.S)
 LOOP = re.compile(r"\{%\s*for\s+([A-Za-z_][A-Za-z0-9_]*)\s+in\s+([A-Za-z0-9_.]+)\s*%\}(.*?)\{%\s*endfor\s*%\}", re.S)
+BLOCK_NAME = re.compile(r"^[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9-]*$")
+TEMPLATE_FILE = re.compile(r"^[A-Za-z0-9._-]+\.html$")
 
 
 def resolve(context: Mapping[str, Any], path: str) -> Any:
@@ -39,6 +43,34 @@ def render_template(template: str, context: Mapping[str, Any]) -> str:
         output = CONDITION.sub(lambda m: render_template(m.group(2), context) if bool(resolve(context, m.group(1))) else '', output)
     output = RAW.sub(lambda m: '' if resolve(context, m.group(1)) is None else str(resolve(context, m.group(1))), output)
     return INTERPOLATION.sub(lambda m: html.escape(str(resolve(context, m.group(1)) if resolve(context, m.group(1)) is not None else (m.group(2) or '')), quote=True), output)
+
+
+def load_registry(root: str | Path) -> dict[str, dict[str, Any]]:
+    registry: dict[str, dict[str, Any]] = {}
+    root_path = Path(root).resolve()
+    if not root_path.is_dir():
+        return registry
+
+    for directory in sorted(path for path in root_path.iterdir() if path.is_dir()):
+        manifest_path = directory / 'block.json'
+        if not manifest_path.is_file():
+            continue
+        manifest = json.loads(manifest_path.read_text())
+        manifest.setdefault('version', 1)
+        name = str(manifest.get('name', ''))
+        if not BLOCK_NAME.fullmatch(name):
+            raise ValueError(f'Invalid block name in {manifest_path}')
+        if name in registry:
+            raise ValueError(f'Duplicate block {name}')
+        template_file = str(manifest.get('template', 'template.html'))
+        if not TEMPLATE_FILE.fullmatch(template_file):
+            raise ValueError(f'Invalid portable template for {name}')
+        template_path = (directory / template_file).resolve()
+        if directory.resolve() not in template_path.parents or not template_path.is_file():
+            raise ValueError(f'Missing portable template for {name}')
+        registry[name] = {**manifest, 'template': template_path.read_text(), '_directory': str(directory.resolve())}
+
+    return registry
 
 
 @dataclass(slots=True)
