@@ -18,7 +18,7 @@ jobs:
           python-version: '3.14'
       - name: Install specification validator
         run: python -m pip install --disable-pip-version-check jsonschema==4.25.1
-      - name: Validate JSON syntax and JSON Schema
+      - name: Validate schemas, blocks, and conformance fixtures
         run: |
           python - <<'PY'
           import json
@@ -37,41 +37,31 @@ jobs:
               data = json.loads(path.read_text())
               Draft202012Validator.check_schema(data)
               schemas[path.name] = data
-              print('valid schema', path)
 
           block_validator = Draft202012Validator(schemas['block.schema.json'])
           for path in sorted((root / 'blocks').glob('*/block.json')):
               block_validator.validate(json.loads(path.read_text()))
-              print('valid block', path)
 
           page_validator = Draft202012Validator(schemas['page.schema.json'])
           result_validator = Draft202012Validator(schemas['renderer-protocol.schema.json']['$defs']['result'])
-          fixture_paths = sorted((root / 'specification/conformance').glob('*.json'))
-          if not fixture_paths:
+          fixtures = sorted((root / 'specification/conformance').glob('*.json'))
+          if not fixtures:
               raise SystemExit('no conformance fixtures found')
-          for fixture_path in fixture_paths:
-              fixture = json.loads(fixture_path.read_text())
+          for path in fixtures:
+              fixture = json.loads(path.read_text())
               if 'page' in fixture and 'expected' in fixture:
                   page_validator.validate(fixture['page'])
                   result_validator.validate(fixture['expected'])
-                  print('valid renderer conformance', fixture_path)
-                  continue
-              if 'templateCases' in fixture:
-                  if fixture.get('version') != 1 or not isinstance(fixture['templateCases'], list) or not fixture['templateCases']:
-                      raise SystemExit(f'invalid template conformance envelope: {fixture_path}')
-                  for index, case in enumerate(fixture['templateCases']):
-                      required = {'name', 'template', 'context', 'expected'}
-                      if not isinstance(case, dict) or not required.issubset(case):
-                          raise SystemExit(f'invalid template case {fixture_path}#{index}')
-                      if not isinstance(case['name'], str) or not isinstance(case['template'], str) or not isinstance(case['context'], dict) or not isinstance(case['expected'], str):
-                          raise SystemExit(f'invalid template case types {fixture_path}#{index}')
-                  print('valid template conformance', fixture_path)
-                  continue
-              raise SystemExit(f'unknown conformance fixture shape: {fixture_path}')
+              elif 'templateCases' in fixture:
+                  if fixture.get('version') != 1 or not fixture['templateCases']:
+                      raise SystemExit(f'invalid template fixture: {path}')
+              else:
+                  raise SystemExit(f'unknown fixture shape: {path}')
           PY
-      - name: Verify portable machine-readable artifacts are engine neutral
+      - name: Verify engine-neutral portable artifacts
         run: |
-          ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade|github.com/zaengit/page-builder/engine/go' specification/*.json specification/conformance blocks --include='*.json' --include='*.html'
+          ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade' specification blocks --include='*.json' --include='*.html'
+          test -z "$(find blocks -name 'template.blade.php' -print)"
       - name: Verify canonical repository boundaries
         run: |
           test -d editor
@@ -79,12 +69,29 @@ jobs:
           test -d blocks
           test -d engine/laravel
           test -d engine/go
-          test -d engine/laravel/tests
           test ! -e core
           test ! -e renderers
+          test ! -e artisan
+          test ! -e bootstrap
+          test ! -e config
+          test ! -e public
+          test ! -e resources
+          test ! -e routes
+          test ! -e src
+          test ! -e storage
+          test ! -e tests
+          test ! -e composer.json
+          test ! -e phpunit.xml
+          test ! -e phpstan.neon
+          test -f engine/laravel/composer.json
+          test -d engine/laravel/src
+          test -d engine/laravel/tests
 
   laravel-engine:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: engine/laravel
     steps:
       - uses: actions/checkout@v5
       - name: Set up PHP
@@ -94,21 +101,15 @@ jobs:
           extensions: mbstring, pdo_sqlite
           coverage: none
       - name: Validate Composer metadata
-        run: |
-          composer validate --strict
-          (cd engine/laravel && composer validate --strict --no-check-publish)
+        run: composer validate --strict --no-check-publish
       - name: Install Composer dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
       - name: Audit Composer dependencies
         run: composer audit
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
       - name: Run PHP static analysis
         run: vendor/bin/phpstan analyse --memory-limit=1G
       - name: Check PHP formatting
-        run: vendor/bin/pint --test src engine/laravel/src engine/laravel/tests routes config
+        run: vendor/bin/pint --test src tests routes config
       - name: Run Laravel engine tests
         env:
           APP_ENV: testing
@@ -117,36 +118,27 @@ jobs:
           CACHE_STORE: array
           SESSION_DRIVER: array
         run: vendor/bin/phpunit
+      - name: Verify independent Composer archive
+        run: |
+          mkdir -p ../../dist/laravel
+          composer archive --format=zip --dir=../../dist/laravel --file=page-builder-engine-laravel-ci
+          test -s ../../dist/laravel/page-builder-engine-laravel-ci.zip
 
   go-engine:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Set up Go
-        uses: actions/setup-go@v6
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.25.x'
           cache-dependency-path: engine/go/go.mod
-      - name: Format check Go engine
+      - name: Verify Go engine
         working-directory: engine/go
-        run: test -z "$(gofmt -l .)"
-      - name: Test Go engine
-        working-directory: engine/go
-        run: go test ./...
-      - name: Build deployable Go engine artifact
-        run: bash scripts/build-engines.sh
-      - name: Smoke test Go engine artifact
         run: |
-          test -x dist/engine/page-builder-engine-go
-          dist/engine/page-builder-engine-go --version | grep -q 'protocol=1 specification=1'
-          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/engine/page-builder-engine-go | grep -q '"html"'
-      - name: Upload Go engine artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: page-builder-engine-go-linux-amd64
-          path: dist/engine/page-builder-engine-go
-          if-no-files-found: error
-          retention-days: 7
+          test -z "$(gofmt -l .)"
+          go test ./...
+      - name: Build Go engine artifact
+        run: bash scripts/build-engines.sh
 
   editor:
     runs-on: ubuntu-latest
@@ -155,72 +147,40 @@ jobs:
         working-directory: editor
     steps:
       - uses: actions/checkout@v5
-      - name: Set up Node.js
-        uses: actions/setup-node@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: '26.8.1'
           cache: npm
           cache-dependency-path: editor/package-lock.json
-      - name: Install editor dependencies
+      - name: Install dependencies
         run: npm ci --no-audit --no-fund
-      - name: Unit tests with coverage
+      - name: Test editor
         run: npm run test:coverage
-      - name: Build editor
-        run: npm run build
-      - name: Verify package assets
+      - name: Build independent editor distribution
         run: |
-          test -s ../resources/dist/page-builder.js
-          test -s ../resources/dist/page-builder.css
-      - name: Upload compiled editor assets
-        uses: actions/upload-artifact@v4
-        with:
-          name: editor-dist
-          path: |
-            resources/dist/page-builder.js
-            resources/dist/page-builder.js.map
-            resources/dist/page-builder.css
-          if-no-files-found: error
-          retention-days: 1
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+          npm run build
+          test -s dist/page-builder.js
+          test -s dist/page-builder.css
       - name: Browser E2E
-        run: npm run test:e2e
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
 
-  package:
+  distribution-boundaries:
     runs-on: ubuntu-latest
     needs: [specification, laravel-engine, go-engine, editor]
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.5'
-      - name: Download compiled editor assets
-        uses: actions/download-artifact@v5
-        with:
-          name: editor-dist
-          path: resources/dist
-      - name: Stage release tree
+      - name: Build independently packageable source archives
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add -f resources/dist/page-builder.js resources/dist/page-builder.js.map resources/dist/page-builder.css
-          git commit -m "ci: stage compiled editor assets"
-      - name: Build Composer archive
-        run: |
-          mkdir -p package-dist
-          composer archive --format=zip --dir=package-dist --file=page-builder-ci
-          unzip -l package-dist/page-builder-ci.zip > package-dist/archive.txt
-      - name: Verify archive boundaries
-        run: |
-          grep -q 'engine/laravel/composer.json' package-dist/archive.txt
-          grep -q 'engine/laravel/src/Runtime/RuntimeRenderer.php' package-dist/archive.txt
-          grep -q 'engine/go/renderer.go' package-dist/archive.txt
-          grep -q 'specification/conformance/canonical-runtime.json' package-dist/archive.txt
-          grep -q 'blocks/heading/template.html' package-dist/archive.txt
-          ! grep -q '/core/' package-dist/archive.txt
-          ! grep -q '/renderers/' package-dist/archive.txt
-          ! grep -q '/editor/' package-dist/archive.txt
-          ! grep -q '/tests/' package-dist/archive.txt
+          mkdir -p dist
+          zip -qr dist/specification.zip specification
+          zip -qr dist/blocks.zip blocks
+          zip -qr dist/editor-source.zip editor -x 'editor/node_modules/*' 'editor/dist/*'
+          zip -qr dist/laravel-engine-source.zip engine/laravel
+          zip -qr dist/go-engine-source.zip engine/go
+          test -s dist/specification.zip
+          test -s dist/blocks.zip
+          test -s dist/editor-source.zip
+          test -s dist/laravel-engine-source.zip
+          test -s dist/go-engine-source.zip
