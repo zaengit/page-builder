@@ -29,12 +29,7 @@ final class PageBuilderServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $providers = $this->app->make(DataProviderRegistry::class);
-        $providers->register(
-            'context',
-            ContextDataProvider::class,
-            'Runtime context',
-            [],
-        );
+        $providers->register('context', ContextDataProvider::class, 'Runtime context', []);
         $providers->register(
             'database',
             DatabaseDataProvider::class,
@@ -54,8 +49,11 @@ final class PageBuilderServiceProvider extends ServiceProvider
             __DIR__.'/../config/page-builder.php' => config_path('page-builder.php'),
         ], 'page-builder-config');
 
-        $this->publishes([
-            __DIR__.'/../resources/dist' => public_path(trim((string) config('page-builder.editor_public_path', 'vendor/page-builder'), '/')),
-        ], 'page-builder-assets');
+        $editorDist = (string) config('page-builder.editor_dist_path', __DIR__.'/../resources/dist');
+        if (is_dir($editorDist)) {
+            $this->publishes([
+                $editorDist => public_path(trim((string) config('page-builder.editor_public_path', 'vendor/page-builder'), '/')),
+            ], 'page-builder-assets');
+        }
     }
 }
