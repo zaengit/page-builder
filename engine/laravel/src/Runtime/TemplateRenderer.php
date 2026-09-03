@@ -32,7 +32,7 @@ final class TemplateRenderer
                 return '';
             }
 
-            return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            return str_replace('&#039;', '&#39;', htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'));
         }, $template) ?? $template;
     }
 
