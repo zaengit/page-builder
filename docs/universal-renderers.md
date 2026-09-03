@@ -8,11 +8,13 @@ The page builder stores one language-agnostic page document. The universal contr
 editor/          React visual editor
 specification/   universal schemas, protocol, and conformance fixtures
 blocks/          portable block packages
-src/             Laravel host adapter and Laravel rendering integration
-renderers/go/    standalone Go renderer
+engine/
+  laravel/       canonical Laravel engine adapter
+  go/            standalone Go engine
+src/             Laravel package integration and shared host services
 ```
 
-Laravel is an engine/host adapter. It is not the owner of the persisted page format, portable block format, or renderer protocol.
+`engine/` is the canonical engine boundary. Laravel is an engine/host adapter. It is not the owner of the persisted page format, portable block format, or renderer protocol.
 
 ## Portable block contract
 
@@ -32,7 +34,7 @@ Adding an ordinary portable block does not require adding source code to the Lar
 
 ## Process protocol
 
-The Go renderer reads one JSON object from stdin and writes one JSON object to stdout.
+The Go engine reads one JSON object from stdin and writes one JSON object to stdout.
 
 Input:
 
@@ -66,7 +68,7 @@ bash scripts/build-universal-renderers.sh
 The build creates:
 
 ```text
-dist/renderers/page-builder-render-go
+dist/engine/page-builder-engine-go
 ```
 
 ## Laravel engine selection
@@ -83,7 +85,7 @@ Use Go:
 
 ```env
 PAGE_BUILDER_RENDERER=go
-PAGE_BUILDER_GO_BINARY=/absolute/path/page-builder-render-go
+PAGE_BUILDER_GO_BINARY=/absolute/path/page-builder-engine-go
 ```
 
 The process driver bypasses the shell, enforces a timeout, captures stderr, validates JSON output, and returns the same `RenderResult` contract.
@@ -96,29 +98,19 @@ Persisted pages refer to neutral resources such as `products`, `posts`, and `pro
 
 ## Conformance
 
-Laravel and Go consume the same portable specification and conformance fixtures. Compatibility covers:
-
-- escaped values and fallback interpolation
-- nested blocks
-- conditions and loops
-- context bindings
-- asset de-duplication
-- block style/layout envelopes
-- responsive CSS
-- slot and color-scheme metadata
-- page-level tokens, typography, color schemes, and custom CSS
+Laravel and Go consume the same portable specification and conformance fixtures. Compatibility covers escaped values and fallback interpolation, nested blocks, conditions and loops, context bindings, asset de-duplication, block style/layout envelopes, responsive CSS, slot/color-scheme metadata, and page-level tokens/typography/color schemes/custom CSS.
 
 A renderer is compatible only when it passes the shared contract without changing the canonical page or block format.
 
 ## Support matrix
 
-| Engine | Status | Distribution |
-| --- | --- | --- |
-| Laravel | Supported | Composer package |
-| Go | Supported | Standalone binary/source |
-| Rust | Future adapter | Not active |
-| Node.js | Future adapter | Not active |
-| Python | Future adapter | Not active |
-| Bun | Future adapter | Not active |
+| Engine | Canonical source | Status | Distribution |
+| --- | --- | --- | --- |
+| Laravel | `engine/laravel` | Supported | Composer package |
+| Go | `engine/go` | Supported | Standalone binary/source |
+| Rust | future | Not active | None |
+| Node.js | future | Not active | None |
+| Python | future | Not active | None |
+| Bun | future | Not active | None |
 
-See `docs/universal-editor-engine-distribution-plan.md` for the completed architecture and release checklist.
+See `docs/universal-editor-engine-distribution-plan.md` for the architecture and release checklist.
