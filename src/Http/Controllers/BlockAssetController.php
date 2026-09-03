@@ -2,13 +2,14 @@
 
 namespace Zaengit\PageBuilder\Http\Controllers;
 
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Zaengit\PageBuilder\Blocks\BlockRegistry;
 
 final class BlockAssetController
 {
-    public function show(string $namespace, string $block, string $asset, BlockRegistry $registry): Response
+    public function show(string $namespace, string $block, string $asset, Request $request, BlockRegistry $registry): Response
     {
         $definition = $registry->get($namespace.'/'.$block);
         if (! $definition || ! preg_match('/^[A-Za-z0-9._-]+$/', $asset)) {
@@ -23,7 +24,7 @@ final class BlockAssetController
 
         $directory = $definition['_directory'] ?? realpath(dirname($definition['_template']));
         $path = realpath(($directory ?: '').DIRECTORY_SEPARATOR.$asset);
-        if (! is_string($directory) || $path === false || ! str_starts_with($path, $directory.DIRECTORY_SEPARATOR)) {
+        if (! is_string($directory) || $path === false || ! str_starts_with($path, rtrim($directory, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
             throw new NotFoundHttpException;
         }
 
@@ -34,10 +35,24 @@ final class BlockAssetController
             default => throw new NotFoundHttpException,
         };
 
-        return response(file_get_contents($path), 200, [
+        $hash = hash_file('sha256', $path);
+        $etag = is_string($hash) ? '"'.$hash.'"' : null;
+        $version = is_string($hash) ? substr($hash, 0, 12) : null;
+        $immutable = $version !== null && hash_equals($version, (string) $request->query('v', ''));
+        $headers = [
             'Content-Type' => $type,
-            'Cache-Control' => 'public, max-age=3600',
+            'Cache-Control' => $immutable ? 'public, max-age=31536000, immutable' : 'public, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',
-        ]);
+        ];
+
+        if ($etag !== null) {
+            $headers['ETag'] = $etag;
+
+            if (trim((string) $request->header('If-None-Match')) === $etag) {
+                return response('', 304, $headers);
+            }
+        }
+
+        return response(file_get_contents($path), 200, $headers);
     }
 }
