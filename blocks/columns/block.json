@@ -1,5 +1,6 @@
 {
   "name": "core/columns",
+  "version": 1,
   "title": "Columns",
   "category": "layout",
   "icon": "columns",
