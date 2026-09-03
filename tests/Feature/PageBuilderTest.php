@@ -82,8 +82,10 @@ class PageBuilderTest extends TestCase
         ]], false);
         $this->assertStringContainsString('Alpha', $html);
         $this->assertStringContainsString('Beta', $html);
-        $this->assertSame(['/block-assets/core/carousel/style.css'], $renderer->assets()['css']);
-        $this->assertSame(['/block-assets/core/carousel/frontend.js'], $renderer->assets()['js']);
+        $this->assertCount(1, $renderer->assets()['css']);
+        $this->assertCount(1, $renderer->assets()['js']);
+        $this->assertMatchesRegularExpression('#^/block-assets/core/carousel/style\.css\?v=[a-f0-9]{12}$#', $renderer->assets()['css'][0]);
+        $this->assertMatchesRegularExpression('#^/block-assets/core/carousel/frontend\.js\?v=[a-f0-9]{12}$#', $renderer->assets()['js'][0]);
         $renderer->render(['blocks'=>[['id'=>'heading-only','type'=>'core/heading','attrs'=>[]]]], false);
         $this->assertSame(['css'=>[], 'js'=>[]], $renderer->assets());
     }
