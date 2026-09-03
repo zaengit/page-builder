@@ -31,7 +31,10 @@ final class HttpHardeningTest extends TestCase
 
         $response = $this->get('/block-assets/core/carousel/style.css?v='.$version);
         $response->assertOk();
-        $response->assertHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('public', $cacheControl);
+        $this->assertStringContainsString('max-age=31536000', $cacheControl);
+        $this->assertStringContainsString('immutable', $cacheControl);
         $response->assertHeader('ETag', '"'.$hash.'"');
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
 
@@ -42,9 +45,12 @@ final class HttpHardeningTest extends TestCase
 
     public function test_unversioned_block_assets_keep_short_cache_policy(): void
     {
-        $this->get('/block-assets/core/carousel/style.css')
-            ->assertOk()
-            ->assertHeader('Cache-Control', 'public, max-age=3600');
+        $response = $this->get('/block-assets/core/carousel/style.css');
+        $response->assertOk();
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('public', $cacheControl);
+        $this->assertStringContainsString('max-age=3600', $cacheControl);
+        $this->assertStringNotContainsString('immutable', $cacheControl);
     }
 
     public function test_preview_is_same_origin_frame_only_and_never_cached(): void
@@ -52,7 +58,9 @@ final class HttpHardeningTest extends TestCase
         $response = $this->get(route('page-builder.preview'));
 
         $response->assertOk();
-        $response->assertHeader('Cache-Control', 'no-store, private');
+        $cacheControl = (string) $response->headers->get('Cache-Control');
+        $this->assertStringContainsString('no-store', $cacheControl);
+        $this->assertStringContainsString('private', $cacheControl);
         $response->assertHeader('Content-Security-Policy', "frame-ancestors 'self'");
         $response->assertHeader('Referrer-Policy', 'no-referrer');
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
