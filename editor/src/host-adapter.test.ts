@@ -7,8 +7,8 @@ const runtime: EditorRuntime = {
   renderBlockUrl: '/block',
   renderPageUrl: '/page',
   previewUrl: '/preview',
-  dataSources: [{ name: 'context', label: 'Context', fields: [] }],
-  dataResources: [{ name: 'products', label: 'Products', fields: ['name'] }],
+  dataSources: [{ name: 'context', title: 'Context', paths: [] }],
+  dataResources: [{ name: 'products', title: 'Products' }],
 };
 
 describe('editor host adapters', () => {
@@ -17,7 +17,7 @@ describe('editor host adapters', () => {
     const host = createStandaloneHostAdapter({
       blocks: [{ name: 'test/text', title: 'Text', category: 'test', version: 1, attributes: {} }],
       renderPage,
-      datasource: { sources: [], resources: [{ name: 'posts', label: 'Posts', fields: ['title'] }] },
+      datasource: { sources: [], resources: [{ name: 'posts', title: 'Posts' }] },
     });
     expect(host.id).toBe('standalone');
     expect((await host.loadBlocks())[0].name).toBe('test/text');
