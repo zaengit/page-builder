@@ -77,7 +77,10 @@ final class BlockRenderer
 
     private function runtimeContext(): array
     {
-        if (! app()->bound('request')) return [];
+        if (! app()->bound('request')) {
+            return [];
+        }
+
         $request = request();
         $explicit = $request->attributes->get('page_builder_context', []);
         $route = $request->route();
