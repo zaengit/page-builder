@@ -34,7 +34,7 @@ jobs:
           extensions: mbstring, pdo_sqlite
           coverage: none
 
-      - name: Verify backend
+      - name: Verify Laravel engine
         run: |
           composer validate --strict
           composer install --no-interaction --prefer-dist --no-progress
@@ -44,6 +44,20 @@ jobs:
           vendor/bin/phpstan analyse --memory-limit=1G
           vendor/bin/pint --test src routes config
           APP_ENV=testing DB_CONNECTION=sqlite DB_DATABASE=':memory:' CACHE_STORE=array SESSION_DRIVER=array vendor/bin/phpunit
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25.x'
+
+      - name: Verify and build Go engine
+        run: |
+          cd renderers/go
+          go test ./...
+          cd ../..
+          bash scripts/build-universal-renderers.sh
+          test -x dist/renderers/page-builder-render-go
+          printf '%s' '{"version":1,"page":{"version":1,"blocks":[]},"context":{},"blockRoot":"blocks"}' | dist/renderers/page-builder-render-go | grep -q '"html"'
 
       - uses: actions/setup-node@v5
         with:
@@ -91,14 +105,28 @@ jobs:
           unzip -l "$ARCHIVE" > release-dist/archive.txt
           grep -q 'composer.json' release-dist/archive.txt
           grep -q 'src/PageBuilderServiceProvider.php' release-dist/archive.txt
+          grep -q 'src/Rendering/RenderingEngineManager.php' release-dist/archive.txt
           grep -q 'config/page-builder.php' release-dist/archive.txt
           grep -q 'resources/dist/page-builder.js' release-dist/archive.txt
           grep -q 'resources/dist/page-builder.css' release-dist/archive.txt
           grep -q 'blocks/heading/block.json' release-dist/archive.txt
+          grep -q 'blocks/heading/template.html' release-dist/archive.txt
+          grep -q 'specification/page.schema.json' release-dist/archive.txt
+          grep -q 'specification/block.schema.json' release-dist/archive.txt
+          grep -q 'specification/renderer-protocol.schema.json' release-dist/archive.txt
+          grep -q 'docs/universal-editor-engine-distribution-plan.md' release-dist/archive.txt
+          grep -q 'renderers/go/renderer.go' release-dist/archive.txt
           grep -q 'LICENSE' release-dist/archive.txt
           ! grep -q '/editor/' release-dist/archive.txt
           ! grep -q '/tests/' release-dist/archive.txt
           ! grep -q '/.github/' release-dist/archive.txt
+
+      - name: Stage Go binary for release
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          cp dist/renderers/page-builder-render-go "release-dist/page-builder-render-go-linux-amd64-v$VERSION"
+          test -x "release-dist/page-builder-render-go-linux-amd64-v$VERSION"
 
       - name: Tag and publish GitHub release
         env:
@@ -107,4 +135,8 @@ jobs:
         run: |
           git tag -a "v$VERSION" -m "v$VERSION"
           git push origin "v$VERSION"
-          gh release create "v$VERSION" "release-dist/page-builder-v$VERSION.zip" --generate-notes --title "v$VERSION"
+          gh release create "v$VERSION" \
+            "release-dist/page-builder-v$VERSION.zip" \
+            "release-dist/page-builder-render-go-linux-amd64-v$VERSION" \
+            --generate-notes \
+            --title "v$VERSION"
