@@ -4,35 +4,49 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
 
-func TestCanonicalRuntimeConformance(t *testing.T) {
-	bytes, err := os.ReadFile("../../specification/conformance/canonical-runtime.json")
+func TestSharedRuntimeConformance(t *testing.T) {
+	paths, err := filepath.Glob("../../specification/conformance/*.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var fixture struct {
-		Registry map[string]map[string]any `json:"registry"`
-		Page     map[string]any            `json:"page"`
-		Context  map[string]any            `json:"context"`
-		Expected RenderResult              `json:"expected"`
+	if len(paths) == 0 {
+		t.Fatal("no shared conformance fixtures found")
 	}
-	if err := json.Unmarshal(bytes, &fixture); err != nil {
-		t.Fatal(err)
-	}
-	result, err := New().Render(context.Background(), RenderRequest{Page: fixture.Page, Registry: fixture.Registry, Context: fixture.Context})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.HTML != fixture.Expected.HTML {
-		t.Fatalf("html mismatch\nwant: %s\n got: %s", fixture.Expected.HTML, result.HTML)
-	}
-	if !reflect.DeepEqual(result.Assets, fixture.Expected.Assets) {
-		t.Fatalf("assets mismatch: %#v != %#v", result.Assets, fixture.Expected.Assets)
-	}
-	if !reflect.DeepEqual(result.Diagnostics, fixture.Expected.Diagnostics) {
-		t.Fatalf("diagnostics mismatch: %#v != %#v", result.Diagnostics, fixture.Expected.Diagnostics)
+
+	for _, path := range paths {
+		path := path
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			bytes, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var fixture struct {
+				Registry map[string]map[string]any `json:"registry"`
+				Page     map[string]any            `json:"page"`
+				Context  map[string]any            `json:"context"`
+				Expected RenderResult              `json:"expected"`
+			}
+			if err := json.Unmarshal(bytes, &fixture); err != nil {
+				t.Fatal(err)
+			}
+			result, err := New().Render(context.Background(), RenderRequest{Page: fixture.Page, Registry: fixture.Registry, Context: fixture.Context})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.HTML != fixture.Expected.HTML {
+				t.Fatalf("html mismatch\nwant: %s\n got: %s", fixture.Expected.HTML, result.HTML)
+			}
+			if !reflect.DeepEqual(result.Assets, fixture.Expected.Assets) {
+				t.Fatalf("assets mismatch: %#v != %#v", result.Assets, fixture.Expected.Assets)
+			}
+			if !reflect.DeepEqual(result.Diagnostics, fixture.Expected.Diagnostics) {
+				t.Fatalf("diagnostics mismatch: %#v != %#v", result.Diagnostics, fixture.Expected.Diagnostics)
+			}
+		})
 	}
 }
