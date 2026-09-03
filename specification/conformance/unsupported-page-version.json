@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "registry": {},
+  "page": {
+    "version": 2,
+    "blocks": []
+  },
+  "context": {},
+  "expected": {
+    "html": "",
+    "assets": {"css": [], "js": []},
+    "diagnostics": [
+      {
+        "code": "unsupported_page_version",
+        "severity": "error",
+        "path": "$.version",
+        "message": "2"
+      }
+    ]
+  }
+}
