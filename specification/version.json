@@ -1,0 +1,9 @@
+{
+  "specification": 1,
+  "page": 1,
+  "block": 1,
+  "datasource": 1,
+  "rendererProtocol": 1,
+  "templateLanguage": 1,
+  "breakpoints": ["desktop", "tablet", "mobile"]
+}
