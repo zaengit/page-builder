@@ -5,8 +5,8 @@ namespace Zaengit\PageBuilder\Engine\Laravel;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use RuntimeException;
-use Zaengit\PageBuilder\Core\ArrayPath;
-use Zaengit\PageBuilder\Core\Contract\DatasourceResolver;
+use Zaengit\PageBuilder\Engine\Laravel\Contracts\DatasourceResolver;
+use Zaengit\PageBuilder\Engine\Laravel\Runtime\ArrayPath;
 
 final class LaravelDatasourceResolver implements DatasourceResolver
 {
