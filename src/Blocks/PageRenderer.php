@@ -26,9 +26,10 @@ final class PageRenderer
         $requestedDefault = is_string($settings['defaultColorSchemeId'] ?? null)
             ? $settings['defaultColorSchemeId']
             : null;
+        $firstSchemeId = array_key_first($this->colorSchemes);
         $this->defaultColorSchemeId = isset($this->colorSchemes[$requestedDefault])
             ? $requestedDefault
-            : array_key_first($this->colorSchemes) ?: null;
+            : $firstSchemeId;
 
         $body = implode('', array_map(
             fn (array $block) => $this->renderBlock($block, $preview),
