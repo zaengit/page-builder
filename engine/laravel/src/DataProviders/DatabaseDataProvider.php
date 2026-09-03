@@ -5,71 +5,65 @@ namespace Zaengit\PageBuilder\DataProviders;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Zaengit\PageBuilder\Blocks\BlockRenderContext;
+use InvalidArgumentException;
 
-final class DatabaseDataProvider implements BlockDataProvider
+final class DatabaseDataProvider implements DataProvider
 {
-    public function __construct(private readonly DatabaseResourceResolver $resources) {}
-
-    public function resolve(array $attrs, BlockRenderContext $context): mixed
+    public function resolve(array $binding, array $attrs = [], array $context = []): mixed
     {
-        return [];
-    }
-
-    public function resolveBinding(array $binding, array $attrs, BlockRenderContext $context): mixed
-    {
-        $modelClass = $this->resources->modelClass($binding);
-
-        /** @var Model $model */
-        $model = new $modelClass;
+        $model = $this->model($binding);
         /** @var Builder<Model> $query */
-        $query = $model->newQuery();
+        $query = $model::query();
         $spec = is_array($binding['query'] ?? null) ? $binding['query'] : [];
 
-        $this->applyRelations($query, $spec);
-        $this->applyFilters($query, $spec);
-        $this->applyOrdering($query, $spec);
+        $this->relations($query, $spec);
+        $this->filters($query, $spec);
+        $this->orders($query, $spec);
 
-        $contextKey = trim((string) ($binding['contextKey'] ?? ''));
-        if ($contextKey !== '') {
-            $contextValue = data_get($context->runtimeContext, $contextKey);
-            if ($contextValue instanceof Model) {
-                $contextValue = $contextValue->getKey();
-            }
-
-            if ($contextValue !== null) {
-                $query->where($model->getQualifiedKeyName(), $contextValue);
-            }
-        }
-
-        $mode = (string) ($binding['mode'] ?? 'single');
-        if ($mode === 'collection') {
+        if (($binding['mode'] ?? 'single') === 'collection') {
             return $this->collection($query, $spec);
         }
 
         $recordId = $binding['recordId'] ?? null;
+        if (($recordId === null || $recordId === '') && isset($binding['contextKey']) && is_string($binding['contextKey'])) {
+            $recordId = $this->contextValue($context, $binding['contextKey']);
+        }
         if ($recordId !== null && $recordId !== '') {
             $query->whereKey($recordId);
         }
 
-        $record = $query->first();
+        return $query->first()?->toArray();
+    }
 
-        return $record?->toArray();
+    /** @return class-string<Model> */
+    private function model(array $binding): string
+    {
+        $resource = (string) ($binding['resource'] ?? '');
+        $resources = (array) config('page-builder.data.resources', []);
+        $model = $resources[$resource] ?? null;
+
+        if (! is_string($model) || ! is_subclass_of($model, Model::class)) {
+            throw new InvalidArgumentException('Unknown database resource: '.$resource);
+        }
+
+        return $model;
     }
 
     /** @param Builder<Model> $query */
-    private function applyRelations(Builder $query, array $spec): void
+    private function relations(Builder $query, array $spec): void
     {
-        $relations = array_values(array_filter((array) ($spec['with'] ?? []), fn ($relation) => is_string($relation) && preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $relation)));
+        $relations = array_values(array_filter(
+            array_slice((array) ($spec['with'] ?? []), 0, 20),
+            fn (mixed $relation): bool => is_string($relation) && preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $relation) === 1,
+        ));
         if ($relations !== []) {
-            $query->with(array_slice($relations, 0, 20));
+            $query->with($relations);
         }
     }
 
     /** @param Builder<Model> $query */
-    private function applyFilters(Builder $query, array $spec): void
+    private function filters(Builder $query, array $spec): void
     {
-        $allowed = ['=', '!=', '<>', '>', '>=', '<', '<=', 'like', 'not like'];
         foreach (array_slice((array) ($spec['where'] ?? []), 0, 50) as $filter) {
             if (! is_array($filter)) {
                 continue;
@@ -77,57 +71,50 @@ final class DatabaseDataProvider implements BlockDataProvider
 
             $column = (string) ($filter['column'] ?? '');
             $operator = strtolower((string) ($filter['operator'] ?? '='));
-            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column)) {
-                continue;
-            }
-
-            if ($operator === 'in' || $operator === 'not in') {
-                $values = is_array($filter['value'] ?? null)
-                    ? $filter['value']
-                    : array_filter(array_map('trim', explode(',', (string) ($filter['value'] ?? ''))));
-
-                if ($operator === 'in') {
-                    $query->whereIn($column, $values);
-                } else {
-                    $query->whereNotIn($column, $values);
-                }
-
+            if (preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column) !== 1) {
                 continue;
             }
 
             if ($operator === 'null') {
                 $query->whereNull($column);
-
-                continue;
-            }
-
-            if ($operator === 'not null') {
+            } elseif ($operator === 'not null') {
                 $query->whereNotNull($column);
-
-                continue;
-            }
-
-            if (in_array($operator, $allowed, true)) {
+            } elseif ($operator === 'in' || $operator === 'not in') {
+                $values = is_array($filter['value'] ?? null) ? $filter['value'] : [$filter['value'] ?? null];
+                $operator === 'in' ? $query->whereIn($column, $values) : $query->whereNotIn($column, $values);
+            } elseif (in_array($operator, ['=', '!=', '<>', '>', '>=', '<', '<=', 'like', 'not like'], true)) {
                 $query->where($column, $operator, $filter['value'] ?? null);
             }
         }
     }
 
     /** @param Builder<Model> $query */
-    private function applyOrdering(Builder $query, array $spec): void
+    private function orders(Builder $query, array $spec): void
     {
         foreach (array_slice((array) ($spec['orderBy'] ?? []), 0, 10) as $order) {
             if (! is_array($order)) {
                 continue;
             }
-
             $column = (string) ($order['column'] ?? '');
-            if (! preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column)) {
+            if (preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/', $column) !== 1) {
                 continue;
             }
-
-            $query->orderBy($column, strtolower((string) ($order['direction'] ?? 'asc')) === 'desc' ? 'desc' : 'asc');
+            $direction = strtolower((string) ($order['direction'] ?? 'asc')) === 'desc' ? 'desc' : 'asc';
+            $query->orderBy($column, $direction);
         }
+    }
+
+    private function contextValue(array $context, string $path): mixed
+    {
+        $value = $context;
+        foreach (explode('.', $path) as $segment) {
+            if (! is_array($value) || ! array_key_exists($segment, $value)) {
+                return null;
+            }
+            $value = $value[$segment];
+        }
+
+        return $value;
     }
 
     /** @param Builder<Model> $query */
@@ -143,7 +130,7 @@ final class DatabaseDataProvider implements BlockDataProvider
             $paginator = $query->paginate($perPage, ['*'], 'page', max(1, (int) ($spec['page'] ?? request()->integer('page', 1))));
 
             return [
-                'items' => array_map(fn (Model $item) => $item->toArray(), $paginator->items()),
+                'items' => array_map(fn (Model $item): array => $item->toArray(), $paginator->items()),
                 'pagination' => [
                     'currentPage' => $paginator->currentPage(),
                     'perPage' => $paginator->perPage(),
@@ -154,8 +141,10 @@ final class DatabaseDataProvider implements BlockDataProvider
             ];
         }
 
+        $items = $query->limit($limit)->get()->map(fn (Model $item): array => $item->toArray())->values()->all();
+
         return [
-            'items' => $query->limit($limit)->get()->map->toArray()->all(),
+            'items' => $items,
             'pagination' => null,
         ];
     }
