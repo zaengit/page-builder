@@ -52,17 +52,12 @@ jobs:
               Draft202012Validator.check_schema(data)
               schemas[path.name] = data
 
-          block_validator = Draft202012Validator(schemas['block.schema.json'])
-          for path in sorted((root / 'blocks').glob('*/block.json')):
-              block_validator.validate(json.loads(path.read_text()))
-
           page_validator = Draft202012Validator(schemas['page.schema.json'])
           datasource_root = schemas['datasource.schema.json']
-          datasource_request_schema = {**datasource_root, '$ref': '#/$defs/request'}
-          datasource_response_schema = {**datasource_root, '$ref': '#/$defs/response'}
-          datasource_request_validator = Draft202012Validator(datasource_request_schema)
-          datasource_response_validator = Draft202012Validator(datasource_response_schema)
-          result_validator = Draft202012Validator(schemas['renderer-protocol.schema.json']['$defs']['result'])
+          datasource_request_validator = Draft202012Validator({**datasource_root, '$ref': '#/$defs/request'})
+          datasource_response_validator = Draft202012Validator({**datasource_root, '$ref': '#/$defs/response'})
+          renderer_root = schemas['renderer-protocol.schema.json']
+          result_validator = Draft202012Validator({**renderer_root, '$ref': '#/$defs/result'})
 
           fixtures = sorted((spec / 'conformance').glob('*.json'))
           if not fixtures:
@@ -94,11 +89,13 @@ jobs:
               else:
                   raise SystemExit(f'unknown fixture shape: {path}')
           PY
+      - name: Validate portable block packages
+        run: python scripts/validate-block-packages.py
       - name: Verify engine-neutral portable artifacts
         run: |
           ! grep -R -n -E 'Illuminate\\\\|Laravel\\\\|Eloquent|Blade' specification blocks --include='*.json' --include='*.html'
           test -z "$(find blocks -name 'template.blade.php' -print)"
-      - name: Verify canonical repository boundaries
+      - name: Verify canonical repository boundaries and docs
         run: |
           test -d editor
           test -d specification
@@ -119,11 +116,20 @@ jobs:
           test ! -e composer.json
           test ! -e phpunit.xml
           test ! -e phpstan.neon
+          test ! -e scripts/build-universal-renderers.sh
           test -f engine/laravel/composer.json
+          test -f engine/laravel/src/EngineVersion.php
           test -d engine/laravel/src
           test -d engine/laravel/tests
+          test -f engine/go/version.go
+          test -f engine/go/examples/sqlprovider/sqlprovider.go
+          test -f editor/src/host-adapter.ts
+          test -f editor/src/public-api.tsx
           test -f specification/version.json
           test -f specification/compatibility-policy.md
+          for doc in architecture page-json block-manifest template-language datasource-reference renderer-protocol conformance-authoring editor-integration laravel-engine go-engine portable-blocks third-engine version-compatibility migration-policy security-model block-package-format; do
+            test -s "docs/$doc.md"
+          done
 
   laravel-engine:
     runs-on: ubuntu-latest
@@ -177,6 +183,12 @@ jobs:
           go test ./...
       - name: Build Go engine artifact
         run: bash scripts/build-engines.sh
+      - name: Verify CLI protocol metadata
+        run: |
+          output="$(dist/engine/page-builder-engine-go --version)"
+          echo "$output"
+          echo "$output" | grep 'protocol=1'
+          echo "$output" | grep 'specification=1'
 
   editor:
     runs-on: ubuntu-latest
@@ -198,15 +210,32 @@ jobs:
         run: |
           npm run build
           test -s dist/page-builder.js
+          test -s dist/index.js
           test -s dist/page-builder.css
+          npm run pack:check
       - name: Browser E2E
         run: |
           npx playwright install --with-deps chromium
           npm run test:e2e
 
+  conformance-parity:
+    runs-on: ubuntu-latest
+    needs: [specification, laravel-engine, go-engine]
+    steps:
+      - uses: actions/checkout@v5
+      - name: Assert both official engines consume the shared corpus
+        run: |
+          grep -q 'specification/conformance' engine/laravel/tests/RuntimeConformanceTest.php
+          grep -q 'specification/conformance' engine/go/renderer_test.go
+          test -s specification/conformance/canonical-runtime.json
+          test -s specification/conformance/layout-responsive.json
+          test -s specification/conformance/design-tokens-typography.json
+          test -s specification/conformance/datasource-contract.json
+          test -s specification/conformance/template-language.json
+
   distribution-boundaries:
     runs-on: ubuntu-latest
-    needs: [specification, laravel-engine, go-engine, editor]
+    needs: [specification, laravel-engine, go-engine, editor, conformance-parity]
     steps:
       - uses: actions/checkout@v5
       - name: Build independently packageable source archives
@@ -222,3 +251,5 @@ jobs:
           test -s dist/editor-source.zip
           test -s dist/laravel-engine-source.zip
           test -s dist/go-engine-source.zip
+          (cd dist && sha256sum *.zip > SHA256SUMS)
+          test -s dist/SHA256SUMS
