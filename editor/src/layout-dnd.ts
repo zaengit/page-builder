@@ -12,6 +12,10 @@ export function applyLayoutDrop(blocks: PageBlock[], event: DragEndEvent, breakp
   if (overId.startsWith('container:')) {
     return { blocks: moveIntoLayout(blocks, activeId, overId.slice('container:'.length), undefined, undefined, breakpoint), handled: true };
   }
+  if (overId.startsWith('flexpos:')) {
+    const [, parentId, indexRaw] = overId.split(':');
+    return { blocks: moveIntoLayout(blocks, activeId, parentId, Number(indexRaw), undefined, breakpoint), handled: true };
+  }
   if (overId.startsWith('gridcell:')) {
     const [, parentId, rowRaw, colRaw] = overId.split(':');
     return { blocks: moveIntoLayout(blocks, activeId, parentId, undefined, { row: Number(rowRaw), column: Number(colRaw) }, breakpoint), handled: true };
