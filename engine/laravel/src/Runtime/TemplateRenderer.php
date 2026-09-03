@@ -26,7 +26,7 @@ final class TemplateRenderer
         preg_match_all('/{%\s*(.*?)\s*%}/s', $stripped, $matches, PREG_OFFSET_CAPTURE);
         $stack = [];
         $cursor = 0;
-        foreach ($matches[0] ?? [] as $index => $whole) {
+        foreach ($matches[0] as $index => $whole) {
             [$token, $offset] = $whole;
             $between = substr($stripped, $cursor, $offset - $cursor);
             if (str_contains($between, '{%') || str_contains($between, '%}')) {
