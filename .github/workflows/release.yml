@@ -65,6 +65,8 @@ jobs:
           go mod verify
           go vet ./...
           go test ./...
+          test -z "$(find . -maxdepth 1 -type f -name '*.go' -print)"
+          test ! -e cmd/page-builder-render
 
       - uses: actions/setup-node@v5
         with:
@@ -97,11 +99,11 @@ jobs:
               ext=""
               [ "$os" = windows ] && ext=".exe"
               cms_output="../../release-dist/page-builder-cms-go-${os}-${arch}-v${VERSION}${ext}"
-              renderer_output="../../release-dist/page-builder-renderer-go-${os}-${arch}-v${VERSION}${ext}"
               (
                 cd engine/go
-                GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go.EngineVersion=$VERSION" -o "$cms_output" ./cmd/cms
-                GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go.EngineVersion=$VERSION" -o "$renderer_output" ./cmd/page-builder-render
+                GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath \
+                  -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go/internal/render/engine.EngineVersion=$VERSION" \
+                  -o "$cms_output" ./cmd/cms
               )
             done
           done
@@ -126,7 +128,7 @@ jobs:
               "defaultDatabase": "sqlite",
               "databaseLayer": "gorm",
               "databases": ["sqlite", "postgres", "mysql", "sqlserver"],
-              "compatibilityRenderer": true
+              "standaloneRendererBinary": false
             },
             "editor": "page-builder-editor"
           }
@@ -138,7 +140,6 @@ jobs:
               ext=""
               [ "$os" = windows ] && ext=".exe"
               test -s "release-dist/page-builder-cms-go-${os}-${arch}-v${VERSION}${ext}"
-              test -s "release-dist/page-builder-renderer-go-${os}-${arch}-v${VERSION}${ext}"
             done
           done
           test -s "release-dist/page-builder-go-cms-source-v$VERSION.zip"
