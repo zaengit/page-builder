@@ -13,7 +13,7 @@ func sharedConformanceRoot(t *testing.T) string {
 	t.Helper()
 	root := os.Getenv("PAGE_BUILDER_CONFORMANCE_ROOT")
 	if root == "" {
-		root = "../../specification/conformance"
+		root = "../../../../../specification/conformance"
 	}
 	if info, err := os.Stat(root); err != nil || !info.IsDir() {
 		t.Skip("shared conformance corpus is not bundled with the extracted Go module")
