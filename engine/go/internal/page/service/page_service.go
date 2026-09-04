@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	pagebuilder "github.com/zaengit/page-builder/engine/go"
 	pagemodel "github.com/zaengit/page-builder/engine/go/internal/page/model"
 	pagerepo "github.com/zaengit/page-builder/engine/go/internal/page/repository"
+	pagebuilder "github.com/zaengit/page-builder/engine/go/internal/render/engine"
 )
 
 var slugRE = regexp.MustCompile(`[^a-z0-9]+`)
@@ -74,13 +74,7 @@ func (s *Service) Create(ctx context.Context, title, slug string, content json.R
 		return nil, validation(errors.New("slug already exists"))
 	}
 
-	p := &pagemodel.Page{
-		Title:    title,
-		Slug:     slug,
-		Status:   "draft",
-		Content:  content,
-		Revision: 1,
-	}
+	p := &pagemodel.Page{Title: title, Slug: slug, Status: "draft", Content: content, Revision: 1}
 	if err := s.repo.Create(ctx, p); err != nil {
 		return nil, err
 	}
@@ -103,14 +97,7 @@ func (s *Service) List(ctx context.Context, options ListOptions) ([]pagemodel.Pa
 		return nil, 0, validation(errors.New("status must be draft or published"))
 	}
 	options.Search = strings.TrimSpace(options.Search)
-	return s.repo.List(ctx, pagerepo.ListOptions{
-		Limit:     options.Limit,
-		Offset:    options.Offset,
-		Status:    options.Status,
-		Search:    options.Search,
-		OrderBy:   strings.TrimSpace(options.OrderBy),
-		Direction: strings.TrimSpace(options.Direction),
-	})
+	return s.repo.List(ctx, pagerepo.ListOptions{Limit: options.Limit, Offset: options.Offset, Status: options.Status, Search: options.Search, OrderBy: strings.TrimSpace(options.OrderBy), Direction: strings.TrimSpace(options.Direction)})
 }
 
 func (s *Service) Update(ctx context.Context, id uint, title, slug *string, content *json.RawMessage) (*pagemodel.Page, error) {
@@ -170,13 +157,7 @@ func (s *Service) Duplicate(ctx context.Context, id uint) (*pagemodel.Page, erro
 		}
 		candidate = fmt.Sprintf("%s-%d", baseSlug, suffix)
 	}
-	copyPage := &pagemodel.Page{
-		Title:    source.Title + " Copy",
-		Slug:     candidate,
-		Status:   "draft",
-		Content:  append(json.RawMessage(nil), source.Content...),
-		Revision: 1,
-	}
+	copyPage := &pagemodel.Page{Title: source.Title + " Copy", Slug: candidate, Status: "draft", Content: append(json.RawMessage(nil), source.Content...), Revision: 1}
 	if err := s.repo.Create(ctx, copyPage); err != nil {
 		return nil, err
 	}
