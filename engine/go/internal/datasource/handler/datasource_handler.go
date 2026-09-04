@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -100,23 +101,7 @@ func (h *Handler) Query(w http.ResponseWriter, r *http.Request) {
 }
 
 func strictJSON(raw []byte, dst any) error {
-	dec := json.NewDecoder(bytesReader(raw))
+	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
 	return dec.Decode(dst)
-}
-
-type rawReader struct {
-	value []byte
-	offset int
-}
-
-func bytesReader(value []byte) *rawReader { return &rawReader{value: value} }
-
-func (r *rawReader) Read(p []byte) (int, error) {
-	if r.offset >= len(r.value) {
-		return 0, io.EOF
-	}
-	n := copy(p, r.value[r.offset:])
-	r.offset += n
-	return n, nil
 }
