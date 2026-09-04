@@ -3,12 +3,13 @@ package service_test
 import (
 	"context"
 	"encoding/json"
+	"testing"
+
+	"github.com/glebarez/sqlite"
 	pagemodel "github.com/zaengit/page-builder/engine/go/internal/page/model"
 	"github.com/zaengit/page-builder/engine/go/internal/page/repository"
 	"github.com/zaengit/page-builder/engine/go/internal/page/service"
-	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"testing"
 )
 
 func TestPageLifecycle(t *testing.T) {
