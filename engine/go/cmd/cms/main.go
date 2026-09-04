@@ -33,14 +33,16 @@ import (
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		fmt.Printf("page-builder-cms %s specification=%d\n", pagebuilder.EngineVersion, pagebuilder.SpecificationVersion)
+		fmt.Printf("%s %s specification=%d\n", pagebuilder.RuntimeName, pagebuilder.EngineVersion, pagebuilder.SpecificationVersion)
 		return
 	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		slog.Error("configuration error", "error", err)
 		os.Exit(2)
 	}
+
 	db, err := database.Open(cfg)
 	if err != nil {
 		slog.Error("database error", "error", err)
@@ -51,29 +53,53 @@ func main() {
 			slog.Error("database close error", "error", err)
 		}
 	}()
+
 	if cfg.MigrateOnStart {
 		if err := database.Migrate(db); err != nil {
 			slog.Error("migration error", "error", err)
 			os.Exit(4)
 		}
 	}
-	pr := pagerepo.New(db)
-	ps := pagesvc.New(pr)
-	bs := blocksvc.New(cfg.BlockRoot)
-	mr := mediarepo.New(db)
-	ms := mediasvc.New(mr, cfg.StoragePath, cfg.PublicStoragePath, cfg.MaxUploadBytes)
-	sr := settingrepo.New(db)
-	ss := settingsvc.New(sr)
-	dr := datasourcerepo.New(db)
-	ds := datasourcesvc.New(dr)
-	rh := renderhandler.New(rendersvc.New(ps, bs, pagebuilder.New()))
-	h := router.New(router.Dependencies{DB: db, Pages: pagehandler.New(ps), Media: mediahandler.New(ms, cfg.MaxUploadBytes), Blocks: blockhandler.New(bs), Datasources: datasourcehandler.New(ds), Render: rh, Settings: settinghandler.New(ss), CORSOrigins: cfg.CORSOrigins, StorageDir: cfg.StoragePath, PublicStoragePath: cfg.PublicStoragePath})
-	srv := &http.Server{Addr: cfg.HTTPAddress, Handler: h, ReadTimeout: cfg.ReadTimeout, ReadHeaderTimeout: cfg.ReadTimeout, WriteTimeout: cfg.WriteTimeout, IdleTimeout: cfg.IdleTimeout}
+
+	pageRepository := pagerepo.New(db)
+	pageService := pagesvc.New(pageRepository)
+	blockService := blocksvc.New(cfg.BlockRoot)
+	mediaRepository := mediarepo.New(db)
+	mediaService := mediasvc.New(mediaRepository, cfg.StoragePath, cfg.PublicStoragePath, cfg.MaxUploadBytes)
+	settingRepository := settingrepo.New(db)
+	settingService := settingsvc.New(settingRepository)
+	datasourceRepository := datasourcerepo.New(db)
+	datasourceService := datasourcesvc.New(datasourceRepository)
+	renderHandler := renderhandler.New(rendersvc.New(pageService, blockService, pagebuilder.New()))
+
+	handler := router.New(router.Dependencies{
+		DB:                db,
+		Pages:             pagehandler.New(pageService),
+		Media:             mediahandler.New(mediaService, cfg.MaxUploadBytes),
+		Blocks:            blockhandler.New(blockService),
+		Datasources:       datasourcehandler.New(datasourceService),
+		Render:            renderHandler,
+		Settings:          settinghandler.New(settingService),
+		CORSOrigins:       cfg.CORSOrigins,
+		StorageDir:        cfg.StoragePath,
+		PublicStoragePath: cfg.PublicStoragePath,
+	})
+
+	server := &http.Server{
+		Addr:              cfg.HTTPAddress,
+		Handler:           handler,
+		ReadTimeout:       cfg.ReadTimeout,
+		ReadHeaderTimeout: cfg.ReadTimeout,
+		WriteTimeout:      cfg.WriteTimeout,
+		IdleTimeout:       cfg.IdleTimeout,
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		slog.Info("Go CMS started", "addr", cfg.HTTPAddress, "database", cfg.DatabaseDriver)
-		errCh <- srv.ListenAndServe()
+		errCh <- server.ListenAndServe()
 	}()
+
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 	select {
@@ -86,9 +112,10 @@ func main() {
 		}
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		slog.Error("shutdown error", "error", err)
 		os.Exit(6)
 	}
