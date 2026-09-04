@@ -1,27 +1,39 @@
 # Go CMS
 
-`engine/go/` is the standalone Go CMS implementation of the universal page-builder contracts. The primary executable is `cmd/cms`. `cmd/page-builder-render` remains a compatibility executable for renderer protocol v1 and shared conformance/process integration.
+`engine/go/` is a standalone full CMS executable. It is not distributed as a public reusable Go renderer package and it does not ship a separate renderer executable. Rendering, datasource contracts, registry loading, validation, and template execution are private CMS implementation details under `internal/render/engine/`.
+
+The Go CMS continues to consume the universal top-level `specification/` and portable `blocks/` contracts, so its rendered output remains covered by the shared cross-engine conformance corpus.
 
 ## Architecture
 
-The CMS uses feature-first internal packages:
-
 ```text
-internal/
-  page/{handler,model,repository,service}
-  media/{handler,model,repository,service}
-  datasource/{handler,model,repository,service}
-  block/{handler,model,repository,service}
-  setting/{handler,model,repository,service}
-  render/{handler,model,repository,service}
-  config/
-  database/
-  middleware/
-  router/
-  pkg/
+engine/go/
+├── cmd/
+│   └── cms/
+│       └── main.go
+├── internal/
+│   ├── page/
+│   ├── media/
+│   ├── datasource/
+│   ├── block/
+│   ├── setting/
+│   ├── render/
+│   │   ├── engine/
+│   │   ├── handler/
+│   │   ├── model/
+│   │   └── service/
+│   ├── config/
+│   ├── database/
+│   ├── middleware/
+│   ├── router/
+│   └── pkg/
+├── go.mod
+└── go.sum
 ```
 
-HTTP handlers call services, services own business rules, repositories own persistence/discovery, and shared infrastructure stays outside feature packages. Canonical Page JSON and portable blocks remain owned by top-level `specification/` and `blocks/`.
+There are intentionally no `.go` files at the root of `engine/go/`. `cmd/cms/main.go` is bootstrap and dependency wiring only. Feature handlers call services, services own business rules, repositories own persistence/discovery, and cross-cutting infrastructure stays in the dedicated internal packages.
+
+`internal/render/engine/` contains the universal rendering implementation used by the CMS itself. Because it is under Go's `internal` boundary, it is not a supported external package API.
 
 ## Run
 
@@ -51,9 +63,9 @@ SHUTDOWN_TIMEOUT_MS=10000
 CORS_ORIGINS=
 ```
 
-`DB_DRIVER` supports `sqlite`, `postgres`, `mysql`, and `sqlserver`. GORM is the persistence layer. SQLite uses a pure-Go driver so release binaries do not require CGO or a system SQLite library. PostgreSQL, MySQL/MariaDB, and SQL Server are selected only by changing `DB_DRIVER` and `DB_DSN`; feature repositories continue using the same shared `*gorm.DB`.
+`DB_DRIVER` supports `sqlite`, `postgres`, `mysql`, and `sqlserver`. GORM is the persistence layer. SQLite uses a pure-Go driver so release binaries do not require CGO or a system SQLite library. PostgreSQL, MySQL/MariaDB, and SQL Server are selected by changing `DB_DRIVER` and `DB_DSN`; feature repositories continue using the same shared `*gorm.DB`.
 
-Example production PostgreSQL configuration:
+Example PostgreSQL configuration:
 
 ```text
 DB_DRIVER=postgres
@@ -73,8 +85,8 @@ The initial schema persists pages, media metadata, datasource definitions, and g
 Health and operations:
 
 ```text
-GET    /health
-GET    /ready
+GET /health
+GET /ready
 ```
 
 Pages:
@@ -134,7 +146,7 @@ Only published pages resolve through the public frontend route. Draft pages are 
 
 ## Editor integration
 
-The engine-neutral React HTTP adapter can point directly at the Go CMS. It understands the CMS response envelope while preserving the generic render request contract. A typical runtime maps block, render, and media URLs to the endpoints above. The editor does not need a Laravel route when the Go CMS is the host.
+The engine-neutral React HTTP adapter can point directly at the Go CMS. It uses the CMS HTTP API for page persistence, block discovery, preview rendering, datasource metadata/querying, and media operations. No Laravel endpoint and no renderer subprocess are required when the Go CMS is the host.
 
 ## HTTP hardening
 
@@ -144,7 +156,7 @@ Write APIs intentionally do not implement an identity system in this repository.
 
 ## Production deployment
 
-Run a single released `page-builder-cms-go-*` binary behind a TLS-terminating reverse proxy or managed ingress. Persist both the database and `STORAGE_PATH`. For SQLite, use a durable local volume and a single-writer deployment topology; for horizontally scaled deployments use PostgreSQL, MySQL/MariaDB, or SQL Server plus shared/object media storage supplied by the deployment integration.
+Run one released `page-builder-cms-go-*` binary behind a TLS-terminating reverse proxy or managed ingress. Persist both the database and `STORAGE_PATH`. For SQLite, use a durable local volume and a single-writer deployment topology; for horizontally scaled deployments use PostgreSQL, MySQL/MariaDB, or SQL Server plus shared/object media storage supplied by the deployment integration.
 
 Use `/health` for process liveness and `/ready` for database readiness. Send SIGTERM during rollout and allow at least `SHUTDOWN_TIMEOUT_MS` before forced termination. Back up the database and media storage together according to the application's recovery requirements.
 
@@ -160,11 +172,12 @@ cd ../..
 bash scripts/build-engines.sh
 ```
 
-The build produces:
+The build produces exactly one Go executable:
 
 ```text
 dist/engine/page-builder-cms-go
-dist/engine/page-builder-renderer-go
 ```
 
-The release workflow builds Linux, macOS, and Windows binaries for amd64 and arm64, embeds the release version, includes source archives, creates a manifest describing the Go CMS/database capabilities, and generates SHA-256 checksums.
+CI explicitly rejects root-level Go source files, rejects `cmd/page-builder-render`, and verifies that no `page-builder-renderer-go` artifact is produced.
+
+The release workflow builds the CMS executable for Linux, macOS, and Windows on amd64 and arm64, embeds the release version, includes the CMS source archive, creates a capability manifest, and generates SHA-256 checksums. There is no separately distributed Go renderer library or renderer binary.
