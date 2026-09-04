@@ -8,6 +8,8 @@
 
 ## 1. Target Architecture
 
+The Go CMS uses a feature-first structure. There is no `domain/` wrapper. Each business feature lives directly under `internal/` and owns its handler, model, repository, and service layers where needed.
+
 ```text
 engine/go/
 ├── cmd/
@@ -15,54 +17,47 @@ engine/go/
 │       └── main.go
 │
 ├── internal/
-│   ├── domain/
+│   ├── page/
 │   │   ├── handler/
-│   │   │   ├── page_handler.go
-│   │   │   ├── block_handler.go
-│   │   │   ├── media_handler.go
-│   │   │   ├── datasource_handler.go
-│   │   │   ├── settings_handler.go
-│   │   │   └── render_handler.go
 │   │   ├── model/
-│   │   │   ├── page.go
-│   │   │   ├── block.go
-│   │   │   ├── media.go
-│   │   │   ├── datasource.go
-│   │   │   ├── setting.go
-│   │   │   └── render.go
 │   │   ├── repository/
-│   │   │   ├── page_repository.go
-│   │   │   ├── media_repository.go
-│   │   │   ├── datasource_repository.go
-│   │   │   └── setting_repository.go
 │   │   └── service/
-│   │       ├── page_service.go
-│   │       ├── block_service.go
-│   │       ├── media_service.go
-│   │       ├── datasource_service.go
-│   │       ├── settings_service.go
-│   │       └── render_service.go
+│   │
+│   ├── media/
+│   │   ├── handler/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── service/
+│   │
+│   ├── datasource/
+│   │   ├── handler/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── service/
+│   │
+│   ├── block/
+│   │   ├── handler/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── service/
+│   │
+│   ├── setting/
+│   │   ├── handler/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── service/
+│   │
+│   ├── render/
+│   │   ├── handler/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   └── service/
 │   │
 │   ├── config/
-│   │   └── config.go
 │   ├── middleware/
-│   │   ├── recovery.go
-│   │   ├── request_id.go
-│   │   ├── cors.go
-│   │   ├── logging.go
-│   │   └── security.go
 │   ├── router/
-│   │   └── router.go
 │   ├── pkg/
-│   │   ├── response/
-│   │   ├── validator/
-│   │   ├── filesystem/
-│   │   ├── pagination/
-│   │   └── errors/
 │   └── database/
-│       ├── database.go
-│       ├── migration.go
-│       └── migrations/
 │
 ├── renderer.go
 ├── registry.go
@@ -78,17 +73,16 @@ Architecture rules:
 
 - [ ] Go is distributed as a standalone CMS executable.
 - [ ] `cmd/cms/main.go` contains bootstrap/wiring only.
-- [ ] Business features live under `internal/domain/`.
-- [ ] Domain handlers depend on services, not directly on storage.
-- [ ] Domain services depend on repository interfaces.
-- [ ] Repository implementations own persistence access.
-- [ ] Shared infrastructure belongs outside `domain/`.
+- [ ] Business features live directly under `internal/<feature>/`.
+- [ ] No `internal/domain/` directory is used.
+- [ ] Feature handlers depend on feature services, not directly on storage.
+- [ ] Feature services depend on repository interfaces.
+- [ ] Repository implementations own persistence or discovery access.
+- [ ] Cross-cutting infrastructure belongs in `config`, `middleware`, `router`, `pkg`, or `database`.
 - [ ] Universal renderer behavior remains compatible with `specification/` and `blocks/`.
 - [ ] No Laravel-specific persistence or runtime concepts are introduced into Go CMS data.
 
 ## 2. Runtime Model
-
-The Go engine becomes the complete application runtime:
 
 ```text
 HTTP request
@@ -97,20 +91,23 @@ router
     ↓
 middleware
     ↓
-domain/handler
+feature/handler
     ↓
-domain/service
+feature/service
     ↓
-domain/repository
+feature/repository
     ↓
-database / filesystem
+database / filesystem / portable blocks
+```
 
-Page render path:
+Rendering path:
+
+```text
 HTTP request
     ↓
-render handler
+render/handler
     ↓
-render service
+render/service
     ↓
 universal renderer
     ↓
@@ -119,50 +116,14 @@ portable blocks + specification
 HTML/CSS/JS response
 ```
 
-- [ ] Replace stdin/stdout as the primary runtime with HTTP server execution.
-- [ ] Keep renderer protocol compatibility only where required for conformance/integration tooling.
-- [ ] Make direct HTTP CMS endpoints the normal production path.
-- [ ] Graceful startup and graceful shutdown are implemented.
-- [ ] Runtime configuration comes from environment/config, not hard-coded values.
+- [ ] HTTP server is the primary production runtime.
+- [ ] Graceful startup and shutdown are implemented.
+- [ ] Runtime configuration comes from environment/config.
+- [ ] Renderer protocol compatibility is retained only where conformance/integration requires it.
 
-## 3. Configuration
+## 3. `internal/page/`
 
-`internal/config/` owns application configuration.
-
-- [ ] HTTP host/port.
-- [ ] Application environment.
-- [ ] Database driver and DSN.
-- [ ] Storage path.
-- [ ] Block root path.
-- [ ] Upload limits.
-- [ ] Render timeout.
-- [ ] CORS configuration.
-- [ ] Trusted proxy configuration if required.
-- [ ] Logging configuration.
-- [ ] Configuration validation at startup.
-- [ ] Safe production defaults.
-
-## 4. Database
-
-`internal/database/` owns database lifecycle and migrations.
-
-Initial target: SQL database with repository abstractions.
-
-- [ ] Database connection bootstrap.
-- [ ] Connection pooling.
-- [ ] Health check.
-- [ ] Transaction support.
-- [ ] Migration runner.
-- [ ] Schema version table.
-- [ ] Pages table.
-- [ ] Media table.
-- [ ] Datasource definitions table where persistence is required.
-- [ ] Settings table.
-- [ ] Indexes for slugs/status/updated timestamps.
-- [ ] Repository tests against a real test database or supported integration database.
-- [ ] Clean shutdown closes database resources.
-
-## 5. Page Domain
+Owns CMS page lifecycle.
 
 ### Model
 
@@ -170,35 +131,29 @@ Initial target: SQL database with repository abstractions.
 - [ ] Title.
 - [ ] Slug.
 - [ ] Status: draft/published.
-- [ ] Canonical universal Page JSON document.
-- [ ] Created timestamp.
-- [ ] Updated timestamp.
-- [ ] Published timestamp.
-- [ ] Revision/version metadata where required.
+- [ ] Canonical universal Page JSON.
+- [ ] Created, updated, and published timestamps.
+- [ ] Revision/version metadata where needed.
 
 ### Repository
 
 - [ ] Create page.
-- [ ] Read page by ID.
-- [ ] Read page by slug.
+- [ ] Find by ID.
+- [ ] Find by slug.
 - [ ] List pages.
 - [ ] Update page.
 - [ ] Delete page.
-- [ ] Publish/unpublish page.
-- [ ] Pagination.
-- [ ] Filtering.
-- [ ] Ordering.
+- [ ] Publish/unpublish.
+- [ ] Pagination, filtering, and ordering.
 
 ### Service
 
 - [ ] Validate canonical Page JSON before persistence.
-- [ ] Enforce unique slug rules.
-- [ ] Create drafts.
-- [ ] Update drafts.
-- [ ] Publish pages.
-- [ ] Unpublish pages.
-- [ ] Duplicate pages.
-- [ ] Protect persisted content from framework-specific fields.
+- [ ] Enforce unique slugs.
+- [ ] Draft lifecycle.
+- [ ] Publish/unpublish lifecycle.
+- [ ] Duplicate page.
+- [ ] Keep persisted page content framework-neutral.
 
 ### Handler
 
@@ -209,128 +164,164 @@ Initial target: SQL database with repository abstractions.
 - [ ] `DELETE /api/pages/{id}`.
 - [ ] `POST /api/pages/{id}/publish`.
 - [ ] `POST /api/pages/{id}/unpublish`.
-- [ ] Consistent JSON error responses.
 
-## 6. Rendering Domain
+## 4. `internal/media/`
 
-- [ ] Render persisted page by ID.
-- [ ] Render persisted page by slug.
-- [ ] Render unsaved preview Page JSON.
-- [ ] Render a single block preview.
-- [ ] Resolve block registry from portable `blocks/` folders.
-- [ ] Validate templates before rendering.
-- [ ] Produce structured diagnostics.
-- [ ] Deduplicate CSS/JS assets.
-- [ ] Preserve Laravel/Go conformance parity for universal behavior.
-- [ ] Expose public frontend route for published pages.
-- [ ] Do not expose draft pages publicly by default.
+Owns media library behavior.
 
-Suggested endpoints:
-
-- [ ] `POST /api/render/page`.
-- [ ] `POST /api/render/block`.
-- [ ] `GET /{slug}` for published frontend pages.
-
-## 7. Block Domain
-
-Portable blocks remain owned by top-level `blocks/`.
-
-The Go CMS manages discovery and metadata, not Go-specific block definitions.
-
-- [ ] List installed block definitions.
-- [ ] Read block manifest metadata.
-- [ ] Validate `block.json`.
-- [ ] Validate `template.html`.
-- [ ] Discover CSS/JS assets.
-- [ ] Reload/discover new block folders without source-code registration.
-- [ ] New portable blocks require no Go rebuild when loaded from filesystem at runtime.
-- [ ] Invalid block packages produce structured diagnostics.
-
-Suggested endpoints:
-
-- [ ] `GET /api/blocks`.
-- [ ] `GET /api/blocks/{type}`.
-
-## 8. Media Domain
-
-- [ ] Upload media.
-- [ ] List media.
-- [ ] Read media metadata.
-- [ ] Delete media.
+- [ ] Media metadata model.
+- [ ] Media repository.
+- [ ] Upload service.
+- [ ] List/read/delete media.
 - [ ] File type validation.
 - [ ] File size limits.
-- [ ] Collision-safe filenames.
+- [ ] Collision-safe file names.
 - [ ] Storage abstraction.
 - [ ] Local filesystem implementation.
 - [ ] Public URL generation.
-- [ ] Prevent path traversal.
-- [ ] Prevent executable upload abuse.
+- [ ] Path traversal prevention.
+- [ ] Executable upload protection.
 
-Suggested endpoints:
+Endpoints:
 
 - [ ] `GET /api/media`.
 - [ ] `POST /api/media`.
+- [ ] `GET /api/media/{id}`.
 - [ ] `DELETE /api/media/{id}`.
 
-## 9. Datasource Domain
+## 5. `internal/datasource/`
 
-Datasource behavior must stay compatible with `specification/datasource.schema.json`.
+Owns dynamic data resources while remaining compatible with `specification/datasource.schema.json`.
 
-- [ ] Register datasource resources.
-- [ ] Resolve list resources such as products/posts/projects.
-- [ ] Resolve single records.
+- [ ] Datasource definition model.
+- [ ] Datasource repository.
+- [ ] Resource registry.
+- [ ] Single-record resolution.
+- [ ] Collection resolution.
 - [ ] Filters.
 - [ ] Ordering.
 - [ ] Limit/offset.
 - [ ] Pagination.
 - [ ] Relations/includes.
 - [ ] Current-record context.
-- [ ] Binding nested paths.
-- [ ] Binding fallback values.
-- [ ] SQL datasource adapter.
+- [ ] Nested binding paths.
+- [ ] Fallback values.
+- [ ] SQL datasource provider.
 - [ ] Structured datasource diagnostics.
-- [ ] Editor metadata endpoint for datasource selection.
+- [ ] Editor metadata endpoint.
 
-Suggested endpoints:
+Endpoints:
 
 - [ ] `GET /api/datasources`.
 - [ ] `POST /api/datasources/query`.
 - [ ] `GET /api/datasources/{resource}/metadata`.
 
-## 10. Settings Domain
+## 6. `internal/block/`
+
+Owns portable block discovery and metadata. Block source packages remain in top-level `blocks/`.
+
+- [ ] Discover block directories dynamically.
+- [ ] Read `block.json`.
+- [ ] Validate block manifests.
+- [ ] Read and validate `template.html`.
+- [ ] Discover CSS/JS assets.
+- [ ] List installed block definitions.
+- [ ] Get one block definition.
+- [ ] Reload newly added portable blocks without rebuilding Go.
+- [ ] Return structured diagnostics for invalid block packages.
+
+Endpoints:
+
+- [ ] `GET /api/blocks`.
+- [ ] `GET /api/blocks/{type}`.
+
+## 7. `internal/setting/`
+
+Owns site-wide CMS configuration that is persisted as application data.
 
 - [ ] Site title.
-- [ ] Site URL/base path configuration where appropriate.
+- [ ] Site URL/base path where appropriate.
 - [ ] Global color schemes.
 - [ ] Global typography.
 - [ ] Design tokens.
 - [ ] Default page settings.
-- [ ] Persist settings in neutral JSON.
-- [ ] Validate settings before persistence.
+- [ ] Neutral JSON persistence.
+- [ ] Validation before persistence.
 
-Suggested endpoints:
+Endpoints:
 
 - [ ] `GET /api/settings`.
 - [ ] `PUT /api/settings`.
 
-## 11. Editor Integration
+## 8. `internal/render/`
 
-The existing React editor remains top-level `editor/` and engine-neutral.
+Owns rendering use-cases around the existing universal renderer implementation.
 
-The Go CMS must implement the editor host contract directly.
+- [ ] Render persisted page by ID.
+- [ ] Render persisted page by slug.
+- [ ] Render unsaved page preview.
+- [ ] Render single block preview.
+- [ ] Load registry from `internal/block` services/repositories.
+- [ ] Validate page and template input.
+- [ ] Produce structured diagnostics.
+- [ ] Deduplicate CSS/JS assets.
+- [ ] Preserve Laravel/Go universal conformance parity.
+- [ ] Public frontend route only exposes published pages.
 
-- [ ] Block listing endpoint matches editor adapter needs.
-- [ ] Page preview endpoint matches editor adapter needs.
-- [ ] Block preview endpoint matches editor adapter needs.
-- [ ] Datasource metadata endpoint matches editor adapter needs.
-- [ ] Media endpoints match editor adapter needs.
-- [ ] Page CRUD is consumable by a Go host integration.
-- [ ] Editor requires no Laravel route to run against Go CMS.
-- [ ] Browser E2E proves the editor can run against Go CMS.
+Endpoints:
 
-## 12. Middleware
+- [ ] `POST /api/render/page`.
+- [ ] `POST /api/render/block`.
+- [ ] `GET /{slug}` for published frontend pages.
 
-`internal/middleware/` contains infrastructure middleware only.
+## 9. `internal/config/`
+
+Owns process/runtime configuration.
+
+- [ ] HTTP host and port.
+- [ ] Environment.
+- [ ] Database driver and DSN.
+- [ ] Storage path.
+- [ ] Block root.
+- [ ] Upload limits.
+- [ ] Render timeout.
+- [ ] CORS policy.
+- [ ] Logging configuration.
+- [ ] Trusted proxy configuration if needed.
+- [ ] Startup configuration validation.
+- [ ] Safe production defaults.
+
+## 10. `internal/database/`
+
+Owns database lifecycle, migrations, and transaction infrastructure.
+
+- [ ] Database bootstrap.
+- [ ] Connection pooling.
+- [ ] Health check.
+- [ ] Transaction helper.
+- [ ] Migration runner.
+- [ ] Schema version table.
+- [ ] Pages table.
+- [ ] Media table.
+- [ ] Datasource definitions table.
+- [ ] Settings table.
+- [ ] Required indexes.
+- [ ] Clean shutdown.
+- [ ] Integration tests against supported SQL database.
+
+Target layout:
+
+```text
+internal/database/
+├── database.go
+├── transaction.go
+├── migration.go
+└── migrations/
+```
+
+## 11. `internal/middleware/`
+
+Cross-cutting HTTP middleware only.
 
 - [ ] Panic recovery.
 - [ ] Request ID.
@@ -338,39 +329,49 @@ The Go CMS must implement the editor host contract directly.
 - [ ] CORS.
 - [ ] Security headers.
 - [ ] Body-size limits.
-- [ ] Content-Type validation where required.
-- [ ] Timeout middleware where appropriate.
-- [ ] No authentication middleware unless authentication becomes an explicit CMS requirement.
+- [ ] Content-Type validation.
+- [ ] Request timeout.
+- [ ] No CMS business logic.
 
-## 13. Router
+## 12. `internal/router/`
 
-`internal/router/` owns route registration only.
+Owns route registration only.
 
-- [ ] Health route.
-- [ ] API route group.
+- [ ] `GET /health`.
+- [ ] `GET /ready`.
 - [ ] Page routes.
-- [ ] Block routes.
-- [ ] Render routes.
-- [ ] Datasource routes.
 - [ ] Media routes.
-- [ ] Settings routes.
+- [ ] Datasource routes.
+- [ ] Block routes.
+- [ ] Setting routes.
+- [ ] Render routes.
 - [ ] Published frontend route.
-- [ ] Static media/assets route where required.
-- [ ] No business logic in router package.
+- [ ] Static media route where required.
+- [ ] No business logic.
 
-## 14. Internal Shared Packages
+## 13. `internal/pkg/`
 
-`internal/pkg/` is for reusable Go-CMS infrastructure that is not a business domain.
+Reusable internal infrastructure that does not belong to one feature.
 
-- [ ] Standard response writer.
+```text
+internal/pkg/
+├── response/
+├── validator/
+├── filesystem/
+├── pagination/
+├── errors/
+└── slug/
+```
+
+- [ ] Standard JSON response writer.
 - [ ] Typed application errors.
 - [ ] Request validation helpers.
 - [ ] Pagination helpers.
 - [ ] Filesystem helpers.
-- [ ] Slug helpers if required.
-- [ ] No domain business logic in `pkg/`.
+- [ ] Slug helpers.
+- [ ] No page/media/block/settings business rules in `pkg`.
 
-## 15. Executable
+## 14. Executable
 
 Primary executable:
 
@@ -378,116 +379,141 @@ Primary executable:
 engine/go/cmd/cms/main.go
 ```
 
-Responsibilities are limited to:
+Responsibilities:
 
-- [ ] load config;
-- [ ] connect database;
-- [ ] run migrations if configured;
-- [ ] create repository implementations;
-- [ ] create services;
-- [ ] create handlers;
-- [ ] create router;
-- [ ] start HTTP server;
-- [ ] handle termination signals;
-- [ ] graceful shutdown.
+- [ ] Load config.
+- [ ] Connect database.
+- [ ] Run migrations when configured.
+- [ ] Create feature repositories.
+- [ ] Create feature services.
+- [ ] Create feature handlers.
+- [ ] Create router.
+- [ ] Start HTTP server.
+- [ ] Handle OS termination signals.
+- [ ] Graceful shutdown.
+- [ ] `--version` support.
 
-`main.go` must not contain CMS business logic.
+`main.go` must contain no CMS business logic.
+
+## 15. Editor Integration
+
+The React editor remains top-level `editor/` and engine-neutral.
+
+- [ ] Block listing works against Go CMS.
+- [ ] Page CRUD works against Go CMS.
+- [ ] Page preview works against Go CMS.
+- [ ] Block preview works against Go CMS.
+- [ ] Datasource metadata works against Go CMS.
+- [ ] Media browser works against Go CMS.
+- [ ] No Laravel endpoint is required by the editor when using Go CMS.
+- [ ] Browser E2E covers editor + Go CMS.
 
 ## 16. Migration From Current Go Layout
 
-Current engine-local packages will be reorganized carefully without changing universal rendering semantics.
+Current layout:
 
-- [ ] Move current internal render handler into `internal/domain/handler`.
-- [ ] Move request/render model into `internal/domain/model`.
-- [ ] Move registry repository into `internal/domain/repository` where it represents domain persistence/discovery behavior.
-- [ ] Move render service into `internal/domain/service`.
-- [ ] Keep `internal/config`.
-- [ ] Keep `internal/middleware` but remove protocol-specific naming where it is not needed by HTTP CMS runtime.
-- [ ] Replace stdin/stdout router with HTTP router.
+```text
+internal/
+├── config/
+├── database/
+├── handler/
+├── middleware/
+├── model/
+├── repository/
+├── router/
+└── service/
+```
+
+Target migration:
+
+- [ ] Move current renderer request model into `internal/render/model/`.
+- [ ] Move current renderer handler into `internal/render/handler/`.
+- [ ] Move current registry access into `internal/block/repository/` or `internal/render/repository/` according to responsibility.
+- [ ] Move current renderer service into `internal/render/service/`.
+- [ ] Remove old top-level `internal/handler`, `internal/model`, `internal/repository`, and `internal/service` after imports are migrated.
+- [ ] Keep and expand `internal/config`.
+- [ ] Keep and expand `internal/database`.
+- [ ] Keep infrastructure middleware in `internal/middleware`.
+- [ ] Replace stdin/stdout router as the primary runtime with HTTP routing.
+- [ ] Add `internal/page`.
+- [ ] Add `internal/media`.
+- [ ] Add `internal/datasource`.
+- [ ] Add `internal/block`.
+- [ ] Add `internal/setting`.
+- [ ] Add `internal/render`.
 - [ ] Add `internal/pkg`.
-- [ ] Expand `internal/database` into actual DB lifecycle/migration package.
-- [ ] Replace `cmd/page-builder-render` as primary binary with `cmd/cms`.
-- [ ] Retain protocol/conformance compatibility only through a compatibility command or adapter if tests/releases still require it.
-- [ ] Update CI build target.
-- [ ] Update release binary names.
+- [ ] Add `cmd/cms`.
+- [ ] Retain compatibility command only if shared renderer conformance still needs it.
+- [ ] Update CI and release build targets.
 - [ ] Update Go documentation.
 
-## 17. Testing
+## 17. Security
 
-### Unit tests
+- [ ] Validate every persisted canonical document.
+- [ ] Parameterized SQL only.
+- [ ] Upload path traversal blocked.
+- [ ] Block root traversal blocked.
+- [ ] Template execution remains non-arbitrary.
+- [ ] Custom CSS sanitization remains enforced.
+- [ ] Request body limits enforced.
+- [ ] Render/request timeouts enforced.
+- [ ] Panic details hidden in production.
+- [ ] Internal filesystem paths not leaked.
 
-- [ ] Domain service tests.
-- [ ] Handler tests.
-- [ ] Repository tests.
+## 18. Testing
+
+### Unit
+
+- [ ] Page service/repository/handler tests.
+- [ ] Media service/repository/handler tests.
+- [ ] Datasource tests.
+- [ ] Block discovery tests.
+- [ ] Settings tests.
+- [ ] Render tests.
 - [ ] Middleware tests.
-- [ ] Configuration tests.
-- [ ] Renderer tests.
+- [ ] Config tests.
 
-### Integration tests
+### Integration
 
 - [ ] Database migrations.
 - [ ] Page CRUD.
-- [ ] Publish/unpublish flow.
-- [ ] Media upload lifecycle.
+- [ ] Publish/unpublish.
+- [ ] Media lifecycle.
 - [ ] Datasource query lifecycle.
 - [ ] Settings lifecycle.
 - [ ] Preview rendering.
 - [ ] Published frontend rendering.
 
-### Cross-engine tests
+### Cross-engine
 
-- [ ] Existing universal renderer conformance remains green.
-- [ ] Laravel and Go still render universal fixtures consistently.
+- [ ] Universal conformance corpus remains green.
+- [ ] Laravel and Go still produce compatible universal render behavior.
 - [ ] Go CMS persistence does not mutate canonical Page JSON.
 
-### Browser tests
+### Browser
 
 - [ ] React editor loads blocks from Go CMS.
-- [ ] React editor creates/saves a page through Go CMS.
-- [ ] React editor previews through Go renderer.
-- [ ] React editor media browser works with Go CMS.
-- [ ] React editor datasource inspector works with Go CMS.
+- [ ] React editor creates and saves pages through Go CMS.
+- [ ] React editor previews using Go rendering.
+- [ ] React editor media integration works.
+- [ ] React editor datasource integration works.
 
-## 18. Security
+## 19. CI and Distribution
 
-- [ ] Validate every persisted canonical document.
-- [ ] SQL uses parameterized queries.
-- [ ] Upload path traversal is blocked.
-- [ ] Block root traversal is blocked.
-- [ ] Template execution remains non-arbitrary.
-- [ ] Custom CSS sanitization remains enforced.
-- [ ] Request body limits are enforced.
-- [ ] Timeouts are enforced.
-- [ ] Panic details are not leaked in production responses.
-- [ ] Internal filesystem paths are not exposed unnecessarily.
-
-## 19. Observability and Operations
-
-- [ ] Structured logging.
-- [ ] Request IDs.
-- [ ] Startup configuration summary without secrets.
-- [ ] `GET /health`.
-- [ ] `GET /ready` if database readiness differs from process health.
-- [ ] Graceful shutdown.
-- [ ] Stable exit codes.
-- [ ] Version command/flag.
-
-## 20. CI and Distribution
-
-- [ ] `go test ./...` passes.
-- [ ] `go vet ./...` passes.
 - [ ] `gofmt` enforced.
+- [ ] `go vet ./...` passes.
+- [ ] `go test ./...` passes.
 - [ ] CMS executable builds independently.
-- [ ] Linux amd64/arm64 release binaries.
-- [ ] macOS amd64/arm64 release binaries.
-- [ ] Windows amd64/arm64 release binaries.
-- [ ] Version embedded at build time.
-- [ ] SHA-256 checksums generated.
-- [ ] Database migration files included where required.
-- [ ] Portable block/specification compatibility declared.
-- [ ] Release workflow no longer describes Go only as a renderer library.
+- [ ] Linux amd64/arm64 binaries.
+- [ ] macOS amd64/arm64 binaries.
+- [ ] Windows amd64/arm64 binaries.
+- [ ] Engine/CMS version embedded at build time.
+- [ ] SHA-256 checksums.
+- [ ] Migration files included where needed.
+- [ ] Portable block/spec compatibility declared.
+- [ ] Release workflow identifies Go as standalone CMS executable, not only a renderer library.
 
-## 21. Documentation
+## 20. Documentation
 
 - [ ] Go CMS architecture guide.
 - [ ] Configuration reference.
@@ -501,7 +527,7 @@ Current engine-local packages will be reorganized carefully without changing uni
 - [ ] Editor + Go CMS integration guide.
 - [ ] Production deployment guide.
 
-## 22. Definition of Done
+## 21. Definition of Done
 
 ```text
 React editor
@@ -509,13 +535,12 @@ React editor
      ▼
 Go CMS executable
      │
-     ├── Page CRUD
-     ├── Blocks
-     ├── Media
-     ├── Datasources
-     ├── Settings
-     ├── Preview rendering
-     └── Published frontend
+     ├── internal/page
+     ├── internal/media
+     ├── internal/datasource
+     ├── internal/block
+     ├── internal/setting
+     └── internal/render
              │
              ▼
      universal specification
@@ -523,41 +548,32 @@ Go CMS executable
         portable blocks
 ```
 
-The Go full CMS is complete only when:
+Complete only when:
 
 - [ ] Go runs as a standalone HTTP CMS executable.
-- [ ] Page CRUD is persisted in a database.
-- [ ] Draft/published lifecycle works.
+- [ ] Target feature-first directory structure is in place.
+- [ ] No `internal/domain` wrapper exists.
+- [ ] Page CRUD and draft/publish lifecycle work end-to-end.
+- [ ] Media library works end-to-end.
+- [ ] Datasources work end-to-end.
+- [ ] Settings work end-to-end.
+- [ ] Portable blocks are runtime-discovered without Go rebuild.
+- [ ] Preview and published rendering work end-to-end.
 - [ ] React editor works directly against Go CMS.
-- [ ] Media management works.
-- [ ] Datasource querying works.
-- [ ] Global settings/design tokens work.
-- [ ] Preview rendering works.
-- [ ] Public published-page rendering works.
-- [ ] Portable blocks remain engine-neutral.
-- [ ] Canonical Page JSON remains universal.
-- [ ] Laravel engine is unaffected as a full-CMS concern.
-- [ ] Universal Laravel/Go conformance remains green.
-- [ ] Go CMS CI and browser E2E are green.
-- [ ] Distribution binaries are produced for the release matrix.
+- [ ] Universal renderer/specification conformance remains green.
+- [ ] CI is fully green.
+- [ ] Release artifacts build for all supported platforms.
+- [ ] Documentation is sufficient to deploy and extend the Go CMS.
 
-## 23. Implementation Order
+## 22. Implementation Order
 
-1. [ ] Freeze this architecture and naming.
-2. [ ] Reorganize current Go internal packages into `internal/domain/*`.
-3. [ ] Introduce HTTP server/router runtime.
-4. [ ] Implement database bootstrap and migrations.
-5. [ ] Implement Page model/repository/service/handler CRUD.
-6. [ ] Implement publish/unpublish and public page rendering.
-7. [ ] Integrate current universal renderer into the render domain.
-8. [ ] Implement portable block discovery API.
-9. [ ] Implement media domain.
-10. [ ] Implement datasource domain.
-11. [ ] Implement settings/design-token domain.
-12. [ ] Complete editor HostAdapter support against Go CMS.
-13. [ ] Add integration and browser E2E tests.
-14. [ ] Update CI and release workflow for the CMS executable.
-15. [ ] Complete operational/security hardening.
-16. [ ] Complete documentation.
-17. [ ] Run the full universal conformance suite and final Go CMS CI.
-18. [ ] Mark this plan COMPLETE only after all checks are proven.
+- [ ] Phase 1 — restructure current render code into `internal/render` and block discovery into `internal/block`.
+- [ ] Phase 2 — HTTP server, config, router, middleware, health/readiness.
+- [ ] Phase 3 — database bootstrap and migrations.
+- [ ] Phase 4 — page feature.
+- [ ] Phase 5 — render + published frontend integration.
+- [ ] Phase 6 — media feature.
+- [ ] Phase 7 — datasource feature.
+- [ ] Phase 8 — setting feature.
+- [ ] Phase 9 — editor integration and browser E2E.
+- [ ] Phase 10 — security hardening, CI, release, and documentation.
