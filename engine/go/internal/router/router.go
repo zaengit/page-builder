@@ -24,6 +24,7 @@ type Dependencies struct {
 	Datasources       *datasourcehandler.Handler
 	Render            *renderhandler.Handler
 	Settings          *settinghandler.Handler
+	Editor            http.Handler
 	CORSOrigins       []string
 	RequestTimeout    time.Duration
 	StorageDir        string
@@ -74,6 +75,13 @@ func New(d Dependencies) http.Handler {
 
 	mux.HandleFunc("POST /api/render/page", d.Render.Preview)
 	mux.HandleFunc("POST /api/render/block", d.Render.BlockPreview)
+
+	if d.Editor != nil {
+		mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/admin/", http.StatusTemporaryRedirect)
+		})
+		mux.Handle("GET /admin/", http.StripPrefix("/admin", d.Editor))
+	}
 
 	mux.Handle(d.PublicStoragePath+"/", http.StripPrefix(d.PublicStoragePath+"/", http.FileServer(http.Dir(d.StorageDir))))
 	mux.HandleFunc("GET /{slug}", d.Render.Frontend)
