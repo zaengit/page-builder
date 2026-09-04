@@ -6,5 +6,6 @@ const PageVersion = 1
 const BlockManifestVersion = 1
 const DatasourceVersion = 1
 const TemplateLanguageVersion = 1
+const RuntimeName = "page-builder-cms"
 
 var EngineVersion = "dev"
