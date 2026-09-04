@@ -51,6 +51,7 @@ func New(d Dependencies) http.Handler {
 	mux.HandleFunc("PATCH /api/pages/{id}", d.Pages.Update)
 	mux.HandleFunc("PUT /api/pages/{id}", d.Pages.Update)
 	mux.HandleFunc("DELETE /api/pages/{id}", d.Pages.Delete)
+	mux.HandleFunc("POST /api/pages/{id}/duplicate", d.Pages.Duplicate)
 	mux.HandleFunc("POST /api/pages/{id}/publish", d.Pages.Publish)
 	mux.HandleFunc("POST /api/pages/{id}/unpublish", d.Pages.Unpublish)
 
