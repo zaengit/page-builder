@@ -5,10 +5,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"log/slog"
+	"mime"
 	"net/http"
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/zaengit/page-builder/engine/go/internal/pkg/response"
 )
 
 type Middleware func(http.Handler) http.Handler
@@ -66,7 +69,7 @@ func Recover(next http.Handler) http.Handler {
 		defer func() {
 			if v := recover(); v != nil {
 				slog.Error("panic", "error", v, "request_id", RequestIDFromContext(r.Context()), "stack", string(debug.Stack()))
-				http.Error(w, "internal server error", http.StatusInternalServerError)
+				response.Error(w, http.StatusInternalServerError, "internal_error", "internal server error")
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -107,6 +110,35 @@ func RequestIDFromContext(ctx context.Context) string {
 	return id
 }
 
+func RequestTimeout(timeout time.Duration) Middleware {
+	return func(next http.Handler) http.Handler {
+		if timeout <= 0 {
+			return next
+		}
+		return http.TimeoutHandler(next, timeout, `{"error":{"code":"request_timeout","message":"request timed out"}}`)
+	}
+}
+
+func ContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") || r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodDelete || r.Method == http.MethodOptions || r.Body == nil || r.ContentLength == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		mediaType, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+		if err != nil {
+			response.Error(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "invalid Content-Type")
+			return
+		}
+		if mediaType != "application/json" && mediaType != "multipart/form-data" {
+			response.Error(w, http.StatusUnsupportedMediaType, "unsupported_media_type", "Content-Type must be application/json or multipart/form-data")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func CORS(origins []string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -126,14 +158,14 @@ func CORS(origins []string) Middleware {
 			}
 			if r.Method == http.MethodOptions {
 				if !allowed {
-					http.Error(w, "origin not allowed", http.StatusForbidden)
+					response.Error(w, http.StatusForbidden, "origin_not_allowed", "origin not allowed")
 					return
 				}
 				w.WriteHeader(http.StatusNoContent)
 				return
 			}
 			if !allowed {
-				http.Error(w, "origin not allowed", http.StatusForbidden)
+				response.Error(w, http.StatusForbidden, "origin_not_allowed", "origin not allowed")
 				return
 			}
 			next.ServeHTTP(w, r)
