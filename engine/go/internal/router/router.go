@@ -78,6 +78,7 @@ func New(d Dependencies) http.Handler {
 
 	return middleware.Chain(
 		mux,
+		middleware.RequestID,
 		middleware.Recover,
 		middleware.Logger,
 		middleware.Security,
