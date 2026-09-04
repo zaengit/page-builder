@@ -25,6 +25,7 @@ type Dependencies struct {
 	Render            *renderhandler.Handler
 	Settings          *settinghandler.Handler
 	CORSOrigins       []string
+	RequestTimeout    time.Duration
 	StorageDir        string
 	PublicStoragePath string
 }
@@ -84,5 +85,7 @@ func New(d Dependencies) http.Handler {
 		middleware.Logger,
 		middleware.Security,
 		middleware.CORS(d.CORSOrigins),
+		middleware.ContentType,
+		middleware.RequestTimeout(d.RequestTimeout),
 	)
 }
