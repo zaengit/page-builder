@@ -124,7 +124,6 @@ jobs:
           test -f engine/go/version.go
           test -f engine/go/go.sum
           test -f engine/go/cmd/cms/main.go
-          test -f engine/go/examples/sqlprovider/sqlprovider.go
           test -f editor/src/host-adapter.ts
           test -f editor/src/public-api.tsx
           test -f specification/version.json
