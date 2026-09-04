@@ -55,7 +55,7 @@ func TestRegisterAndQueryDatasource(t *testing.T) {
 
 	if _, err := svc.Register(ctx, "unsafe", service.DefinitionInput{
 		Resource: "unsafe",
-		Config: service.ResourceConfig{Table: "products; DROP TABLE products", Columns: []string{"id"}},
+		Config:   service.ResourceConfig{Table: "products; DROP TABLE products", Columns: []string{"id"}},
 	}); err == nil {
 		t.Fatal("expected unsafe table name to be rejected")
 	}

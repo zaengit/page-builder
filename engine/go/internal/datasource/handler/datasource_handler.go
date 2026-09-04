@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/zaengit/page-builder/engine/go/internal/pkg/response"
 	datasourcesvc "github.com/zaengit/page-builder/engine/go/internal/datasource/service"
+	"github.com/zaengit/page-builder/engine/go/internal/pkg/response"
 )
 
 type Handler struct{ service *datasourcesvc.Service }
