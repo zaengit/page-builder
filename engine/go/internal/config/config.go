@@ -18,6 +18,7 @@ type Config struct {
 	BlockRoot         string
 	MaxUploadBytes    int64
 	RenderTimeout     time.Duration
+	RequestTimeout    time.Duration
 	ReadTimeout       time.Duration
 	WriteTimeout      time.Duration
 	IdleTimeout       time.Duration
@@ -38,6 +39,7 @@ func Load() (Config, error) {
 		BlockRoot:         env("BLOCK_ROOT", "../../blocks"),
 		MaxUploadBytes:    envInt64("MAX_UPLOAD_BYTES", 20<<20),
 		RenderTimeout:     envDurationMS("RENDER_TIMEOUT_MS", 5000),
+		RequestTimeout:    envDurationMS("HTTP_REQUEST_TIMEOUT_MS", 30000),
 		ReadTimeout:       envDurationMS("HTTP_READ_TIMEOUT_MS", 15000),
 		WriteTimeout:      envDurationMS("HTTP_WRITE_TIMEOUT_MS", 30000),
 		IdleTimeout:       envDurationMS("HTTP_IDLE_TIMEOUT_MS", 60000),
@@ -60,17 +62,22 @@ func Load() (Config, error) {
 	if cfg.MaxUploadBytes <= 0 {
 		return Config{}, fmt.Errorf("MAX_UPLOAD_BYTES must be positive")
 	}
+	if cfg.RenderTimeout <= 0 || cfg.RequestTimeout <= 0 || cfg.ReadTimeout <= 0 || cfg.WriteTimeout <= 0 || cfg.IdleTimeout <= 0 || cfg.ShutdownTimeout <= 0 {
+		return Config{}, fmt.Errorf("timeout values must be positive")
+	}
 	if !strings.HasPrefix(cfg.PublicStoragePath, "/") {
 		return Config{}, fmt.Errorf("PUBLIC_STORAGE_PATH must begin with /")
 	}
 	return cfg, nil
 }
+
 func env(k, d string) string {
 	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
 		return v
 	}
 	return d
 }
+
 func envBool(k string, d bool) bool {
 	v := strings.TrimSpace(os.Getenv(k))
 	if v == "" {
@@ -82,6 +89,7 @@ func envBool(k string, d bool) bool {
 	}
 	return b
 }
+
 func envInt64(k string, d int64) int64 {
 	v := strings.TrimSpace(os.Getenv(k))
 	if v == "" {
@@ -93,9 +101,11 @@ func envInt64(k string, d int64) int64 {
 	}
 	return n
 }
+
 func envDurationMS(k string, d int64) time.Duration {
 	return time.Duration(envInt64(k, d)) * time.Millisecond
 }
+
 func splitCSV(v string) []string {
 	if strings.TrimSpace(v) == "" {
 		return nil
