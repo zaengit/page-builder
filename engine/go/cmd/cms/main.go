@@ -81,6 +81,7 @@ func main() {
 		Render:            renderHandler,
 		Settings:          settinghandler.New(settingService),
 		CORSOrigins:       cfg.CORSOrigins,
+		RequestTimeout:    cfg.RequestTimeout,
 		StorageDir:        cfg.StoragePath,
 		PublicStoragePath: cfg.PublicStoragePath,
 	})
