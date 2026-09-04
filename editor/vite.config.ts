@@ -6,6 +6,7 @@ import { resolve } from 'node:path';
 const root = import.meta.dirname;
 
 export default defineConfig({
+  base: './',
   plugins: [tailwindcss(), react()],
   resolve: {
     alias: {
@@ -20,6 +21,7 @@ export default defineConfig({
       input: {
         'page-builder': resolve(root, 'src/main.tsx'),
         index: resolve(root, 'src/index.ts'),
+        'go-editor': resolve(root, 'go.html'),
       },
       output: {
         entryFileNames: '[name].js',
