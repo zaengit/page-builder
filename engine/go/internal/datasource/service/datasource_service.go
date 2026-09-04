@@ -14,6 +14,7 @@ import (
 )
 
 var identifierRE = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
+var resourceRE = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9._-]*$`)
 
 type ResourceConfig struct {
 	Table      string   `json:"table"`
@@ -21,11 +22,17 @@ type ResourceConfig struct {
 	Columns    []string `json:"columns"`
 }
 
+type DefinitionInput struct {
+	Resource string         `json:"resource"`
+	Config   ResourceConfig `json:"config"`
+}
+
 type Filter struct {
 	Field string `json:"field"`
 	Op    string `json:"op"`
 	Value any    `json:"value"`
 }
+
 type Query struct {
 	Resource  string   `json:"resource"`
 	Filters   []Filter `json:"filters"`
@@ -34,6 +41,7 @@ type Query struct {
 	Limit     int      `json:"limit"`
 	Offset    int      `json:"offset"`
 }
+
 type Result struct {
 	Items  []map[string]any `json:"items"`
 	Total  int64            `json:"total"`
@@ -44,9 +52,35 @@ type Result struct {
 type Service struct{ repo *datasourcerepo.Repository }
 
 func New(repo *datasourcerepo.Repository) *Service { return &Service{repo: repo} }
+
 func (s *Service) List(ctx context.Context) ([]datasourcemodel.Datasource, error) {
 	return s.repo.List(ctx)
 }
+
+func (s *Service) Register(ctx context.Context, name string, in DefinitionInput) (*datasourcemodel.Datasource, error) {
+	name = strings.TrimSpace(name)
+	in.Resource = strings.TrimSpace(in.Resource)
+	if name == "" {
+		return nil, errors.New("datasource name is required")
+	}
+	if !resourceRE.MatchString(in.Resource) {
+		return nil, errors.New("invalid datasource resource")
+	}
+	cfg, err := normalizeConfig(in.Config)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	item := &datasourcemodel.Datasource{Name: name, Resource: in.Resource, Config: raw}
+	if err := s.repo.Upsert(ctx, item); err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
 func (s *Service) Metadata(ctx context.Context, resource string) (map[string]any, error) {
 	d, err := s.repo.ByResource(ctx, resource)
 	if err != nil {
@@ -59,10 +93,13 @@ func (s *Service) Metadata(ctx context.Context, resource string) (map[string]any
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"name": d.Name, "resource": d.Resource, "columns": cfg.Columns, "primaryKey": cfg.PrimaryKey}, nil
+	return map[string]any{
+		"name": d.Name, "resource": d.Resource, "columns": cfg.Columns, "primaryKey": cfg.PrimaryKey,
+	}, nil
 }
+
 func (s *Service) Query(ctx context.Context, in Query) (Result, error) {
-	d, err := s.repo.ByResource(ctx, in.Resource)
+	d, err := s.repo.ByResource(ctx, strings.TrimSpace(in.Resource))
 	if err != nil {
 		return Result{}, err
 	}
@@ -82,8 +119,7 @@ func (s *Service) Query(ctx context.Context, in Query) (Result, error) {
 		if !allowed[f.Field] {
 			return Result{}, fmt.Errorf("field %q is not allowed", f.Field)
 		}
-		op := strings.ToLower(strings.TrimSpace(f.Op))
-		switch op {
+		switch strings.ToLower(strings.TrimSpace(f.Op)) {
 		case "eq", "=":
 			q = q.Where(f.Field+" = ?", f.Value)
 		case "neq", "!=":
@@ -128,11 +164,18 @@ func (s *Service) Query(ctx context.Context, in Query) (Result, error) {
 	}
 	return Result{Items: rows, Total: total, Limit: in.Limit, Offset: in.Offset}, nil
 }
+
 func parseConfig(d *datasourcemodel.Datasource) (ResourceConfig, error) {
 	var cfg ResourceConfig
 	if err := json.Unmarshal(d.Config, &cfg); err != nil {
 		return cfg, err
 	}
+	return normalizeConfig(cfg)
+}
+
+func normalizeConfig(cfg ResourceConfig) (ResourceConfig, error) {
+	cfg.Table = strings.TrimSpace(cfg.Table)
+	cfg.PrimaryKey = strings.TrimSpace(cfg.PrimaryKey)
 	if !identifierRE.MatchString(cfg.Table) {
 		return cfg, errors.New("invalid datasource table")
 	}
@@ -146,8 +189,9 @@ func parseConfig(d *datasourcemodel.Datasource) (ResourceConfig, error) {
 		return cfg, errors.New("datasource columns cannot be empty")
 	}
 	seen := map[string]bool{}
-	out := cfg.Columns[:0]
+	out := make([]string, 0, len(cfg.Columns))
 	for _, c := range cfg.Columns {
+		c = strings.TrimSpace(c)
 		if !identifierRE.MatchString(c) {
 			return cfg, fmt.Errorf("invalid column %q", c)
 		}
