@@ -70,7 +70,8 @@ func main() {
 	settingService := settingsvc.New(settingRepository)
 	datasourceRepository := datasourcerepo.New(db)
 	datasourceService := datasourcesvc.New(datasourceRepository)
-	renderHandler := renderhandler.New(rendersvc.New(pageService, blockService, pagebuilder.New()))
+	renderer := pagebuilder.NewWithProvider(pagebuilder.DatasourceProvider{Adapter: datasourceService})
+	renderHandler := renderhandler.New(rendersvc.New(pageService, blockService, renderer))
 
 	handler := router.New(router.Dependencies{
 		DB:                db,
