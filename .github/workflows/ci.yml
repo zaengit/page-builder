@@ -122,6 +122,8 @@ jobs:
           test -d engine/laravel/src
           test -d engine/laravel/tests
           test -f engine/go/version.go
+          test -f engine/go/go.sum
+          test -f engine/go/cmd/cms/main.go
           test -f engine/go/examples/sqlprovider/sqlprovider.go
           test -f editor/src/host-adapter.ts
           test -f editor/src/public-api.tsx
@@ -175,20 +177,48 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.25.x'
-          cache-dependency-path: engine/go/go.mod
-      - name: Verify Go engine
+          cache-dependency-path: engine/go/go.sum
+      - name: Verify Go CMS
         working-directory: engine/go
         run: |
           test -z "$(gofmt -l .)"
+          go mod verify
+          go vet ./...
           go test ./...
-      - name: Build Go engine artifact
+      - name: Build Go CMS and renderer artifacts
         run: bash scripts/build-engines.sh
-      - name: Verify CLI protocol metadata
+      - name: Verify executable metadata
         run: |
-          output="$(dist/engine/page-builder-engine-go --version)"
-          echo "$output"
-          echo "$output" | grep 'protocol=1'
-          echo "$output" | grep 'specification=1'
+          cms="$(dist/engine/page-builder-cms-go --version)"
+          renderer="$(dist/engine/page-builder-renderer-go --version)"
+          echo "$cms"
+          echo "$renderer"
+          echo "$cms" | grep 'specification=1'
+          echo "$renderer" | grep 'protocol=1'
+          echo "$renderer" | grep 'specification=1'
+      - name: Smoke test standalone CMS with SQLite
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'kill ${pid:-0} 2>/dev/null || true; rm -rf "$tmp"' EXIT
+          HTTP_ADDR=127.0.0.1:18080 \
+          DB_DRIVER=sqlite \
+          DB_DSN="$tmp/cms.db" \
+          STORAGE_PATH="$tmp/storage" \
+          BLOCK_ROOT="$PWD/blocks" \
+          dist/engine/page-builder-cms-go >"$tmp/cms.log" 2>&1 &
+          pid=$!
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18080/ready >/dev/null; then
+              break
+            fi
+            sleep 0.25
+          done
+          curl --fail --silent http://127.0.0.1:18080/health | grep 'ok'
+          curl --fail --silent http://127.0.0.1:18080/ready | grep 'ready'
+          kill -TERM "$pid"
+          wait "$pid"
+          test -s "$tmp/cms.db"
 
   editor:
     runs-on: ubuntu-latest
@@ -245,11 +275,11 @@ jobs:
           zip -qr dist/blocks.zip blocks
           zip -qr dist/editor-source.zip editor -x 'editor/node_modules/*' 'editor/dist/*'
           zip -qr dist/laravel-engine-source.zip engine/laravel
-          zip -qr dist/go-engine-source.zip engine/go
+          zip -qr dist/go-cms-source.zip engine/go
           test -s dist/specification.zip
           test -s dist/blocks.zip
           test -s dist/editor-source.zip
           test -s dist/laravel-engine-source.zip
-          test -s dist/go-engine-source.zip
+          test -s dist/go-cms-source.zip
           (cd dist && sha256sum *.zip > SHA256SUMS)
           test -s dist/SHA256SUMS
