@@ -10,9 +10,9 @@ import (
 	"sort"
 	"strings"
 
-	pagebuilder "github.com/zaengit/page-builder/engine/go"
 	datasourcemodel "github.com/zaengit/page-builder/engine/go/internal/datasource/model"
 	datasourcerepo "github.com/zaengit/page-builder/engine/go/internal/datasource/repository"
+	pagebuilder "github.com/zaengit/page-builder/engine/go/internal/render/engine"
 	"gorm.io/gorm"
 )
 
@@ -107,8 +107,6 @@ func (s *Service) Metadata(ctx context.Context, resource string) (map[string]any
 	}, nil
 }
 
-// Resolve implements pagebuilder.DatasourceAdapter. It maps the canonical
-// datasource request to an allow-listed GORM query without exposing raw SQL.
 func (s *Service) Resolve(ctx context.Context, request pagebuilder.DatasourceRequest, runtime map[string]any) (any, error) {
 	if request.Provider != "database" && request.Provider != "sql" {
 		return nil, fmt.Errorf("unsupported datasource provider %q", request.Provider)
@@ -124,11 +122,10 @@ func (s *Service) Resolve(ctx context.Context, request pagebuilder.DatasourceReq
 		return nil, errors.New("relations/includes require an application-specific datasource adapter")
 	}
 
-	d, cfg, allowed, err := s.resource(ctx, request.Resource)
+	_, cfg, allowed, err := s.resource(ctx, request.Resource)
 	if err != nil {
 		return nil, err
 	}
-	_ = d
 	q := s.repo.DB().WithContext(ctx).Table(cfg.Table).Select(cfg.Columns)
 
 	recordID := request.RecordID
