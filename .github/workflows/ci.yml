@@ -121,9 +121,12 @@ jobs:
           test -f engine/laravel/src/EngineVersion.php
           test -d engine/laravel/src
           test -d engine/laravel/tests
-          test -f engine/go/version.go
+          test -f engine/go/go.mod
           test -f engine/go/go.sum
           test -f engine/go/cmd/cms/main.go
+          test -f engine/go/internal/render/engine/version.go
+          test ! -e engine/go/cmd/page-builder-render
+          test -z "$(find engine/go -maxdepth 1 -type f -name '*.go' -print)"
           test -f editor/src/host-adapter.ts
           test -f editor/src/public-api.tsx
           test -f specification/version.json
@@ -189,17 +192,14 @@ jobs:
           go mod verify
           go vet ./...
           go test ./...
-      - name: Build Go CMS and renderer artifacts
+      - name: Build Go CMS artifact
         run: bash scripts/build-engines.sh
-      - name: Verify executable metadata
+      - name: Verify CMS executable metadata
         run: |
           cms="$(dist/engine/page-builder-cms-go --version)"
-          renderer="$(dist/engine/page-builder-renderer-go --version)"
           echo "$cms"
-          echo "$renderer"
           echo "$cms" | grep 'specification=1'
-          echo "$renderer" | grep 'protocol=1'
-          echo "$renderer" | grep 'specification=1'
+          test ! -e dist/engine/page-builder-renderer-go
       - name: Smoke test standalone CMS with SQLite
         run: |
           set -euo pipefail
@@ -260,7 +260,7 @@ jobs:
       - name: Assert both official engines consume the shared corpus
         run: |
           grep -q 'specification/conformance' engine/laravel/tests/RuntimeConformanceTest.php
-          grep -q 'specification/conformance' engine/go/renderer_test.go
+          grep -q 'specification/conformance' engine/go/internal/render/engine/renderer_test.go
           test -s specification/conformance/canonical-runtime.json
           test -s specification/conformance/layout-responsive.json
           test -s specification/conformance/design-tokens-typography.json
