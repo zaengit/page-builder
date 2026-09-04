@@ -29,6 +29,7 @@ import (
 	settinghandler "github.com/zaengit/page-builder/engine/go/internal/setting/handler"
 	settingrepo "github.com/zaengit/page-builder/engine/go/internal/setting/repository"
 	settingsvc "github.com/zaengit/page-builder/engine/go/internal/setting/service"
+	"github.com/zaengit/page-builder/engine/go/internal/web"
 )
 
 func main() {
@@ -81,6 +82,7 @@ func main() {
 		Datasources:       datasourcehandler.New(datasourceService),
 		Render:            renderHandler,
 		Settings:          settinghandler.New(settingService),
+		Editor:            web.New(),
 		CORSOrigins:       cfg.CORSOrigins,
 		RequestTimeout:    cfg.RequestTimeout,
 		StorageDir:        cfg.StoragePath,
@@ -98,7 +100,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		slog.Info("Go CMS started", "addr", cfg.HTTPAddress, "database", cfg.DatabaseDriver)
+		slog.Info("Go CMS started", "addr", cfg.HTTPAddress, "database", cfg.DatabaseDriver, "editor", "/admin/")
 		errCh <- server.ListenAndServe()
 	}()
 
