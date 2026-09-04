@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/glebarez/sqlite"
-	pagebuilder "github.com/zaengit/page-builder/engine/go"
 	blockhandler "github.com/zaengit/page-builder/engine/go/internal/block/handler"
 	blocksvc "github.com/zaengit/page-builder/engine/go/internal/block/service"
 	"github.com/zaengit/page-builder/engine/go/internal/database"
@@ -24,6 +23,7 @@ import (
 	pagehandler "github.com/zaengit/page-builder/engine/go/internal/page/handler"
 	pagerepo "github.com/zaengit/page-builder/engine/go/internal/page/repository"
 	pagesvc "github.com/zaengit/page-builder/engine/go/internal/page/service"
+	renderengine "github.com/zaengit/page-builder/engine/go/internal/render/engine"
 	renderhandler "github.com/zaengit/page-builder/engine/go/internal/render/handler"
 	rendersvc "github.com/zaengit/page-builder/engine/go/internal/render/service"
 	"github.com/zaengit/page-builder/engine/go/internal/router"
@@ -62,7 +62,7 @@ func testHandler(t *testing.T) http.Handler {
 	media := mediasvc.New(mediarepo.New(db), t.TempDir(), "/media", 1<<20)
 	settings := settingsvc.New(settingrepo.New(db))
 	datasources := datasourcesvc.New(datasourcerepo.New(db))
-	renderer := pagebuilder.NewWithProvider(pagebuilder.DatasourceProvider{Adapter: datasources})
+	renderer := renderengine.NewWithProvider(renderengine.DatasourceProvider{Adapter: datasources})
 
 	return router.New(router.Dependencies{
 		DB:                db,
