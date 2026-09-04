@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 
 	"github.com/zaengit/page-builder/engine/go/internal/pkg/response"
@@ -21,7 +22,7 @@ func decode(w http.ResponseWriter, r *http.Request, dst any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		response.Error(w, http.StatusBadRequest, "invalid_request", "invalid JSON request")
 		return false
 	}
 	return true
@@ -31,7 +32,7 @@ func (h *Handler) Preview(w http.ResponseWriter, r *http.Request) {
 	var payload map[string]any
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
 	if err := dec.Decode(&payload); err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		response.Error(w, http.StatusBadRequest, "invalid_request", "invalid JSON request")
 		return
 	}
 
@@ -48,13 +49,14 @@ func (h *Handler) Preview(w http.ResponseWriter, r *http.Request) {
 	}
 	page, err := json.Marshal(pageValue)
 	if err != nil {
-		response.Error(w, http.StatusBadRequest, "invalid_request", err.Error())
+		response.Error(w, http.StatusBadRequest, "invalid_request", "invalid page document")
 		return
 	}
 
 	out, err := h.service.Preview(r.Context(), page, contextValue)
 	if err != nil {
-		response.Error(w, http.StatusUnprocessableEntity, "render_error", err.Error())
+		slog.Warn("page preview render failed", "error", err)
+		response.Error(w, http.StatusUnprocessableEntity, "render_error", "page could not be rendered")
 		return
 	}
 	response.JSON(w, http.StatusOK, out)
@@ -67,7 +69,8 @@ func (h *Handler) BlockPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := h.service.BlockPreview(r.Context(), in.Block, in.Context)
 	if err != nil {
-		response.Error(w, http.StatusUnprocessableEntity, "render_error", err.Error())
+		slog.Warn("block preview render failed", "error", err)
+		response.Error(w, http.StatusUnprocessableEntity, "render_error", "block could not be rendered")
 		return
 	}
 	response.JSON(w, http.StatusOK, out)
@@ -76,6 +79,7 @@ func (h *Handler) BlockPreview(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Frontend(w http.ResponseWriter, r *http.Request) {
 	out, err := h.service.Published(r.Context(), r.PathValue("slug"), nil)
 	if err != nil {
+		slog.Debug("published page not rendered", "slug", r.PathValue("slug"), "error", err)
 		http.NotFound(w, r)
 		return
 	}
