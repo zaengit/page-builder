@@ -38,4 +38,21 @@ describe('editor host adapters', () => {
     expect((await host.loadDatasourceMetadata?.())?.resources[0].name).toBe('products');
     expect((await host.renderPage({ version: 1, blocks: [] })).html).toBe('<div />');
   });
+
+  it('unwraps Go CMS data envelopes without changing the generic request format', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/blocks') {
+        return new Response(JSON.stringify({ data: [{ name: 'core/heading', title: 'Heading', category: 'core', version: 1, attributes: {} }] }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }
+      const sent = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      expect(sent.version).toBe(1);
+      expect(sent.page).toBeUndefined();
+      return new Response(JSON.stringify({ data: { html: '<h1>Go</h1>', assets: { css: [], js: [] }, diagnostics: [] } }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const host = createHttpHostAdapter(runtime);
+    expect((await host.loadBlocks())[0].name).toBe('core/heading');
+    expect((await host.renderPage({ version: 1, blocks: [] })).html).toBe('<h1>Go</h1>');
+  });
 });
