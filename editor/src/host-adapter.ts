@@ -53,7 +53,7 @@ export function createHttpHostAdapter(runtime: EditorRuntime): EditorHostAdapter
       return data(await json<BlockDefinition[] | APIEnvelope<BlockDefinition[]>>(await request(runtime.blocksUrl)));
     },
     async renderPage(page, context) {
-      const payload = { page, context: context ?? {} };
+      const payload = context && Object.keys(context).length > 0 ? { ...page, context } : page;
       return data(await json<RenderOutput | APIEnvelope<RenderOutput>>(await request(runtime.renderPageUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
