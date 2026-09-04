@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	pagebuilder "github.com/zaengit/page-builder/engine/go"
 	blocksvc "github.com/zaengit/page-builder/engine/go/internal/block/service"
 	pagesvc "github.com/zaengit/page-builder/engine/go/internal/page/service"
+	pagebuilder "github.com/zaengit/page-builder/engine/go/internal/render/engine"
 )
 
 type Service struct {
