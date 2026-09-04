@@ -83,6 +83,7 @@ jobs:
           test -s dist/page-builder.js
           test -s dist/index.js
           test -s dist/page-builder.css
+          test -s dist/go.html
           npm run pack:check
 
       - name: Build release artifacts
@@ -93,6 +94,14 @@ jobs:
           mkdir -p release-dist
 
           (cd engine/laravel && composer archive --format=zip --dir=../../release-dist --file="page-builder-engine-laravel-v$VERSION")
+
+          rm -rf engine/go/internal/web/static
+          mkdir -p engine/go/internal/web/static
+          cp -R editor/dist/. engine/go/internal/web/static/
+          mv engine/go/internal/web/static/go.html engine/go/internal/web/static/index.html
+          test -s engine/go/internal/web/static/index.html
+          test -s engine/go/internal/web/static/page-builder.js
+          test -s engine/go/internal/web/static/page-builder.css
 
           for os in linux darwin windows; do
             for arch in amd64 arm64; do
@@ -128,7 +137,9 @@ jobs:
               "defaultDatabase": "sqlite",
               "databaseLayer": "gorm",
               "databases": ["sqlite", "postgres", "mysql", "sqlserver"],
-              "standaloneRendererBinary": false
+              "standaloneRendererBinary": false,
+              "embeddedReactEditor": true,
+              "editorPath": "/admin/"
             },
             "editor": "page-builder-editor"
           }
