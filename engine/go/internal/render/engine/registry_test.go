@@ -7,7 +7,7 @@ import (
 )
 
 func TestLoadsAndRendersBuiltinPortableBlocks(t *testing.T) {
-	registry, err := LoadRegistry("../../blocks")
+	registry, err := LoadRegistry("../../../../../blocks")
 	if err != nil {
 		t.Fatal(err)
 	}
