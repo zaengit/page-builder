@@ -3,12 +3,13 @@ package handler
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"log/slog"
 	"net/http"
 
-	pagebuilder "github.com/zaengit/page-builder/engine/go"
 	datasourcesvc "github.com/zaengit/page-builder/engine/go/internal/datasource/service"
 	"github.com/zaengit/page-builder/engine/go/internal/pkg/response"
+	renderengine "github.com/zaengit/page-builder/engine/go/internal/render/engine"
 )
 
 type Handler struct{ service *datasourcesvc.Service }
@@ -71,7 +72,7 @@ func (h *Handler) Query(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, canonical := shape["provider"]; canonical {
-		var request pagebuilder.DatasourceRequest
+		var request renderengine.DatasourceRequest
 		if err := strictJSON(raw, &request); err != nil {
 			response.Error(w, http.StatusBadRequest, "invalid_request", "invalid canonical datasource request")
 			return
@@ -105,3 +106,5 @@ func strictJSON(raw []byte, dst any) error {
 	dec.DisallowUnknownFields()
 	return dec.Decode(dst)
 }
+
+var _ io.Reader = bytes.NewReader(nil)
