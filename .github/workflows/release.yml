@@ -56,12 +56,14 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version: '1.25.x'
-          cache-dependency-path: engine/go/go.mod
+          cache-dependency-path: engine/go/go.sum
 
-      - name: Verify Go engine independently
+      - name: Verify Go CMS independently
         working-directory: engine/go
         run: |
           test -z "$(gofmt -l .)"
+          go mod verify
+          go vet ./...
           go test ./...
 
       - uses: actions/setup-node@v5
@@ -94,12 +96,17 @@ jobs:
             for arch in amd64 arm64; do
               ext=""
               [ "$os" = windows ] && ext=".exe"
-              output="../../release-dist/page-builder-engine-go-${os}-${arch}-v${VERSION}${ext}"
-              (cd engine/go && GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go.EngineVersion=$VERSION" -o "$output" ./cmd/page-builder-render)
+              cms_output="../../release-dist/page-builder-cms-go-${os}-${arch}-v${VERSION}${ext}"
+              renderer_output="../../release-dist/page-builder-renderer-go-${os}-${arch}-v${VERSION}${ext}"
+              (
+                cd engine/go
+                GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go.EngineVersion=$VERSION" -o "$cms_output" ./cmd/cms
+                GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath -ldflags "-s -w -X github.com/zaengit/page-builder/engine/go.EngineVersion=$VERSION" -o "$renderer_output" ./cmd/page-builder-render
+              )
             done
           done
 
-          zip -qr "release-dist/page-builder-engine-go-source-v$VERSION.zip" engine/go
+          zip -qr "release-dist/page-builder-go-cms-source-v$VERSION.zip" engine/go docs/go-engine.md docs/go-full-cms-plan.md
           zip -qr "release-dist/page-builder-editor-v$VERSION.zip" editor/dist editor/src editor/package.json editor/README.md
           zip -qr "release-dist/page-builder-specification-v$VERSION.zip" specification docs/version-compatibility.md docs/migration-policy.md docs/third-engine.md
           zip -qr "release-dist/page-builder-blocks-v$VERSION.zip" blocks docs/block-package-format.md docs/portable-blocks.md scripts/validate-block-packages.py
@@ -114,17 +121,27 @@ jobs:
             "rendererProtocol": 1,
             "templateLanguage": 1,
             "engines": ["laravel", "go"],
+            "go": {
+              "type": "standalone-cms",
+              "defaultDatabase": "sqlite",
+              "databaseLayer": "gorm",
+              "databases": ["sqlite", "postgres", "mysql", "sqlserver"],
+              "compatibilityRenderer": true
+            },
             "editor": "page-builder-editor"
           }
           JSON
 
           test -s "release-dist/page-builder-engine-laravel-v$VERSION.zip"
-          test -s "release-dist/page-builder-engine-go-linux-amd64-v$VERSION"
-          test -s "release-dist/page-builder-engine-go-linux-arm64-v$VERSION"
-          test -s "release-dist/page-builder-engine-go-darwin-amd64-v$VERSION"
-          test -s "release-dist/page-builder-engine-go-darwin-arm64-v$VERSION"
-          test -s "release-dist/page-builder-engine-go-windows-amd64-v$VERSION.exe"
-          test -s "release-dist/page-builder-engine-go-windows-arm64-v$VERSION.exe"
+          for os in linux darwin windows; do
+            for arch in amd64 arm64; do
+              ext=""
+              [ "$os" = windows ] && ext=".exe"
+              test -s "release-dist/page-builder-cms-go-${os}-${arch}-v${VERSION}${ext}"
+              test -s "release-dist/page-builder-renderer-go-${os}-${arch}-v${VERSION}${ext}"
+            done
+          done
+          test -s "release-dist/page-builder-go-cms-source-v$VERSION.zip"
           test -s "release-dist/page-builder-editor-v$VERSION.zip"
           test -s "release-dist/page-builder-specification-v$VERSION.zip"
           test -s "release-dist/page-builder-blocks-v$VERSION.zip"
