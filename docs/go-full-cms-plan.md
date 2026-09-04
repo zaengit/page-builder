@@ -22,42 +22,41 @@ engine/go/
 │   │   ├── model/
 │   │   ├── repository/
 │   │   └── service/
-│   │
 │   ├── media/
 │   │   ├── handler/
 │   │   ├── model/
 │   │   ├── repository/
 │   │   └── service/
-│   │
 │   ├── datasource/
 │   │   ├── handler/
 │   │   ├── model/
 │   │   ├── repository/
 │   │   └── service/
-│   │
 │   ├── block/
 │   │   ├── handler/
 │   │   ├── model/
 │   │   ├── repository/
 │   │   └── service/
-│   │
 │   ├── setting/
 │   │   ├── handler/
 │   │   ├── model/
 │   │   ├── repository/
 │   │   └── service/
-│   │
 │   ├── render/
 │   │   ├── handler/
 │   │   ├── model/
 │   │   ├── repository/
 │   │   └── service/
-│   │
 │   ├── config/
 │   ├── middleware/
 │   ├── router/
 │   ├── pkg/
 │   └── database/
+│       ├── database.go
+│       ├── migration.go
+│       ├── transaction.go
+│       ├── driver.go
+│       └── migrations/
 │
 ├── renderer.go
 ├── registry.go
@@ -77,7 +76,7 @@ Architecture rules:
 - [ ] No `internal/domain/` directory is used.
 - [ ] Feature handlers depend on feature services, not directly on storage.
 - [ ] Feature services depend on repository interfaces.
-- [ ] Repository implementations own persistence or discovery access.
+- [ ] Repository implementations use GORM for SQL persistence.
 - [ ] Cross-cutting infrastructure belongs in `config`, `middleware`, `router`, `pkg`, or `database`.
 - [ ] Universal renderer behavior remains compatible with `specification/` and `blocks/`.
 - [ ] No Laravel-specific persistence or runtime concepts are introduced into Go CMS data.
@@ -97,7 +96,9 @@ feature/service
     ↓
 feature/repository
     ↓
-database / filesystem / portable blocks
+GORM
+    ↓
+SQLite / PostgreSQL / MySQL / SQL Server
 ```
 
 Rendering path:
@@ -121,12 +122,149 @@ HTML/CSS/JS response
 - [ ] Runtime configuration comes from environment/config.
 - [ ] Renderer protocol compatibility is retained only where conformance/integration requires it.
 
-## 3. `internal/page/`
+## 3. Database Strategy — GORM
+
+The Go CMS uses **GORM** as the application ORM so repository code can work across multiple SQL databases without duplicating persistence logic.
+
+Default database:
+
+```text
+SQLite
+```
+
+Supported SQL drivers:
+
+- [ ] SQLite — default, zero external database setup required.
+- [ ] PostgreSQL.
+- [ ] MySQL / MariaDB.
+- [ ] SQL Server.
+
+Required Go dependencies:
+
+```text
+gorm.io/gorm
+gorm.io/driver/sqlite
+gorm.io/driver/postgres
+gorm.io/driver/mysql
+gorm.io/driver/sqlserver
+```
+
+Database configuration contract:
+
+```text
+DB_DRIVER=sqlite
+DB_DSN=page-builder.db
+```
+
+Example PostgreSQL:
+
+```text
+DB_DRIVER=postgres
+DB_DSN=host=localhost user=pagebuilder password=secret dbname=pagebuilder port=5432 sslmode=disable
+```
+
+Example MySQL:
+
+```text
+DB_DRIVER=mysql
+DB_DSN=user:password@tcp(127.0.0.1:3306)/pagebuilder?charset=utf8mb4&parseTime=True&loc=Local
+```
+
+Rules:
+
+- [ ] `sqlite` is the default driver when `DB_DRIVER` is not set.
+- [ ] Default SQLite file is local to the Go CMS runtime data directory.
+- [ ] Driver selection is centralized in `internal/database/driver.go`.
+- [ ] Feature repositories receive `*gorm.DB` through dependency injection.
+- [ ] Feature packages must not create their own independent database connections.
+- [ ] Repository code should remain database-neutral wherever possible.
+- [ ] Driver-specific SQL is isolated and only used when unavoidable.
+- [ ] SQL identifiers or syntax that break portability are avoided in shared repository code.
+- [ ] Transactions use `db.Transaction(...)` or an application transaction helper.
+- [ ] Context is propagated through `db.WithContext(ctx)`.
+- [ ] Connection pool configuration is applied through the underlying `database/sql` handle.
+- [ ] Database secrets are never written to logs.
+
+## 4. `internal/database/`
+
+Owns GORM bootstrap, driver selection, migrations, health checks, pooling, and transaction infrastructure.
+
+Target layout:
+
+```text
+internal/database/
+├── database.go
+├── driver.go
+├── migration.go
+├── transaction.go
+└── migrations/
+```
+
+Responsibilities:
+
+- [ ] Load database configuration.
+- [ ] Open the selected GORM dialector.
+- [ ] SQLite as default dialector.
+- [ ] PostgreSQL dialector.
+- [ ] MySQL dialector.
+- [ ] SQL Server dialector.
+- [ ] Expose one application `*gorm.DB` instance.
+- [ ] Obtain and configure underlying `*sql.DB`.
+- [ ] Configure max open connections where meaningful.
+- [ ] Configure max idle connections where meaningful.
+- [ ] Configure connection max lifetime.
+- [ ] Health check with `PingContext`.
+- [ ] Graceful database close.
+- [ ] GORM logger configuration based on environment.
+- [ ] Migration runner.
+- [ ] Schema version tracking.
+- [ ] Transaction helper.
+- [ ] Integration tests for SQLite.
+- [ ] Compatibility tests for PostgreSQL/MySQL where CI infrastructure allows.
+
+Migration rules:
+
+- [ ] Migrations are deterministic and versioned.
+- [ ] Do not rely only on uncontrolled `AutoMigrate` for production schema evolution.
+- [ ] `AutoMigrate` may be used for development/bootstrap only if explicitly configured.
+- [ ] Production migrations must be forward-safe and testable.
+- [ ] Migration state is persisted in the selected SQL database.
+
+Initial tables:
+
+- [ ] `pages`.
+- [ ] `media`.
+- [ ] `datasources`.
+- [ ] `settings`.
+- [ ] migration/schema-version table.
+- [ ] required indexes for slugs, status, and updated timestamps.
+
+## 5. `internal/config/`
+
+Owns runtime configuration.
+
+- [ ] HTTP host and port.
+- [ ] Environment.
+- [ ] `DB_DRIVER`, default `sqlite`.
+- [ ] `DB_DSN`, default SQLite file path.
+- [ ] Database pool settings.
+- [ ] Storage path.
+- [ ] Block root.
+- [ ] Upload limits.
+- [ ] Render timeout.
+- [ ] CORS policy.
+- [ ] Logging configuration.
+- [ ] Trusted proxy configuration if needed.
+- [ ] Startup configuration validation.
+- [ ] Safe production defaults.
+
+## 6. `internal/page/`
 
 Owns CMS page lifecycle.
 
 ### Model
 
+- [ ] GORM-compatible page persistence model.
 - [ ] Page ID.
 - [ ] Title.
 - [ ] Slug.
@@ -134,9 +272,11 @@ Owns CMS page lifecycle.
 - [ ] Canonical universal Page JSON.
 - [ ] Created, updated, and published timestamps.
 - [ ] Revision/version metadata where needed.
+- [ ] JSON content stored without framework-specific fields.
 
 ### Repository
 
+- [ ] GORM repository implementation.
 - [ ] Create page.
 - [ ] Find by ID.
 - [ ] Find by slug.
@@ -145,6 +285,7 @@ Owns CMS page lifecycle.
 - [ ] Delete page.
 - [ ] Publish/unpublish.
 - [ ] Pagination, filtering, and ordering.
+- [ ] Unique slug constraint enforced both in service and database.
 
 ### Service
 
@@ -165,12 +306,10 @@ Owns CMS page lifecycle.
 - [ ] `POST /api/pages/{id}/publish`.
 - [ ] `POST /api/pages/{id}/unpublish`.
 
-## 4. `internal/media/`
+## 7. `internal/media/`
 
-Owns media library behavior.
-
-- [ ] Media metadata model.
-- [ ] Media repository.
+- [ ] GORM media metadata model.
+- [ ] GORM media repository.
 - [ ] Upload service.
 - [ ] List/read/delete media.
 - [ ] File type validation.
@@ -189,11 +328,11 @@ Endpoints:
 - [ ] `GET /api/media/{id}`.
 - [ ] `DELETE /api/media/{id}`.
 
-## 5. `internal/datasource/`
+## 8. `internal/datasource/`
 
 Owns dynamic data resources while remaining compatible with `specification/datasource.schema.json`.
 
-- [ ] Datasource definition model.
+- [ ] GORM-backed datasource definition persistence.
 - [ ] Datasource repository.
 - [ ] Resource registry.
 - [ ] Single-record resolution.
@@ -206,9 +345,10 @@ Owns dynamic data resources while remaining compatible with `specification/datas
 - [ ] Current-record context.
 - [ ] Nested binding paths.
 - [ ] Fallback values.
-- [ ] SQL datasource provider.
+- [ ] SQL datasource provider built on GORM where suitable.
 - [ ] Structured datasource diagnostics.
 - [ ] Editor metadata endpoint.
+- [ ] Avoid exposing arbitrary unrestricted SQL through the editor API.
 
 Endpoints:
 
@@ -216,7 +356,7 @@ Endpoints:
 - [ ] `POST /api/datasources/query`.
 - [ ] `GET /api/datasources/{resource}/metadata`.
 
-## 6. `internal/block/`
+## 9. `internal/block/`
 
 Owns portable block discovery and metadata. Block source packages remain in top-level `blocks/`.
 
@@ -235,10 +375,9 @@ Endpoints:
 - [ ] `GET /api/blocks`.
 - [ ] `GET /api/blocks/{type}`.
 
-## 7. `internal/setting/`
+## 10. `internal/setting/`
 
-Owns site-wide CMS configuration that is persisted as application data.
-
+- [ ] GORM settings persistence.
 - [ ] Site title.
 - [ ] Site URL/base path where appropriate.
 - [ ] Global color schemes.
@@ -253,15 +392,13 @@ Endpoints:
 - [ ] `GET /api/settings`.
 - [ ] `PUT /api/settings`.
 
-## 8. `internal/render/`
-
-Owns rendering use-cases around the existing universal renderer implementation.
+## 11. `internal/render/`
 
 - [ ] Render persisted page by ID.
 - [ ] Render persisted page by slug.
 - [ ] Render unsaved page preview.
 - [ ] Render single block preview.
-- [ ] Load registry from `internal/block` services/repositories.
+- [ ] Load registry from block services/repositories.
 - [ ] Validate page and template input.
 - [ ] Produce structured diagnostics.
 - [ ] Deduplicate CSS/JS assets.
@@ -274,54 +411,7 @@ Endpoints:
 - [ ] `POST /api/render/block`.
 - [ ] `GET /{slug}` for published frontend pages.
 
-## 9. `internal/config/`
-
-Owns process/runtime configuration.
-
-- [ ] HTTP host and port.
-- [ ] Environment.
-- [ ] Database driver and DSN.
-- [ ] Storage path.
-- [ ] Block root.
-- [ ] Upload limits.
-- [ ] Render timeout.
-- [ ] CORS policy.
-- [ ] Logging configuration.
-- [ ] Trusted proxy configuration if needed.
-- [ ] Startup configuration validation.
-- [ ] Safe production defaults.
-
-## 10. `internal/database/`
-
-Owns database lifecycle, migrations, and transaction infrastructure.
-
-- [ ] Database bootstrap.
-- [ ] Connection pooling.
-- [ ] Health check.
-- [ ] Transaction helper.
-- [ ] Migration runner.
-- [ ] Schema version table.
-- [ ] Pages table.
-- [ ] Media table.
-- [ ] Datasource definitions table.
-- [ ] Settings table.
-- [ ] Required indexes.
-- [ ] Clean shutdown.
-- [ ] Integration tests against supported SQL database.
-
-Target layout:
-
-```text
-internal/database/
-├── database.go
-├── transaction.go
-├── migration.go
-└── migrations/
-```
-
-## 11. `internal/middleware/`
-
-Cross-cutting HTTP middleware only.
+## 12. `internal/middleware/`
 
 - [ ] Panic recovery.
 - [ ] Request ID.
@@ -333,12 +423,10 @@ Cross-cutting HTTP middleware only.
 - [ ] Request timeout.
 - [ ] No CMS business logic.
 
-## 12. `internal/router/`
-
-Owns route registration only.
+## 13. `internal/router/`
 
 - [ ] `GET /health`.
-- [ ] `GET /ready`.
+- [ ] `GET /ready` verifies database readiness.
 - [ ] Page routes.
 - [ ] Media routes.
 - [ ] Datasource routes.
@@ -349,9 +437,7 @@ Owns route registration only.
 - [ ] Static media route where required.
 - [ ] No business logic.
 
-## 13. `internal/pkg/`
-
-Reusable internal infrastructure that does not belong to one feature.
+## 14. `internal/pkg/`
 
 ```text
 internal/pkg/
@@ -371,7 +457,7 @@ internal/pkg/
 - [ ] Slug helpers.
 - [ ] No page/media/block/settings business rules in `pkg`.
 
-## 14. Executable
+## 15. Executable
 
 Primary executable:
 
@@ -382,20 +468,20 @@ engine/go/cmd/cms/main.go
 Responsibilities:
 
 - [ ] Load config.
-- [ ] Connect database.
+- [ ] Initialize GORM using selected SQL driver.
 - [ ] Run migrations when configured.
-- [ ] Create feature repositories.
+- [ ] Create feature repositories using the shared `*gorm.DB`.
 - [ ] Create feature services.
 - [ ] Create feature handlers.
 - [ ] Create router.
 - [ ] Start HTTP server.
 - [ ] Handle OS termination signals.
-- [ ] Graceful shutdown.
+- [ ] Graceful HTTP and database shutdown.
 - [ ] `--version` support.
 
 `main.go` must contain no CMS business logic.
 
-## 15. Editor Integration
+## 16. Editor Integration
 
 The React editor remains top-level `editor/` and engine-neutral.
 
@@ -408,23 +494,7 @@ The React editor remains top-level `editor/` and engine-neutral.
 - [ ] No Laravel endpoint is required by the editor when using Go CMS.
 - [ ] Browser E2E covers editor + Go CMS.
 
-## 16. Migration From Current Go Layout
-
-Current layout:
-
-```text
-internal/
-├── config/
-├── database/
-├── handler/
-├── middleware/
-├── model/
-├── repository/
-├── router/
-└── service/
-```
-
-Target migration:
+## 17. Migration From Current Go Layout
 
 - [ ] Move current renderer request model into `internal/render/model/`.
 - [ ] Move current renderer handler into `internal/render/handler/`.
@@ -432,25 +502,21 @@ Target migration:
 - [ ] Move current renderer service into `internal/render/service/`.
 - [ ] Remove old top-level `internal/handler`, `internal/model`, `internal/repository`, and `internal/service` after imports are migrated.
 - [ ] Keep and expand `internal/config`.
-- [ ] Keep and expand `internal/database`.
+- [ ] Replace current database abstraction with GORM-backed `internal/database`.
 - [ ] Keep infrastructure middleware in `internal/middleware`.
 - [ ] Replace stdin/stdout router as the primary runtime with HTTP routing.
-- [ ] Add `internal/page`.
-- [ ] Add `internal/media`.
-- [ ] Add `internal/datasource`.
-- [ ] Add `internal/block`.
-- [ ] Add `internal/setting`.
-- [ ] Add `internal/render`.
-- [ ] Add `internal/pkg`.
+- [ ] Add `internal/page`, `media`, `datasource`, `block`, `setting`, `render`, and `pkg`.
 - [ ] Add `cmd/cms`.
 - [ ] Retain compatibility command only if shared renderer conformance still needs it.
+- [ ] Add GORM and all supported SQL dialector dependencies.
 - [ ] Update CI and release build targets.
 - [ ] Update Go documentation.
 
-## 17. Security
+## 18. Security
 
 - [ ] Validate every persisted canonical document.
-- [ ] Parameterized SQL only.
+- [ ] All queries go through GORM or parameterized SQL.
+- [ ] No string-concatenated arbitrary SQL from HTTP/editor input.
 - [ ] Upload path traversal blocked.
 - [ ] Block root traversal blocked.
 - [ ] Template execution remains non-arbitrary.
@@ -459,8 +525,9 @@ Target migration:
 - [ ] Render/request timeouts enforced.
 - [ ] Panic details hidden in production.
 - [ ] Internal filesystem paths not leaked.
+- [ ] Database credentials not logged.
 
-## 18. Testing
+## 19. Testing
 
 ### Unit
 
@@ -472,10 +539,12 @@ Target migration:
 - [ ] Render tests.
 - [ ] Middleware tests.
 - [ ] Config tests.
+- [ ] GORM driver selection tests.
 
 ### Integration
 
-- [ ] Database migrations.
+- [ ] SQLite database bootstrap with no external service.
+- [ ] SQLite migrations.
 - [ ] Page CRUD.
 - [ ] Publish/unpublish.
 - [ ] Media lifecycle.
@@ -483,6 +552,7 @@ Target migration:
 - [ ] Settings lifecycle.
 - [ ] Preview rendering.
 - [ ] Published frontend rendering.
+- [ ] PostgreSQL/MySQL compatibility tests where CI services are enabled.
 
 ### Cross-engine
 
@@ -498,11 +568,13 @@ Target migration:
 - [ ] React editor media integration works.
 - [ ] React editor datasource integration works.
 
-## 19. CI and Distribution
+## 20. CI and Distribution
 
 - [ ] `gofmt` enforced.
 - [ ] `go vet ./...` passes.
 - [ ] `go test ./...` passes.
+- [ ] SQLite integration test always runs in CI.
+- [ ] Optional PostgreSQL/MySQL matrix validates multi-database portability.
 - [ ] CMS executable builds independently.
 - [ ] Linux amd64/arm64 binaries.
 - [ ] macOS amd64/arm64 binaries.
@@ -513,11 +585,14 @@ Target migration:
 - [ ] Portable block/spec compatibility declared.
 - [ ] Release workflow identifies Go as standalone CMS executable, not only a renderer library.
 
-## 20. Documentation
+## 21. Documentation
 
 - [ ] Go CMS architecture guide.
-- [ ] Configuration reference.
-- [ ] Database setup guide.
+- [ ] GORM/database configuration reference.
+- [ ] SQLite default setup guide.
+- [ ] PostgreSQL setup example.
+- [ ] MySQL setup example.
+- [ ] SQL Server setup example.
 - [ ] Migration guide.
 - [ ] API reference.
 - [ ] Page CRUD examples.
@@ -527,7 +602,7 @@ Target migration:
 - [ ] Editor + Go CMS integration guide.
 - [ ] Production deployment guide.
 
-## 21. Definition of Done
+## 22. Definition of Done
 
 ```text
 React editor
@@ -542,6 +617,12 @@ Go CMS executable
      ├── internal/setting
      └── internal/render
              │
+             ├── GORM
+             │    ├── SQLite (default)
+             │    ├── PostgreSQL
+             │    ├── MySQL/MariaDB
+             │    └── SQL Server
+             │
              ▼
      universal specification
              +
@@ -552,28 +633,12 @@ Complete only when:
 
 - [ ] Go runs as a standalone HTTP CMS executable.
 - [ ] Target feature-first directory structure is in place.
-- [ ] No `internal/domain` wrapper exists.
-- [ ] Page CRUD and draft/publish lifecycle work end-to-end.
-- [ ] Media library works end-to-end.
-- [ ] Datasources work end-to-end.
-- [ ] Settings work end-to-end.
-- [ ] Portable blocks are runtime-discovered without Go rebuild.
-- [ ] Preview and published rendering work end-to-end.
-- [ ] React editor works directly against Go CMS.
-- [ ] Universal renderer/specification conformance remains green.
-- [ ] CI is fully green.
-- [ ] Release artifacts build for all supported platforms.
-- [ ] Documentation is sufficient to deploy and extend the Go CMS.
-
-## 22. Implementation Order
-
-- [ ] Phase 1 — restructure current render code into `internal/render` and block discovery into `internal/block`.
-- [ ] Phase 2 — HTTP server, config, router, middleware, health/readiness.
-- [ ] Phase 3 — database bootstrap and migrations.
-- [ ] Phase 4 — page feature.
-- [ ] Phase 5 — render + published frontend integration.
-- [ ] Phase 6 — media feature.
-- [ ] Phase 7 — datasource feature.
-- [ ] Phase 8 — setting feature.
-- [ ] Phase 9 — editor integration and browser E2E.
-- [ ] Phase 10 — security hardening, CI, release, and documentation.
+- [ ] GORM is the persistence layer.
+- [ ] SQLite works as the zero-configuration default database.
+- [ ] Database driver can be changed through configuration without rewriting feature repositories.
+- [ ] PostgreSQL, MySQL/MariaDB, and SQL Server dialectors are supported.
+- [ ] Page, media, datasource, settings, blocks, and rendering features work end-to-end.
+- [ ] React editor works against Go CMS without Laravel.
+- [ ] Universal rendering conformance remains green.
+- [ ] CI proves SQLite operation and multi-database portability where infrastructure permits.
+- [ ] Release builds produce standalone CMS binaries.
