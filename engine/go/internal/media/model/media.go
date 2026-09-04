@@ -11,4 +11,5 @@ type Media struct {
 	Size      int64     `json:"size" gorm:"not null"`
 	CreatedAt time.Time `json:"createdAt"`
 }
+
 func (Media) TableName() string { return "media" }

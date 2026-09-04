@@ -20,15 +20,22 @@ func (r *Repository) List(ctx context.Context) ([]datasourcemodel.Datasource, er
 func (r *Repository) ByResource(ctx context.Context, resource string) (*datasourcemodel.Datasource, error) {
 	var item datasourcemodel.Datasource
 	err := r.db.WithContext(ctx).Where("resource = ?", resource).First(&item).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) { return nil, nil }
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	return &item, err
 }
 
 func (r *Repository) Upsert(ctx context.Context, item *datasourcemodel.Datasource) error {
 	var current datasourcemodel.Datasource
 	err := r.db.WithContext(ctx).Where("name = ?", item.Name).First(&current).Error
-	if err == nil { item.ID = current.ID; return r.db.WithContext(ctx).Save(item).Error }
-	if !errors.Is(err, gorm.ErrRecordNotFound) { return err }
+	if err == nil {
+		item.ID = current.ID
+		return r.db.WithContext(ctx).Save(item).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	return r.db.WithContext(ctx).Create(item).Error
 }
 
