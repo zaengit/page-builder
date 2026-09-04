@@ -1,7 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { EditorApp } from './EditorApp';
-import { ColorSchemePanel } from './components/ColorSchemePanel';
 import { MediaLibrary } from './components/MediaLibrary';
 import { initializeExtensionApi, type PageBuilderApi } from './registry';
 import type { EditorRuntime, PageContent } from './types';
@@ -12,12 +11,7 @@ declare global {
   interface Window { PageBuilder?: PageBuilderApi }
 }
 
-const extensionApi = initializeExtensionApi();
-extensionApi.registerInspectorPanel({
-  id: 'core-color-schemes',
-  title: 'Color scheme',
-  render: ColorSchemePanel,
-});
+initializeExtensionApi();
 
 document.querySelectorAll<HTMLElement>('[data-page-builder-root]').forEach(root => {
   const runtime = parseJson<EditorRuntime>(root.dataset.pageBuilderRuntime, DEFAULT_RUNTIME);

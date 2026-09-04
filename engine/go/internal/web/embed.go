@@ -31,7 +31,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if info, err := fs.Stat(h.fsys, name); err == nil && !info.IsDir() {
 		r2 := r.Clone(r.Context())
-		r2.URL.Path = "/" + name
+		if name == "index.html" {
+			// http.FileServer redirects /index.html to ./, which resolves back
+			// to /admin/ when this handler is mounted below the admin prefix.
+			r2.URL.Path = "/"
+		} else {
+			r2.URL.Path = "/" + name
+		}
 		h.fs.ServeHTTP(w, r2)
 		return
 	}
@@ -39,6 +45,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// React editor routes use a SPA fallback while API/media/frontend routes
 	// stay outside this handler under the CMS router.
 	r2 := r.Clone(r.Context())
-	r2.URL.Path = "/index.html"
+	r2.URL.Path = "/"
 	h.fs.ServeHTTP(w, r2)
 }

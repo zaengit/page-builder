@@ -22,6 +22,7 @@ export default defineConfig({
         'page-builder': resolve(root, 'src/main.tsx'),
         index: resolve(root, 'src/index.ts'),
         'go-editor': resolve(root, 'go.html'),
+        preview: resolve(root, 'preview.html'),
       },
       output: {
         entryFileNames: '[name].js',

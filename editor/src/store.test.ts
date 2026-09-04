@@ -35,6 +35,14 @@ describe('builder store', () => {
     await expect(createBuilderStore().getState().bootstrap(runtime)).rejects.toThrow('Request failed (503)');
   });
 
+  it('unwraps API data envelopes when bootstrapping definitions', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: definitions }), { status: 200, headers: { 'Content-Type': 'application/json' } })));
+
+    const store = await readyStore();
+
+    expect(store.getState().definitions).toEqual(definitions);
+  });
+
   it('stamps manifest version, applies variations, ignores unknown blocks, and keeps stores isolated', async () => {
     const first = await readyStore();
     const second = await readyStore();

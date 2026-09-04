@@ -3,7 +3,7 @@ import { createHttpHostAdapter, type EditorHostAdapter } from '../host-adapter';
 import type { EditorRuntime, PageBlock, PageContent } from '../types';
 
 type MediaRequest = { id: string; path: string[] } | null;
-type MessageActions = { replaceContent: (content: PageContent) => void; select: (id: string | null) => void; updateAttrPath: (id: string, path: string[], value: unknown) => void; duplicateBlock: (id: string) => void; removeBlock: (id: string) => void; };
+type MessageActions = { replaceContent: (content: PageContent) => void; select: (id: string | null) => void; updateAttrPath: (id: string, path: string[], value: unknown) => void; duplicateBlock: (id: string) => void; removeBlock: (id: string) => void; moveCanvasBlock: (id: string, parentId: string | null, index: number) => void; };
 
 export function useEditorMessages(mediaRequest: MutableRefObject<MediaRequest>, actions: MessageActions) {
   useEffect(() => {
@@ -15,11 +15,15 @@ export function useEditorMessages(mediaRequest: MutableRefObject<MediaRequest>, 
         if (event.data.action === 'duplicate') actions.duplicateBlock(event.data.blockId);
         if (event.data.action === 'remove') actions.removeBlock(event.data.blockId);
       }
+      if (event.data?.type === 'PB_CANVAS_DRAG_START' && event.data.blockId) actions.select(event.data.blockId);
+      if (event.data?.type === 'PB_CANVAS_DROP' && event.data.blockId && Number.isInteger(event.data.index) && event.data.index >= 0) {
+        actions.moveCanvasBlock(event.data.blockId, typeof event.data.parentId === 'string' ? event.data.parentId : null, event.data.index);
+      }
       if (event.data?.type === 'SET_PAGE_BUILDER_CONTENT' && event.data.content) actions.replaceContent(event.data.content as PageContent);
       if (event.data?.type === 'PAGE_BUILDER_MEDIA_SELECTED' && mediaRequest.current && event.data.url) { actions.updateAttrPath(mediaRequest.current.id, mediaRequest.current.path, event.data.url); mediaRequest.current = null; }
     };
     addEventListener('message', listener); return () => removeEventListener('message', listener);
-  }, [actions.duplicateBlock, actions.removeBlock, actions.replaceContent, actions.select, actions.updateAttrPath, mediaRequest]);
+  }, [actions.duplicateBlock, actions.moveCanvasBlock, actions.removeBlock, actions.replaceContent, actions.select, actions.updateAttrPath, mediaRequest]);
 }
 
 export function useEditorShortcuts(selectedId: string | null, undo: () => void, redo: () => void, duplicateBlock: (id: string) => void) {

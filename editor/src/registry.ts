@@ -1,4 +1,3 @@
-import { GlobalTypographyInspector } from './components/TypographyPanel';
 import type { BlockEditor, BlockTransform, InspectorControl, InspectorPanelExtension, PageBlock, Pattern, ToolbarAction } from './types';
 
 const controls = new Map<string, InspectorControl>();
@@ -6,13 +5,7 @@ const categories = new Map<string, string>();
 const blockEditors = new Map<string, BlockEditor>();
 const transforms = new Map<string, BlockTransform[]>();
 const toolbarActions = new Map<string, ToolbarAction>();
-const inspectorPanels = new Map<string, InspectorPanelExtension>([
-  ['global-typography', {
-    id: 'global-typography',
-    title: 'Global typography',
-    render: GlobalTypographyInspector,
-  }],
-]);
+const inspectorPanels = new Map<string, InspectorPanelExtension>();
 const patterns = new Map<string, Pattern>();
 
 export type PageBuilderApi = {

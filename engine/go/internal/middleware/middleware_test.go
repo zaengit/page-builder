@@ -86,3 +86,38 @@ func TestRequestTimeout(t *testing.T) {
 		t.Fatalf("unexpected body=%s", rr.Body.String())
 	}
 }
+
+func TestCORSAllowsSameOriginRequests(t *testing.T) {
+	called := false
+	h := middleware.CORS(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called = true
+		w.WriteHeader(http.StatusNoContent)
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/admin/page-builder.css", nil)
+	req.Header.Set("Origin", "http://localhost:8080")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if !called || rr.Code != http.StatusNoContent {
+		t.Fatalf("called=%v status=%d body=%s", called, rr.Code, rr.Body.String())
+	}
+	if rr.Header().Get("Access-Control-Allow-Origin") != "http://localhost:8080" {
+		t.Fatalf("same-origin CORS header=%q", rr.Header().Get("Access-Control-Allow-Origin"))
+	}
+}
+
+func TestCORSRejectsUnlistedCrossOriginRequests(t *testing.T) {
+	h := middleware.CORS(nil)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("handler should not be called")
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "http://localhost:8080/admin/page-builder.css", nil)
+	req.Header.Set("Origin", "http://evil.example")
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusForbidden {
+		t.Fatalf("status=%d body=%s", rr.Code, rr.Body.String())
+	}
+}

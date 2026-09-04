@@ -142,31 +142,31 @@ export function MediaLibrary({ root, runtime }: { root: HTMLElement; runtime: Ed
   if (!enabled) return null;
 
   return <Dialog open={open} onOpenChange={setOpen}>
-    <DialogContent className="max-w-4xl gap-0 overflow-hidden p-0 sm:max-w-4xl">
-      <DialogHeader className="border-b px-5 py-4">
+    <DialogContent className="max-w-4xl gap-0 overflow-hidden rounded-2xl border-border/50 p-0 shadow-2xl sm:max-w-4xl">
+      <DialogHeader className="border-b border-border/45 bg-card/90 px-5 py-4">
         <DialogTitle>Media library</DialogTitle>
         <DialogDescription>Upload, search, reuse, or remove images stored by Page Builder.</DialogDescription>
       </DialogHeader>
 
-      <div className="flex flex-col gap-3 border-b p-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-3 border-b border-border/40 bg-muted/20 p-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search images…" className="pl-8" />
+          <Input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search images…" className="h-9 rounded-lg pl-8" />
         </div>
         <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={event => void upload(event.target.files?.[0])} />
-        <Button type="button" variant="outline" disabled={uploading} onClick={() => fileInput.current?.click()}>
+        <Button type="button" variant="secondary" className="rounded-lg" disabled={uploading} onClick={() => fileInput.current?.click()}>
           {uploading ? <Loader2 className="animate-spin" /> : <Upload />} Upload image
         </Button>
       </div>
 
-      {error && <div className="border-b bg-destructive/10 px-4 py-2 text-xs text-destructive">{error}</div>}
+      {error && <div className="bg-destructive/10 px-4 py-2 text-xs text-destructive">{error}</div>}
 
       <ScrollArea className="h-[52vh] min-h-80">
-        {loading ? <div className="flex min-h-80 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="animate-spin" />Loading media…</div> : items.length === 0 ? <div className="flex min-h-80 flex-col items-center justify-center gap-2 text-center text-muted-foreground"><ImagePlus className="size-8" /><p className="text-sm">No images found.</p><p className="text-xs">Upload an image to start your media library.</p></div> : <div className="grid grid-cols-2 gap-3 p-4 sm:grid-cols-3 md:grid-cols-4">
+        {loading ? <div className="flex min-h-80 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="animate-spin" />Loading media…</div> : items.length === 0 ? <div className="flex min-h-80 flex-col items-center justify-center gap-2 text-center text-muted-foreground"><ImagePlus className="size-8" /><p className="text-sm">No images found.</p><p className="text-xs">Upload an image to start your media library.</p></div> : <div className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-3 md:grid-cols-4">
           {items.map(item => <div key={item.id} className="group grid gap-1.5">
-            <button type="button" onClick={() => setSelectedId(item.id)} className={`relative aspect-square overflow-hidden rounded-md border bg-muted text-left ring-offset-background transition ${selectedId === item.id ? 'ring-2 ring-ring ring-offset-2' : 'hover:border-foreground/30'}`}>
+            <button type="button" onClick={() => setSelectedId(item.id)} className={`relative aspect-square overflow-hidden rounded-xl border border-border/40 bg-muted text-left ring-offset-background transition ${selectedId === item.id ? 'ring-2 ring-ring/60 ring-offset-2' : 'hover:border-foreground/20'}`}>
               <img src={item.url} alt={item.name} loading="lazy" className="h-full w-full object-cover" />
-              {selectedId === item.id && <Badge className="absolute left-2 top-2">Selected</Badge>}
+              {selectedId === item.id && <Badge className="absolute left-2 top-2 rounded-md shadow-sm">Selected</Badge>}
             </button>
             <div className="flex min-w-0 items-center gap-1">
               <div className="min-w-0 flex-1">
@@ -179,10 +179,10 @@ export function MediaLibrary({ root, runtime }: { root: HTMLElement; runtime: Ed
         </div>}
       </ScrollArea>
 
-      <DialogFooter className="border-t px-5 py-3 sm:justify-between">
+      <DialogFooter className="border-t border-border/40 px-5 py-3 sm:justify-between">
         <div className="mr-auto min-w-0 text-xs text-muted-foreground">{selected ? <span className="truncate">{selected.name}</span> : 'Select an image to use it.'}</div>
-        <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-        <Button type="button" disabled={!selected} onClick={choose}>Use image</Button>
+        <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        <Button type="button" className="rounded-lg" disabled={!selected} onClick={choose}>Use image</Button>
       </DialogFooter>
     </DialogContent>
   </Dialog>;

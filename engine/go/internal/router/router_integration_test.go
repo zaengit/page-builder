@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -131,6 +132,61 @@ func TestCMSHTTPPageLifecycleAndRendering(t *testing.T) {
 	preview := request(t, handler, http.MethodPost, "/api/render/page", previewBody, "application/json")
 	if preview.Code != http.StatusOK {
 		t.Fatalf("preview status=%d body=%s", preview.Code, preview.Body.String())
+	}
+}
+
+func TestCMSHTTPServesOnlyDeclaredBlockAssets(t *testing.T) {
+	handler := testHandler(t)
+
+	css := request(t, handler, http.MethodGet, "/block-assets/core/carousel/style.css", nil, "")
+	if css.Code != http.StatusOK {
+		t.Fatalf("css status=%d body=%s", css.Code, css.Body.String())
+	}
+	if got := css.Header().Get("Content-Type"); got != "text/css; charset=utf-8" {
+		t.Fatalf("css content type=%q", got)
+	}
+	if !strings.Contains(css.Body.String(), ".pb-carousel") {
+		t.Fatal("carousel stylesheet was not served")
+	}
+
+	js := request(t, handler, http.MethodGet, "/block-assets/core/carousel/frontend.js", nil, "")
+	if js.Code != http.StatusOK {
+		t.Fatalf("js status=%d body=%s", js.Code, js.Body.String())
+	}
+	if got := js.Header().Get("Content-Type"); got != "text/javascript; charset=utf-8" {
+		t.Fatalf("js content type=%q", got)
+	}
+
+	missing := request(t, handler, http.MethodGet, "/block-assets/core/carousel/template.html", nil, "")
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("undeclared asset status=%d body=%s", missing.Code, missing.Body.String())
+	}
+}
+
+func TestCMSHTTPPublishesBlockAssetURLsInRenderResponse(t *testing.T) {
+	handler := testHandler(t)
+	body := []byte(`{"page":{"version":1,"blocks":[{"id":"carousel-1","type":"core/carousel","attrs":{}}]},"context":{}}`)
+	rr := request(t, handler, http.MethodPost, "/api/render/page", body, "application/json")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("render status=%d body=%s", rr.Code, rr.Body.String())
+	}
+
+	var out struct {
+		Data struct {
+			Assets struct {
+				CSS []string `json:"css"`
+				JS  []string `json:"js"`
+			} `json:"assets"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if got := out.Data.Assets.CSS; len(got) != 1 || got[0] != "/block-assets/core/carousel/style.css" {
+		t.Fatalf("css assets=%v", got)
+	}
+	if got := out.Data.Assets.JS; len(got) != 1 || got[0] != "/block-assets/core/carousel/frontend.js" {
+		t.Fatalf("js assets=%v", got)
 	}
 }
 

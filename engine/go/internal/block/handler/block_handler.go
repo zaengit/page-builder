@@ -30,3 +30,17 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	response.JSON(w, http.StatusOK, definition)
 }
+
+func (h *Handler) Asset(w http.ResponseWriter, r *http.Request) {
+	blockType := r.PathValue("namespace") + "/" + r.PathValue("block")
+	asset, err := h.service.Asset(r.Context(), blockType, r.PathValue("asset"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", asset.ContentType)
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	http.ServeFile(w, r, asset.Path)
+}

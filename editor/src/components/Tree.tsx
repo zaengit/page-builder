@@ -1,10 +1,11 @@
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronDown, ChevronRight, Copy, Eye, GripVertical, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Box, ChevronDown, ChevronRight, Copy, Eye, GripVertical, LayoutGrid, MoreHorizontal, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { responsive } from '../layout';
@@ -22,7 +23,7 @@ type TreeProps = {
 
 function DropTarget({ id, label, compact = false }: { id: string; label: string; compact?: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  return <div ref={setNodeRef} data-drop-id={id} className={cn('rounded border border-dashed text-center text-[10px] text-muted-foreground transition-colors', compact ? 'min-h-2 py-0.5' : 'px-2 py-1.5', isOver && 'border-primary bg-primary/10 text-primary')} role="status" aria-live="polite">{isOver ? label : compact ? '' : label}</div>;
+  return <div ref={setNodeRef} data-drop-id={id} className={cn('rounded-lg border border-dashed border-border/35 text-center text-[10px] text-muted-foreground transition-colors', compact ? 'min-h-2 py-0.5' : 'px-2 py-1.5', isOver && 'border-primary/60 bg-primary/10 text-primary')} role="status" aria-live="polite">{isOver ? label : compact ? '' : label}</div>;
 }
 
 function GridTargets({ block, breakpoint }: { block: PageBlock; breakpoint: Breakpoint }) {
@@ -59,21 +60,36 @@ function TreeItem({ block, definitions, selectedId, breakpoint, onSelect, onRemo
   const layoutMode = responsive(block.layout?.mode, breakpoint, 'block');
 
   return <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? .5 : 1 }} className="space-y-0.5">
-    <div className={cn('group flex min-h-7 items-center rounded-md hover:bg-accent hover:text-accent-foreground', active && 'bg-accent text-accent-foreground')}>
-      {hasChildren ? <Button type="button" variant="ghost" size="icon-xs" onClick={() => setExpanded(value => !value)} aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}>{expanded ? <ChevronDown /> : <ChevronRight />}</Button> : <span className="w-6" />}
-      <Button type="button" variant="ghost" size="xs" className="min-w-0 flex-1 justify-start px-1.5 font-normal" aria-pressed={active} onClick={() => onSelect(block.id)}>{title}</Button>
-      {hasChildren && <Badge variant="outline" className="mr-1 h-4 px-1 text-[9px]">{layoutMode}</Badge>}
-      <Button type="button" variant="ghost" size="icon-xs" className="opacity-0 group-hover:opacity-100 focus:opacity-100" {...attributes} {...listeners} aria-label={`Move ${title}`}><GripVertical /></Button>
-      <Button type="button" variant="ghost" size="icon-xs" className="opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onDuplicate(block.id)} aria-label={`Duplicate ${title}`}><Copy /></Button>
-      <Button type="button" variant="ghost" size="icon-xs" className="opacity-0 group-hover:opacity-100 focus:opacity-100" onClick={() => onRemove(block.id)} aria-label={`Remove ${title}`}><Trash2 /></Button>
+    <div className={cn('group flex min-h-9 items-center rounded-lg px-1 transition-colors hover:bg-accent/70', active && 'bg-primary/10 text-primary shadow-[inset_2px_0_0_var(--primary)]')}>
+      {hasChildren ? <Button type="button" variant="ghost" size="icon-xs" className="shrink-0 text-muted-foreground" onClick={() => setExpanded(value => !value)} aria-label={expanded ? `Collapse ${title}` : `Expand ${title}`}>{expanded ? <ChevronDown /> : <ChevronRight />}</Button> : <span className="w-6 shrink-0" />}
+      <Button type="button" variant="ghost" size="sm" className="min-w-0 flex-1 justify-start gap-2 px-1.5 text-xs font-medium hover:bg-transparent hover:text-inherit" aria-pressed={active} onClick={() => onSelect(block.id)}>
+        <span aria-hidden="true" className={cn('flex size-5 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground', active && 'bg-primary/10 text-primary')}><BlocksIcon hasChildren={hasChildren} /></span>
+        <span className="truncate">{title}</span>
+      </Button>
+      {hasChildren && <Badge variant="ghost" className="mr-0.5 hidden h-5 rounded-md px-1.5 text-[9px] text-muted-foreground sm:inline-flex">{layoutMode}</Badge>}
+      <Button type="button" variant="ghost" size="icon-xs" className="editor-icon-button opacity-60 transition-opacity group-hover:opacity-100 focus:opacity-100" {...attributes} {...listeners} aria-label={`Move ${title}`}><GripVertical /></Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" size="icon-xs" className="editor-icon-button opacity-60 transition-opacity group-hover:opacity-100 focus:opacity-100" aria-label={`${title} actions`}><MoreHorizontal /></Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem disabled={Boolean(block.lock?.edit)} onSelect={() => onDuplicate(block.id)}><Copy />Duplicate</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" disabled={Boolean(block.lock?.remove)} onSelect={() => onRemove(block.id)}><Trash2 />Remove</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
-    {hasChildren && expanded && <div className="ml-3 space-y-0.5 border-l pl-2">
+    {hasChildren && expanded && <div className="ml-3 space-y-0.5 border-l border-border/45 pl-2">
       {layoutMode === 'grid' ? <><GridTargets block={block} breakpoint={breakpoint} />{block.children?.length ? <Tree blocks={block.children} definitions={definitions} selectedId={selectedId} breakpoint={breakpoint} onSelect={onSelect} onRemove={onRemove} onDuplicate={onDuplicate} /> : null}</>
         : layoutMode === 'flex' ? <FlexChildren block={block} props={{ blocks: block.children ?? [], definitions, selectedId, breakpoint, onSelect, onRemove, onDuplicate }} />
           : block.children?.length ? <Tree blocks={block.children} definitions={definitions} selectedId={selectedId} breakpoint={breakpoint} onSelect={onSelect} onRemove={onRemove} onDuplicate={onDuplicate} /> : <DropTarget id={`container:${block.id}`} label="Drop blocks here" />}
       {layoutMode !== 'block' && <DropTarget id={`container:${block.id}`} label="Drop into container" />}
     </div>}
   </div>;
+}
+
+function BlocksIcon({ hasChildren }: { hasChildren: boolean }) {
+  return hasChildren ? <LayoutGrid className="size-3" /> : <Box className="size-3" />;
 }
 
 export function Tree(props: TreeProps) {
@@ -93,11 +109,11 @@ export function SectionTree(props: TreeProps & { renderAdd: (region: 'header' | 
     template: props.blocks.filter(block => regionFor(block) === 'template'),
     footer: props.blocks.filter(block => regionFor(block) === 'footer'),
   };
-  return <div className="space-y-0.5 py-1">{(['header', 'template', 'footer'] as const).map((region, index) => <div key={region}>
-    {index > 0 && <Separator className="my-1" />}
-    <div className="px-2 py-1.5">
-      <div className="mb-1 flex items-center justify-between gap-1.5"><div className="flex items-center gap-1.5"><span className="text-xs font-medium">{region === 'template' ? 'Template' : region[0].toUpperCase() + region.slice(1)}</span><Badge variant="secondary" className="h-5 px-1.5 text-[10px]">{groups[region].length}</Badge></div><div className="flex items-center"><Button type="button" variant="ghost" size="icon-xs" aria-label={`Toggle ${region} visibility`}><Eye /></Button><Button type="button" variant="ghost" size="icon-xs" aria-label={`${region} actions`}><MoreHorizontal /></Button></div></div>
-      <div className="space-y-1">{groups[region].length ? <Tree {...props} blocks={groups[region]} /> : <div className="rounded-md border border-dashed px-2 py-2 text-center text-[11px] text-muted-foreground">No {region} sections</div>}{props.renderAdd(region)}</div>
+  return <div className="space-y-0.5 py-2">{(['header', 'template', 'footer'] as const).map((region, index) => <div key={region}>
+    {index > 0 && <Separator className="editor-divider my-2" />}
+    <div className="px-3 py-1.5">
+      <div className="mb-2 flex items-center justify-between gap-1.5"><div className="flex items-center gap-2"><span className="text-xs font-semibold">{region === 'template' ? 'Template' : region[0].toUpperCase() + region.slice(1)}</span><Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] tabular-nums">{groups[region].length}</Badge></div><div className="flex items-center"><Button type="button" variant="ghost" size="icon-xs" className="editor-icon-button" aria-label={`Toggle ${region} visibility`}><Eye /></Button><Button type="button" variant="ghost" size="icon-xs" className="editor-icon-button" aria-label={`${region} actions`}><MoreHorizontal /></Button></div></div>
+      <div className="space-y-1">{groups[region].length ? <Tree {...props} blocks={groups[region]} /> : <div className="rounded-lg bg-muted/35 px-2 py-3 text-center text-[11px] text-muted-foreground">No {region} sections</div>}{props.renderAdd(region)}</div>
     </div>
   </div>)}</div>;
 }

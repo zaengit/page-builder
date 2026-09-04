@@ -59,6 +59,7 @@ func New(d Dependencies) http.Handler {
 
 	mux.HandleFunc("GET /api/blocks", d.Blocks.List)
 	mux.HandleFunc("GET /api/blocks/{type}", d.Blocks.Get)
+	mux.HandleFunc("GET /block-assets/{namespace}/{block}/{asset}", d.Blocks.Asset)
 
 	mux.HandleFunc("GET /api/media", d.Media.List)
 	mux.HandleFunc("POST /api/media", d.Media.Upload)

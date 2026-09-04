@@ -1,1 +1,16 @@
-<section class="pb-carousel pb-color-scheme--{{ attrs.colorScheme }} {{ attrs.customClass }}" data-block="core/carousel" data-block-id="{{ blockId }}" data-block-module="/block-assets/core/carousel/frontend.js" data-autoplay="{{ attrs.autoplay }}" data-interval="{{ attrs.interval ?? "4000" }}" style="padding:{{ attrs.spacing ?? "0 0 0 0" }};">{% if attrs.title %}<h2 class="pb-carousel__title pb-text-h2">{{ attrs.title }}</h2>{% endif %}<div class="pb-carousel__island" data-carousel-island><div class="pb-carousel__track" aria-label="Carousel slides">{% for item in attrs.items %}<article class="pb-carousel__slide"><div>{% if item.image %}<img src="{{ item.image }}" alt="{{ item.title ?? "" }}" loading="lazy">{% endif %}<div class="pb-carousel__copy"><h3 class="pb-text-h3">{{ item.title ?? "" }}</h3>{% if item.description %}<p>{{ item.description }}</p>{% endif %}</div></div></article>{% endfor %}</div></div></section>
+<section class="pb-carousel pb-color-scheme--{{ attrs.colorScheme }} {{ attrs.customClass }}" data-block="core/carousel"
+    data-block-id="{{ blockId }}" data-block-module="/block-assets/core/carousel/frontend.js"
+    data-autoplay="{{ attrs.autoplay }}" data-interval="{{ attrs.interval ?? " 4000" }}"
+    style="padding:{{ attrs.spacing ?? " 0 0 0 0" }};">{% if attrs.title %}<h2 class="pb-carousel__title pb-text-h2">{{
+        attrs.title }}</h2>{% endif %}<div class="pb-carousel__island" data-carousel-island>
+        <div class="pb-carousel__track" aria-label="Carousel slides">{% for item in attrs.items %}<article
+                class="pb-carousel__slide">
+                <div>{% if item.image %}<img src="{{ item.image }}" alt="{{ item.title ?? "" }}" loading="lazy">{% endif
+                    %}<div class="pb-carousel__copy">
+                        <h3 class="pb-text-h3">{{ item.title ?? "" }}</h3>{% if item.description %}<p>{{
+                            item.description }}</p>{% endif %}
+                    </div>
+                </div>
+            </article>{% endfor %}</div>
+    </div>
+</section>

@@ -36,8 +36,8 @@ export function DynamicDataPanel({ selected, definition, runtime, onBindings }: 
     patchQuery({ orderBy });
   };
 
-  return <div className="space-y-3 p-3">
-    <p className="text-[11px] font-semibold">Dynamic data</p>
+  return <div className="space-y-4">
+    <p className="editor-section-label">Bind content to a data source</p>
 
     <div className="grid gap-1">
       <Label className="text-[11px]">Attribute</Label>

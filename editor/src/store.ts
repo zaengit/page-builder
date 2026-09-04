@@ -40,11 +40,19 @@ export type BuilderState = {
 export const builderStoreBridge: { current: UseBoundStore<StoreApi<BuilderState>> | null } = { current: null };
 const HISTORY_LIMIT = 100;
 const snapshot = (content: PageContent) => JSON.stringify(content);
+type APIEnvelope<T> = { data?: T };
+
+function unwrapData<T>(body: T | APIEnvelope<T>): T {
+  if (body && typeof body === 'object' && !Array.isArray(body) && 'data' in body) {
+    return (body as APIEnvelope<T>).data as T;
+  }
+  return body as T;
+}
 
 async function api<T>(url: string): Promise<T> {
   const response = await fetch(url, { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
-  return response.json() as Promise<T>;
+  return unwrapData(await response.json() as T | APIEnvelope<T>);
 }
 
 export function findBlock(blocks: PageBlock[], id: string | null): PageBlock | null {

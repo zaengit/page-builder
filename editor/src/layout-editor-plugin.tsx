@@ -10,7 +10,7 @@ export function LayoutInspectorPanels({ selected, blocks, breakpoint, canLayout,
   onLayoutItem: (layoutItem: LayoutItem) => void;
 }) {
   return <>
-    {canLayout && <div className="space-y-3 p-3"><p className="text-[11px] font-semibold">Layout · {breakpoint}</p><SectionLayoutInspector block={selected} breakpoint={breakpoint} onChange={onLayout} /></div>}
-    <div className="p-3"><LayoutItemInspector block={selected} allBlocks={blocks} breakpoint={breakpoint} onChange={onLayoutItem} /></div>
+    {canLayout && <div className="space-y-3"><p className="editor-section-label">Section layout · {breakpoint}</p><SectionLayoutInspector block={selected} breakpoint={breakpoint} onChange={onLayout} /></div>}
+    <div className="pt-4"><LayoutItemInspector block={selected} allBlocks={blocks} breakpoint={breakpoint} onChange={onLayoutItem} /></div>
   </>;
 }

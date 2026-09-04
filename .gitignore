@@ -1,0 +1,43 @@
+# Operating system and editor files
+.DS_Store
+.idea/
+.vscode/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Node.js dependencies and build output
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Test and browser artifacts
+editor/artifacts/
+editor/test-results/
+coverage/
+*.lcov
+
+# Go build and test output
+*.test
+*.out
+
+# Local CMS data and runtime files
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+storage/
+*.log
+
+# Generated embedded React editor assets.
+# scripts/build-engines.sh recreates these from editor/dist.
+engine/go/internal/web/static/*
+!engine/go/internal/web/static/index.html
