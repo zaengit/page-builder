@@ -181,7 +181,12 @@ jobs:
       - name: Verify Go CMS
         working-directory: engine/go
         run: |
-          test -z "$(gofmt -l .)"
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "Unformatted Go files:"
+            echo "$unformatted"
+            exit 1
+          fi
           go mod verify
           go vet ./...
           go test ./...
