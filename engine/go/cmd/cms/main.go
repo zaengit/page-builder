@@ -9,7 +9,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	pagebuilder "github.com/zaengit/page-builder/engine/go"
 	blockhandler "github.com/zaengit/page-builder/engine/go/internal/block/handler"
 	blocksvc "github.com/zaengit/page-builder/engine/go/internal/block/service"
 	"github.com/zaengit/page-builder/engine/go/internal/config"
@@ -23,6 +22,7 @@ import (
 	pagehandler "github.com/zaengit/page-builder/engine/go/internal/page/handler"
 	pagerepo "github.com/zaengit/page-builder/engine/go/internal/page/repository"
 	pagesvc "github.com/zaengit/page-builder/engine/go/internal/page/service"
+	renderengine "github.com/zaengit/page-builder/engine/go/internal/render/engine"
 	renderhandler "github.com/zaengit/page-builder/engine/go/internal/render/handler"
 	rendersvc "github.com/zaengit/page-builder/engine/go/internal/render/service"
 	"github.com/zaengit/page-builder/engine/go/internal/router"
@@ -33,7 +33,7 @@ import (
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "--version" {
-		fmt.Printf("%s %s specification=%d\n", pagebuilder.RuntimeName, pagebuilder.EngineVersion, pagebuilder.SpecificationVersion)
+		fmt.Printf("%s %s specification=%d\n", renderengine.RuntimeName, renderengine.EngineVersion, renderengine.SpecificationVersion)
 		return
 	}
 
@@ -70,7 +70,7 @@ func main() {
 	settingService := settingsvc.New(settingRepository)
 	datasourceRepository := datasourcerepo.New(db)
 	datasourceService := datasourcesvc.New(datasourceRepository)
-	renderer := pagebuilder.NewWithProvider(pagebuilder.DatasourceProvider{Adapter: datasourceService})
+	renderer := renderengine.NewWithProvider(renderengine.DatasourceProvider{Adapter: datasourceService})
 	renderHandler := renderhandler.New(rendersvc.New(pageService, blockService, renderer))
 
 	handler := router.New(router.Dependencies{
