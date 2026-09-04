@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +16,8 @@ import (
 	mediarepo "github.com/zaengit/page-builder/engine/go/internal/media/repository"
 	"gorm.io/gorm"
 )
+
+var ErrNotFound = errors.New("media not found")
 
 type Service struct {
 	repo         *mediarepo.Repository
@@ -73,7 +76,7 @@ func (s *Service) Save(ctx context.Context, name, _ string, src io.Reader, size 
 		return nil, err
 	}
 
-	reader := io.MultiReader(strings.NewReader(string(header)), src)
+	reader := io.MultiReader(bytes.NewReader(header), src)
 	n, copyErr := io.CopyN(f, reader, s.max+1)
 	closeErr := f.Close()
 	if copyErr != nil && copyErr != io.EOF {
@@ -108,13 +111,16 @@ func (s *Service) List(ctx context.Context) ([]mediamodel.Media, error) { return
 func (s *Service) Get(ctx context.Context, id uint) (*mediamodel.Media, error) {
 	m, err := s.repo.Get(ctx, id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
+		return nil, ErrNotFound
 	}
 	return m, err
 }
 
 func (s *Service) Delete(ctx context.Context, id uint) error {
 	m, err := s.repo.Get(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrNotFound
+	}
 	if err != nil {
 		return err
 	}
