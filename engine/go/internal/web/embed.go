@@ -12,7 +12,7 @@ import (
 var embedded embed.FS
 
 type Handler struct {
-	fs http.Handler
+	fs   http.Handler
 	fsys fs.FS
 }
 
