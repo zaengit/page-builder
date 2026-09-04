@@ -40,6 +40,10 @@ func (h RenderHandler) Handle(ctx context.Context, input io.Reader, output io.Wr
 		emit(output, "protocol_invalid_request", "$", err.Error())
 		return
 	}
+	if err := pagebuilder.ValidatePage(request.Page); err != nil {
+		emit(output, "protocol_invalid_request", "$.page", err.Error())
+		return
+	}
 
 	registry, err := h.registries.Resolve(request.BlockRoot, request.Registry)
 	if err != nil {
