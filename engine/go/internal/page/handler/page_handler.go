@@ -69,8 +69,8 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.WithMeta(w, http.StatusOK, items, map[string]any{
-		"total": total,
-		"limit": options.Limit,
+		"total":  total,
+		"limit":  options.Limit,
 		"offset": options.Offset,
 	})
 }
@@ -159,7 +159,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (h *Handler) Publish(w http.ResponseWriter, r *http.Request)   { h.setPublish(w, r, true) }
+func (h *Handler) Publish(w http.ResponseWriter, r *http.Request) { h.setPublish(w, r, true) }
 func (h *Handler) Unpublish(w http.ResponseWriter, r *http.Request) { h.setPublish(w, r, false) }
 
 func (h *Handler) setPublish(w http.ResponseWriter, r *http.Request, published bool) {
